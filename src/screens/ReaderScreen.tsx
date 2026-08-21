@@ -39,7 +39,7 @@ const readerThemes = {
 export function ReaderScreen({ route, navigation }: Props) {
   const { bookId } = route.params;
   const insets = useSafeAreaInsets();
-  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes } = useApp();
+  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext } = useDictionary();
   const book = books.find((item) => item.id === bookId);
   const [content, setContent] = useState<BookContent | null>(null);
@@ -82,6 +82,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       const elapsedSeconds = (Date.now() - sessionStarted.current) / 1000;
       const minutes = elapsedSeconds >= 45 ? Math.max(1, Math.round(elapsedSeconds / 60)) : 0;
       addReadingMinutesRef.current(
+        bookId,
         minutes,
         Math.round(paragraphsSeen.current.size * averageChapterWordsRef.current),
       );
@@ -114,6 +115,7 @@ export function ReaderScreen({ route, navigation }: Props) {
   }, [chapterIndex, currentParagraph, savePosition]);
 
   const selectWord = useCallback(async (word: string, paragraph: string, offset: number) => {
+    void recordLookup(bookId);
     const sentence = sentenceAt(paragraph, offset);
     const request = ++lookupRequest.current;
     setSelection({ word, sentence });
@@ -136,7 +138,7 @@ export function ReaderScreen({ route, navigation }: Props) {
         setTranslationLoading(false);
       }
     }
-  }, [lookupDictionary, preferences.onlineSentenceTranslation, translateContext]);
+  }, [bookId, lookupDictionary, preferences.onlineSentenceTranslation, recordLookup, translateContext]);
 
   const closeSelection = () => {
     lookupRequest.current += 1;

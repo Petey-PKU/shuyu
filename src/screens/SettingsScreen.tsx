@@ -10,7 +10,7 @@ const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
   { icon: 'shield-checkmark-outline', title: '隐私说明', caption: '原文默认只保存在本地' },
   { icon: 'logo-github', title: '开源项目', caption: 'MIT License · 欢迎贡献' },
-  { icon: 'information-circle-outline', title: '关于书中语', caption: '版本 1.1.0' },
+  { icon: 'information-circle-outline', title: '关于书中语', caption: '版本 1.2.0' },
 ] as const;
 
 export function SettingsScreen() {

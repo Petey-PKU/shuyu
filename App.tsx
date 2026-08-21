@@ -10,10 +10,13 @@ import { AppProvider, useApp } from './src/context/AppContext';
 import { DictionaryProvider } from './src/context/DictionaryContext';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { LibraryScreen } from './src/screens/LibraryScreen';
+import { DiscoverScreen } from './src/screens/DiscoverScreen';
 import { VocabularyScreen } from './src/screens/VocabularyScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { ReaderScreen } from './src/screens/ReaderScreen';
 import { ReviewScreen } from './src/screens/ReviewScreen';
+import { LevelAssessmentScreen } from './src/screens/LevelAssessmentScreen';
+import { RecommendedBookScreen } from './src/screens/RecommendedBookScreen';
 import { ImportOverlay } from './src/components/ImportOverlay';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { colors, typography } from './src/theme';
@@ -23,13 +26,14 @@ const Tabs = createBottomTabNavigator<MainTabParamList>();
 
 const icons: Record<keyof MainTabParamList, { active: keyof typeof Ionicons.glyphMap; idle: keyof typeof Ionicons.glyphMap }> = {
   Today: { active: 'today', idle: 'today-outline' },
+  Discover: { active: 'compass', idle: 'compass-outline' },
   Library: { active: 'library', idle: 'library-outline' },
   Vocabulary: { active: 'bookmark', idle: 'bookmark-outline' },
   Settings: { active: 'options', idle: 'options-outline' },
 };
 
 const labels: Record<keyof MainTabParamList, string> = {
-  Today: '今天', Library: '书架', Vocabulary: '生词', Settings: '设置',
+  Today: '今天', Discover: '发现', Library: '书架', Vocabulary: '生词', Settings: '设置',
 };
 
 function MainTabs() {
@@ -49,6 +53,7 @@ function MainTabs() {
       })}
     >
       <Tabs.Screen name="Today" component={HomeScreen} />
+      <Tabs.Screen name="Discover" component={DiscoverScreen} />
       <Tabs.Screen name="Library" component={LibraryScreen} />
       <Tabs.Screen name="Vocabulary" component={VocabularyScreen} />
       <Tabs.Screen name="Settings" component={SettingsScreen} />
@@ -74,6 +79,8 @@ function AppShell() {
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           <Stack.Screen name="Main" component={MainTabs} />
           <Stack.Screen name="Reader" component={ReaderScreen} options={{ animation: 'fade_from_bottom' }} />
+          <Stack.Screen name="LevelAssessment" component={LevelAssessmentScreen} />
+          <Stack.Screen name="RecommendedBook" component={RecommendedBookScreen} />
           <Stack.Screen name="Review" component={ReviewScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         </Stack.Navigator>
       </NavigationContainer>

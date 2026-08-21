@@ -2,6 +2,7 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type MainTabParamList = {
   Today: undefined;
+  Discover: undefined;
   Library: undefined;
   Vocabulary: undefined;
   Settings: undefined;
@@ -10,5 +11,7 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
   Reader: { bookId: string };
+  LevelAssessment: undefined;
+  RecommendedBook: { bookId: string };
   Review: undefined;
 };

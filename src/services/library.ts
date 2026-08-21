@@ -1,7 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
-import type { Book, BookContent, ParsedBook, ReadingPreferences, ReadingStats, SavedWord } from '../types';
+import type {
+  Book,
+  BookContent,
+  ParsedBook,
+  ReadingPreferences,
+  ReadingSignal,
+  ReadingStats,
+  RecommendationState,
+  SavedWord,
+} from '../types';
 import { bookAccents } from '../theme';
 
 const KEYS = {
@@ -9,6 +18,8 @@ const KEYS = {
   words: '@shuzhongyu/words',
   stats: '@shuzhongyu/stats',
   preferences: '@shuzhongyu/preferences',
+  recommendations: '@shuzhongyu/recommendations',
+  readingSignals: '@shuzhongyu/reading-signals',
   sample: '@shuzhongyu/sample-seeded',
 };
 
@@ -17,6 +28,8 @@ const LEGACY_KEYS = {
   words: '@luma/words',
   stats: '@luma/stats',
   preferences: '@luma/preferences',
+  recommendations: '@luma/recommendations',
+  readingSignals: '@luma/reading-signals',
   sample: '@luma/sample-seeded',
 };
 
@@ -28,6 +41,12 @@ const defaultPreferences: ReadingPreferences = {
   lineHeight: 32,
   theme: 'paper',
   onlineSentenceTranslation: true,
+};
+
+const defaultRecommendationState: RecommendationState = {
+  preferredGenres: [],
+  savedBookIds: [],
+  feedback: {},
 };
 
 function ensureBooksDirectory() {
@@ -149,6 +168,24 @@ export async function loadPreferences(): Promise<ReadingPreferences> {
 
 export async function savePreferences(preferences: ReadingPreferences) {
   await AsyncStorage.setItem(KEYS.preferences, JSON.stringify(preferences));
+}
+
+export async function loadRecommendationState(): Promise<RecommendationState> {
+  const raw = await AsyncStorage.getItem(KEYS.recommendations);
+  return raw ? { ...defaultRecommendationState, ...JSON.parse(raw) } : defaultRecommendationState;
+}
+
+export async function saveRecommendationState(state: RecommendationState) {
+  await AsyncStorage.setItem(KEYS.recommendations, JSON.stringify(state));
+}
+
+export async function loadReadingSignals(): Promise<ReadingSignal[]> {
+  const raw = await AsyncStorage.getItem(KEYS.readingSignals);
+  return raw ? JSON.parse(raw) : [];
+}
+
+export async function saveReadingSignals(signals: ReadingSignal[]) {
+  await AsyncStorage.setItem(KEYS.readingSignals, JSON.stringify(signals));
 }
 
 export async function createBook(parsed: ParsedBook): Promise<{ book: Book; content: BookContent }> {
