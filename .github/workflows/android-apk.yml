@@ -25,13 +25,6 @@ jobs:
           node-version: "22.13.1"
           cache: npm
 
-      - name: Set up Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "17"
-          cache: gradle
-
       - name: Install dependencies
         run: npm ci
 
@@ -43,6 +36,13 @@ jobs:
 
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
 
       - name: Configure APK signing
         shell: bash
