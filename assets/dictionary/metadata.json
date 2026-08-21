@@ -1,0 +1,10 @@
+{
+  "name": "ECDICT Core for Shuzhongyu",
+  "version": 1,
+  "entryCount": 120000,
+  "aliasCount": 27960,
+  "source": "ecdict@0.0.4 (derived from skywind3000/ECDICT)",
+  "sourceIntegrity": "sha512-nFlK3dCARkW9/RbJSqFGVbXwKMX88dqBNf7C3GXpWsGX0omsHkfrYm2L+aNyD+ocK/3J85xrZaplh3oA6uG0Zg==",
+  "sourceSha256": "d0ce61e560b50d9905d20de3173aa3ca80950ce235bedd21c53e025cf9f38cb0",
+  "license": "MIT"
+}
