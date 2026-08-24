@@ -82,4 +82,13 @@ scripts/          本地自动验证脚本
 
 ## 参与开发
 
-请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。项目使用 [MIT License](./LICENSE)，第三方数据声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+请先阅读 [CONTRIBUTING.md](./CONTRIBUTING.md)。第三方数据声明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
+
+## 许可证
+
+书语采用双重许可：
+
+- 开源使用遵循 [GNU General Public License v3.0 only（GPL-3.0-only）](./LICENSE)。GPL 允许包括收费分发在内的商业使用，但使用、修改或分发时必须遵守 GPL 的全部条款。
+- 如果你希望在不遵守 GPL 要求的情况下使用书语代码，例如发布闭源衍生产品，请参阅[商业许可说明](./COMMERCIAL_LICENSE.md)，并向相关版权所有者取得单独的书面商业许可证。
+
+GitHub Release `v1.2.0` 及此前已经发布的版本继续适用发布时随附的 MIT License；既有授权不因当前仓库改用 GPL-3.0-only 而撤销。
