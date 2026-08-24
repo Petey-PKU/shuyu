@@ -14,28 +14,16 @@ import type {
 import { bookAccents } from '../theme';
 
 const KEYS = {
-  books: '@shuzhongyu/books',
-  words: '@shuzhongyu/words',
-  stats: '@shuzhongyu/stats',
-  preferences: '@shuzhongyu/preferences',
-  recommendations: '@shuzhongyu/recommendations',
-  readingSignals: '@shuzhongyu/reading-signals',
-  sample: '@shuzhongyu/sample-seeded',
+  books: '@shuyu/books',
+  words: '@shuyu/words',
+  stats: '@shuyu/stats',
+  preferences: '@shuyu/preferences',
+  recommendations: '@shuyu/recommendations',
+  readingSignals: '@shuyu/reading-signals',
+  sample: '@shuyu/sample-seeded',
 };
 
-const LEGACY_KEYS = {
-  books: '@luma/books',
-  words: '@luma/words',
-  stats: '@luma/stats',
-  preferences: '@luma/preferences',
-  recommendations: '@luma/recommendations',
-  readingSignals: '@luma/reading-signals',
-  sample: '@luma/sample-seeded',
-};
-
-const migrationKey = '@shuzhongyu/migrations/brand-v2';
-const booksDirectory = Platform.OS === 'web' ? null : new Directory(Paths.document, 'shuzhongyu-books');
-const legacyBooksDirectory = Platform.OS === 'web' ? null : new Directory(Paths.document, 'luma-books');
+const booksDirectory = Platform.OS === 'web' ? null : new Directory(Paths.document, 'shuyu-books');
 const defaultPreferences: ReadingPreferences = {
   fontSize: 19,
   lineHeight: 32,
@@ -59,76 +47,7 @@ function contentFile(bookId: string) {
   return new File(booksDirectory, `${bookId}.json`);
 }
 
-const contentKey = (bookId: string) => `@shuzhongyu/content/${bookId}`;
-
-export async function migrateLegacyData() {
-  if (await AsyncStorage.getItem(migrationKey)) return;
-
-  const migrateBrandAuthor = (raw: string) => {
-    try {
-      const value = JSON.parse(raw);
-      if (Array.isArray(value)) {
-        return JSON.stringify(value.map((item) => item?.author === 'Luma Studio' ? { ...item, author: '书中语编辑部' } : item));
-      }
-      return JSON.stringify(value?.author === 'Luma Studio' ? { ...value, author: '书中语编辑部' } : value);
-    } catch {
-      return raw;
-    }
-  };
-
-  const [currentValues, legacyValues] = await Promise.all([
-    AsyncStorage.multiGet(Object.values(KEYS)),
-    AsyncStorage.multiGet(Object.values(LEGACY_KEYS)),
-  ]);
-  const currentMap = new Map(currentValues);
-  const legacyMap = new Map(legacyValues);
-  const migratedValues = new Map<string, string>();
-
-  for (const name of Object.keys(KEYS) as (keyof typeof KEYS)[]) {
-    const currentKey = KEYS[name];
-    const legacyValue = legacyMap.get(LEGACY_KEYS[name]);
-    const currentValue = currentMap.get(currentKey);
-    if (!currentValue && legacyValue) {
-      migratedValues.set(currentKey, name === 'books' ? migrateBrandAuthor(legacyValue) : legacyValue);
-    } else if (name === 'books' && currentValue) {
-      const migratedBooks = migrateBrandAuthor(currentValue);
-      if (migratedBooks !== currentValue) migratedValues.set(currentKey, migratedBooks);
-    }
-  }
-
-  const allKeys = await AsyncStorage.getAllKeys();
-  const legacyContentKeys = allKeys.filter((key) => key.startsWith('@luma/content/'));
-  const currentContentKeys = allKeys.filter((key) => key.startsWith('@shuzhongyu/content/'));
-  const currentContents = new Map(await AsyncStorage.multiGet(currentContentKeys));
-  if (legacyContentKeys.length) {
-    const legacyContents = await AsyncStorage.multiGet(legacyContentKeys);
-    for (const [oldKey, value] of legacyContents) {
-      if (!value) continue;
-      const bookId = oldKey.slice('@luma/content/'.length);
-      const newKey = contentKey(bookId);
-      if (!currentContents.get(newKey)) migratedValues.set(newKey, migrateBrandAuthor(value));
-    }
-  }
-  for (const [key, value] of currentContents) {
-    if (!value) continue;
-    const migratedContent = migrateBrandAuthor(value);
-    if (migratedContent !== value) migratedValues.set(key, migratedContent);
-  }
-
-  if (legacyBooksDirectory?.exists && booksDirectory) {
-    ensureBooksDirectory();
-    for (const entry of legacyBooksDirectory.list()) {
-      if (!(entry instanceof File)) continue;
-      const destination = new File(booksDirectory, entry.name);
-      if (!destination.exists) entry.copySync(destination);
-      const content = await destination.json() as BookContent;
-      if (content.author === 'Luma Studio') destination.write(JSON.stringify({ ...content, author: '书中语编辑部' }));
-    }
-  }
-
-  if (migratedValues.size) await AsyncStorage.multiSet([...migratedValues]);
-  await AsyncStorage.setItem(migrationKey, 'true');
-}
+const contentKey = (bookId: string) => `@shuyu/content/${bookId}`;
 
 export function makeId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -243,7 +162,7 @@ export async function deleteBookContent(bookId: string) {
 
 const sample: ParsedBook = {
   title: 'The Quiet Observatory',
-  author: '书中语编辑部',
+  author: '书语编辑部',
   format: 'sample',
   chapters: [
     {
@@ -278,8 +197,7 @@ export async function ensureSampleBook(): Promise<Book | null> {
 }
 
 export async function clearAllLocalData() {
-  const contentKeys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith('@shuzhongyu/content/') || key.startsWith('@luma/content/'));
-  await AsyncStorage.multiRemove([...Object.values(KEYS), ...Object.values(LEGACY_KEYS), migrationKey, ...contentKeys]);
+  const contentKeys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith('@shuyu/content/'));
+  await AsyncStorage.multiRemove([...Object.values(KEYS), ...contentKeys]);
   if (booksDirectory?.exists) booksDirectory.delete();
-  if (legacyBooksDirectory?.exists) legacyBooksDirectory.delete();
 }

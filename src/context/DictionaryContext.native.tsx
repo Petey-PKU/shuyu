@@ -59,7 +59,7 @@ function DictionaryBridge({ children }: { children: React.ReactNode }) {
 export function DictionaryProvider({ children }: { children: React.ReactNode }) {
   return (
     <SQLiteProvider
-      databaseName="shuzhongyu-ecdict-v1.db"
+      databaseName="shuyu-ecdict-v1.db"
       assetSource={{ assetId: require('../../assets/dictionary/ecdict-core.db') }}
     >
       <DictionaryBridge>{children}</DictionaryBridge>

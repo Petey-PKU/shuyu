@@ -24,7 +24,6 @@ import {
   loadStats,
   loadWords,
   makeId,
-  migrateLegacyData,
   saveBooks,
   savePreferences,
   saveReadingSignals,
@@ -100,7 +99,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
 
   const hydrate = useCallback(async () => {
-    await migrateLegacyData();
     const [loadedBooks, loadedWords, loadedStats, loadedPreferences, loadedRecommendations, loadedSignals] = await Promise.all([
       loadBooks(), loadWords(), loadStats(), loadPreferences(), loadRecommendationState(), loadReadingSignals(),
     ]);

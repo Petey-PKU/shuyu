@@ -4,11 +4,11 @@ import { resolve } from 'node:path';
 const gradlePath = resolve('android/app/build.gradle');
 let gradle = readFileSync(gradlePath, 'utf8');
 
-const signingVariables = `def shuzhongyuReleaseStoreFile = System.getenv("SHUZHONGYU_ANDROID_KEYSTORE_FILE")
-def shuzhongyuReleaseStorePassword = System.getenv("SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD")
-def shuzhongyuReleaseKeyAlias = System.getenv("SHUZHONGYU_ANDROID_KEY_ALIAS")
-def shuzhongyuReleaseKeyPassword = System.getenv("SHUZHONGYU_ANDROID_KEY_PASSWORD")
-def shuzhongyuHasReleaseSigning = shuzhongyuReleaseStoreFile && shuzhongyuReleaseStorePassword && shuzhongyuReleaseKeyAlias && shuzhongyuReleaseKeyPassword
+const signingVariables = `def shuyuReleaseStoreFile = System.getenv("SHUYU_ANDROID_KEYSTORE_FILE")
+def shuyuReleaseStorePassword = System.getenv("SHUYU_ANDROID_KEYSTORE_PASSWORD")
+def shuyuReleaseKeyAlias = System.getenv("SHUYU_ANDROID_KEY_ALIAS")
+def shuyuReleaseKeyPassword = System.getenv("SHUYU_ANDROID_KEY_PASSWORD")
+def shuyuHasReleaseSigning = shuyuReleaseStoreFile && shuyuReleaseStorePassword && shuyuReleaseKeyAlias && shuyuReleaseKeyPassword
 
 `;
 
@@ -28,12 +28,12 @@ const configurableSigning = `    signingConfigs {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
-        if (shuzhongyuHasReleaseSigning) {
+        if (shuyuHasReleaseSigning) {
             release {
-                storeFile file(shuzhongyuReleaseStoreFile)
-                storePassword shuzhongyuReleaseStorePassword
-                keyAlias shuzhongyuReleaseKeyAlias
-                keyPassword shuzhongyuReleaseKeyPassword
+                storeFile file(shuyuReleaseStoreFile)
+                storePassword shuyuReleaseStorePassword
+                keyAlias shuyuReleaseKeyAlias
+                keyPassword shuyuReleaseKeyPassword
             }
         }
     }`;
@@ -42,25 +42,25 @@ const templateReleaseSigning = `            // Caution! In production, you need 
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug`;
 
-if (!gradle.includes('def shuzhongyuHasReleaseSigning')) {
+if (!gradle.includes('def shuyuHasReleaseSigning')) {
   if (!gradle.includes('android {')) throw new Error('Android Gradle template marker not found.');
   gradle = gradle.replace('android {', `${signingVariables}android {`);
 }
 
 if (gradle.includes(debugSigning)) {
   gradle = gradle.replace(debugSigning, configurableSigning);
-} else if (!gradle.includes('if (shuzhongyuHasReleaseSigning)')) {
+} else if (!gradle.includes('if (shuyuHasReleaseSigning)')) {
   throw new Error('Android signingConfigs template changed; refusing an unsafe build.');
 }
 
 if (gradle.includes(templateReleaseSigning)) {
   gradle = gradle.replace(
     templateReleaseSigning,
-    '            signingConfig shuzhongyuHasReleaseSigning ? signingConfigs.release : signingConfigs.debug',
+    '            signingConfig shuyuHasReleaseSigning ? signingConfigs.release : signingConfigs.debug',
   );
-} else if (!gradle.includes('signingConfig shuzhongyuHasReleaseSigning')) {
+} else if (!gradle.includes('signingConfig shuyuHasReleaseSigning')) {
   throw new Error('Android release signing template changed; refusing an unsafe build.');
 }
 
 writeFileSync(gradlePath, gradle);
-console.log(`Android signing configured: ${process.env.SHUZHONGYU_ANDROID_KEYSTORE_FILE ? 'release keystore' : 'test key'}`);
+console.log(`Android signing configured: ${process.env.SHUYU_ANDROID_KEYSTORE_FILE ? 'release keystore' : 'test key'}`);

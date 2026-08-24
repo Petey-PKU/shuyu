@@ -2,7 +2,7 @@
 
 ## ECDICT Core
 
-书中语的离线英汉词典由 `ecdict@0.0.4` 数据包裁剪生成；该包的数据来源注明为 `skywind3000/ECDICT`。
+书语的离线英汉词典由 `ecdict@0.0.4` 数据包裁剪生成；该包的数据来源注明为 `skywind3000/ECDICT`。
 
 - 数据包：https://www.npmjs.com/package/ecdict
 - 上游：https://github.com/skywind3000/ECDICT

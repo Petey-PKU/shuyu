@@ -47,48 +47,48 @@ jobs:
       - name: Configure APK signing
         shell: bash
         env:
-          SHUZHONGYU_ANDROID_KEYSTORE_BASE64: ${{ secrets.SHUZHONGYU_ANDROID_KEYSTORE_BASE64 }}
-          SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD }}
-          SHUZHONGYU_ANDROID_KEY_ALIAS: ${{ secrets.SHUZHONGYU_ANDROID_KEY_ALIAS }}
-          SHUZHONGYU_ANDROID_KEY_PASSWORD: ${{ secrets.SHUZHONGYU_ANDROID_KEY_PASSWORD }}
+          SHUYU_ANDROID_KEYSTORE_BASE64: ${{ secrets.SHUYU_ANDROID_KEYSTORE_BASE64 }}
+          SHUYU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SHUYU_ANDROID_KEYSTORE_PASSWORD }}
+          SHUYU_ANDROID_KEY_ALIAS: ${{ secrets.SHUYU_ANDROID_KEY_ALIAS }}
+          SHUYU_ANDROID_KEY_PASSWORD: ${{ secrets.SHUYU_ANDROID_KEY_PASSWORD }}
         run: |
-          if [[ -n "$SHUZHONGYU_ANDROID_KEYSTORE_BASE64" ]]; then
-            [[ -n "$SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD" ]] || { echo "Missing SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD"; exit 1; }
-            [[ -n "$SHUZHONGYU_ANDROID_KEY_ALIAS" ]] || { echo "Missing SHUZHONGYU_ANDROID_KEY_ALIAS"; exit 1; }
-            [[ -n "$SHUZHONGYU_ANDROID_KEY_PASSWORD" ]] || { echo "Missing SHUZHONGYU_ANDROID_KEY_PASSWORD"; exit 1; }
-            printf '%s' "$SHUZHONGYU_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/shuzhongyu-release.jks
-            export SHUZHONGYU_ANDROID_KEYSTORE_FILE=shuzhongyu-release.jks
-            export SHUZHONGYU_APK_SIGNING=release
-            echo "SHUZHONGYU_ANDROID_KEYSTORE_FILE=shuzhongyu-release.jks" >> "$GITHUB_ENV"
-            echo "SHUZHONGYU_APK_SIGNING=release" >> "$GITHUB_ENV"
+          if [[ -n "$SHUYU_ANDROID_KEYSTORE_BASE64" ]]; then
+            [[ -n "$SHUYU_ANDROID_KEYSTORE_PASSWORD" ]] || { echo "Missing SHUYU_ANDROID_KEYSTORE_PASSWORD"; exit 1; }
+            [[ -n "$SHUYU_ANDROID_KEY_ALIAS" ]] || { echo "Missing SHUYU_ANDROID_KEY_ALIAS"; exit 1; }
+            [[ -n "$SHUYU_ANDROID_KEY_PASSWORD" ]] || { echo "Missing SHUYU_ANDROID_KEY_PASSWORD"; exit 1; }
+            printf '%s' "$SHUYU_ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/shuyu-release.jks
+            export SHUYU_ANDROID_KEYSTORE_FILE=shuyu-release.jks
+            export SHUYU_APK_SIGNING=release
+            echo "SHUYU_ANDROID_KEYSTORE_FILE=shuyu-release.jks" >> "$GITHUB_ENV"
+            echo "SHUYU_APK_SIGNING=release" >> "$GITHUB_ENV"
             echo "### Signing: permanent release keystore" >> "$GITHUB_STEP_SUMMARY"
           else
-            export SHUZHONGYU_APK_SIGNING=test
-            echo "SHUZHONGYU_APK_SIGNING=test" >> "$GITHUB_ENV"
+            export SHUYU_APK_SIGNING=test
+            echo "SHUYU_APK_SIGNING=test" >> "$GITHUB_ENV"
             echo "### Signing: test key — do not distribute publicly" >> "$GITHUB_STEP_SUMMARY"
           fi
-          SHUZHONGYU_APP_VERSION=$(node -p "require('./package.json').version")
-          export SHUZHONGYU_APP_VERSION
-          echo "SHUZHONGYU_APP_VERSION=$SHUZHONGYU_APP_VERSION" >> "$GITHUB_ENV"
+          SHUYU_APP_VERSION=$(node -p "require('./package.json').version")
+          export SHUYU_APP_VERSION
+          echo "SHUYU_APP_VERSION=$SHUYU_APP_VERSION" >> "$GITHUB_ENV"
           npm run configure:android-signing
 
       - name: Build release APK
         working-directory: android
         env:
-          SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SHUZHONGYU_ANDROID_KEYSTORE_PASSWORD }}
-          SHUZHONGYU_ANDROID_KEY_ALIAS: ${{ secrets.SHUZHONGYU_ANDROID_KEY_ALIAS }}
-          SHUZHONGYU_ANDROID_KEY_PASSWORD: ${{ secrets.SHUZHONGYU_ANDROID_KEY_PASSWORD }}
+          SHUYU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SHUYU_ANDROID_KEYSTORE_PASSWORD }}
+          SHUYU_ANDROID_KEY_ALIAS: ${{ secrets.SHUYU_ANDROID_KEY_ALIAS }}
+          SHUYU_ANDROID_KEY_PASSWORD: ${{ secrets.SHUYU_ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
       - name: Name APK
-        run: cp android/app/build/outputs/apk/release/app-release.apk "Shuzhongyu-v${SHUZHONGYU_APP_VERSION}-${SHUZHONGYU_APK_SIGNING}.apk"
+        run: cp android/app/build/outputs/apk/release/app-release.apk "Shuyu-v${SHUYU_APP_VERSION}-${SHUYU_APK_SIGNING}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v7
         with:
-          name: Shuzhongyu-APK
-          path: Shuzhongyu-v*.apk
+          name: Shuyu-APK
+          path: Shuyu-v*.apk
           if-no-files-found: error
           retention-days: 14

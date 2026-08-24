@@ -39,7 +39,7 @@ export function HomeScreen({ navigation }: Props) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
       <PageHeader
-        eyebrow="书中语 · 语境阅读"
+        eyebrow="书语 · 语境阅读"
         title={greeting()}
         right={
           <Pressable onPress={handleImport} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>

@@ -1,22 +1,22 @@
 {
   "expo": {
-    "name": "书中语",
-    "slug": "shuzhongyu",
-    "description": "在书里，学会一门语言。本地优先的外语原著学习阅读器。",
+    "name": "书语",
+    "slug": "shuyu",
+    "description": "在书里，学会一门语言。本地优先的英语语境阅读器。",
     "version": "1.2.0",
     "orientation": "portrait",
-    "icon": "./assets/shuzhongyu-icon.png",
+    "icon": "./assets/shuyu-icon.png",
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#F4F1EA",
     "primaryColor": "#FF7043",
-    "scheme": "shuzhongyu",
+    "scheme": "shuyu",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.shuzhongyu.reader",
+      "bundleIdentifier": "app.shuyu.reader",
       "buildNumber": "3"
     },
     "android": {
-      "package": "app.shuzhongyu.reader",
+      "package": "app.shuyu.reader",
       "versionCode": 3,
       "allowBackup": false,
       "blockedPermissions": [
@@ -27,12 +27,12 @@
       ],
       "adaptiveIcon": {
         "backgroundColor": "#F4F1EA",
-        "foregroundImage": "./assets/shuzhongyu-icon.png"
+        "foregroundImage": "./assets/shuyu-icon.png"
       },
       "predictiveBackGestureEnabled": true
     },
     "web": {
-      "favicon": "./assets/shuzhongyu-icon.png"
+      "favicon": "./assets/shuyu-icon.png"
     },
     "plugins": [
       "expo-document-picker",
@@ -41,7 +41,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F4F1EA",
-          "image": "./assets/shuzhongyu-icon.png",
+          "image": "./assets/shuyu-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain"
         }
