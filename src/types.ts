@@ -2,6 +2,63 @@ export type BookFormat = 'txt' | 'epub' | 'sample';
 
 export type ReaderTheme = 'paper' | 'white' | 'night';
 
+export type LanguageLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+
+export type BookGenre =
+  | 'adventure'
+  | 'biography'
+  | 'classic'
+  | 'contemporary'
+  | 'crime'
+  | 'fantasy'
+  | 'history'
+  | 'humor'
+  | 'mystery'
+  | 'nonfiction'
+  | 'romance'
+  | 'science'
+  | 'society';
+
+export type BookLength = 'short' | 'medium' | 'long';
+
+export type DifficultyFeedback = 'easy' | 'right' | 'hard';
+
+export interface RecommendedBook {
+  id: string;
+  title: string;
+  author: string;
+  level: LanguageLevel;
+  difficulty: number;
+  genres: BookGenre[];
+  length: BookLength;
+  edition: string;
+  summary: string;
+  fitReason: string;
+  accent: string;
+}
+
+export interface ReadingLevelProfile {
+  level: LanguageLevel;
+  score: number;
+  confidence: 'low' | 'medium' | 'high';
+  assessedAt: string;
+  source: 'assessment' | 'manual';
+}
+
+export interface RecommendationState {
+  profile?: ReadingLevelProfile;
+  preferredGenres: BookGenre[];
+  savedBookIds: string[];
+  feedback: Record<string, DifficultyFeedback>;
+}
+
+export interface ReadingSignal {
+  bookId: string;
+  lookups: number;
+  wordsRead: number;
+  minutes: number;
+}
+
 export interface Chapter {
   id: string;
   title: string;

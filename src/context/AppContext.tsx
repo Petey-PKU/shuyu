@@ -1,5 +1,16 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Book, BookContent, ReadingPreferences, ReadingStats, SavedWord } from '../types';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  Book,
+  BookContent,
+  BookGenre,
+  DifficultyFeedback,
+  ReadingLevelProfile,
+  ReadingPreferences,
+  ReadingSignal,
+  ReadingStats,
+  RecommendationState,
+  SavedWord,
+} from '../types';
 import {
   clearAllLocalData,
   createBook,
@@ -8,12 +19,16 @@ import {
   loadBookContent,
   loadBooks,
   loadPreferences,
+  loadReadingSignals,
+  loadRecommendationState,
   loadStats,
   loadWords,
   makeId,
   migrateLegacyData,
   saveBooks,
   savePreferences,
+  saveReadingSignals,
+  saveRecommendationState,
   saveStats,
   saveWords,
 } from '../services/library';
@@ -36,6 +51,8 @@ interface AppContextValue {
   words: SavedWord[];
   stats: ReadingStats;
   preferences: ReadingPreferences;
+  recommendationState: RecommendationState;
+  readingSignals: ReadingSignal[];
   importBook: () => Promise<Book | null>;
   getBookContent: (bookId: string) => Promise<BookContent>;
   updateProgress: (bookId: string, chapter: number, paragraph: number, progress: number) => Promise<void>;
@@ -44,7 +61,12 @@ interface AppContextValue {
   removeWord: (wordId: string) => Promise<void>;
   removeBook: (bookId: string) => Promise<void>;
   updatePreferences: (next: Partial<ReadingPreferences>) => Promise<void>;
-  addReadingMinutes: (minutes: number, wordsRead: number) => Promise<void>;
+  setReadingProfile: (profile: ReadingLevelProfile) => Promise<void>;
+  togglePreferredGenre: (genre: BookGenre) => Promise<void>;
+  toggleSavedRecommendedBook: (bookId: string) => Promise<void>;
+  setRecommendedBookFeedback: (bookId: string, feedback: DifficultyFeedback) => Promise<void>;
+  recordLookup: (bookId: string) => Promise<void>;
+  addReadingMinutes: (bookId: string, minutes: number, wordsRead: number) => Promise<void>;
   resetAll: () => Promise<void>;
 }
 
@@ -69,11 +91,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     theme: 'paper',
     onlineSentenceTranslation: true,
   });
+  const [recommendationState, setRecommendationState] = useState<RecommendationState>({
+    preferredGenres: [],
+    savedBookIds: [],
+    feedback: {},
+  });
+  const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
+  const readingSignalsRef = useRef<ReadingSignal[]>([]);
 
   const hydrate = useCallback(async () => {
     await migrateLegacyData();
-    const [loadedBooks, loadedWords, loadedStats, loadedPreferences] = await Promise.all([
-      loadBooks(), loadWords(), loadStats(), loadPreferences(),
+    const [loadedBooks, loadedWords, loadedStats, loadedPreferences, loadedRecommendations, loadedSignals] = await Promise.all([
+      loadBooks(), loadWords(), loadStats(), loadPreferences(), loadRecommendationState(), loadReadingSignals(),
     ]);
     const sampleBook = await ensureSampleBook();
     const nextBooks = sampleBook ? [sampleBook, ...loadedBooks] : loadedBooks;
@@ -82,6 +111,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWords(loadedWords);
     setStats(loadedStats);
     setPreferences(loadedPreferences);
+    setRecommendationState(loadedRecommendations);
+    setReadingSignals(loadedSignals);
+    readingSignalsRef.current = loadedSignals;
     setReady(true);
   }, []);
 
@@ -154,7 +186,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await savePreferences(value);
   }, [preferences]);
 
-  const addReadingMinutes = useCallback(async (minutes: number, wordsRead: number) => {
+  const setReadingProfile = useCallback(async (profile: ReadingLevelProfile) => {
+    const next = { ...recommendationState, profile };
+    setRecommendationState(next);
+    await saveRecommendationState(next);
+  }, [recommendationState]);
+
+  const togglePreferredGenre = useCallback(async (genre: BookGenre) => {
+    const exists = recommendationState.preferredGenres.includes(genre);
+    const preferredGenres = exists
+      ? recommendationState.preferredGenres.filter((item) => item !== genre)
+      : [...recommendationState.preferredGenres, genre];
+    const next = { ...recommendationState, preferredGenres };
+    setRecommendationState(next);
+    await saveRecommendationState(next);
+  }, [recommendationState]);
+
+  const toggleSavedRecommendedBook = useCallback(async (bookId: string) => {
+    const exists = recommendationState.savedBookIds.includes(bookId);
+    const savedBookIds = exists
+      ? recommendationState.savedBookIds.filter((item) => item !== bookId)
+      : [...recommendationState.savedBookIds, bookId];
+    const next = { ...recommendationState, savedBookIds };
+    setRecommendationState(next);
+    await saveRecommendationState(next);
+  }, [recommendationState]);
+
+  const setRecommendedBookFeedback = useCallback(async (bookId: string, feedback: DifficultyFeedback) => {
+    const next = { ...recommendationState, feedback: { ...recommendationState.feedback, [bookId]: feedback } };
+    setRecommendationState(next);
+    await saveRecommendationState(next);
+  }, [recommendationState]);
+
+  const recordLookup = useCallback(async (bookId: string) => {
+    const currentSignals = readingSignalsRef.current;
+    const current = currentSignals.find((signal) => signal.bookId === bookId);
+    const next = current
+      ? currentSignals.map((signal) => signal.bookId === bookId ? { ...signal, lookups: signal.lookups + 1 } : signal)
+      : [...currentSignals, { bookId, lookups: 1, wordsRead: 0, minutes: 0 }];
+    readingSignalsRef.current = next;
+    setReadingSignals(next);
+    await saveReadingSignals(next);
+  }, []);
+
+  const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (minutes <= 0 && wordsRead <= 0) return;
     const today = localDateKey(new Date());
     let streak = stats.streak;
@@ -169,7 +244,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       lastReadDate: today,
     };
     setStats(next);
-    await saveStats(next);
+    const currentSignals = readingSignalsRef.current;
+    const currentSignal = currentSignals.find((signal) => signal.bookId === bookId);
+    const nextSignals = currentSignal
+      ? currentSignals.map((signal) => signal.bookId === bookId
+        ? { ...signal, minutes: signal.minutes + Math.max(0, minutes), wordsRead: signal.wordsRead + Math.max(0, wordsRead) }
+        : signal)
+      : [...currentSignals, { bookId, lookups: 0, minutes: Math.max(0, minutes), wordsRead: Math.max(0, wordsRead) }];
+    readingSignalsRef.current = nextSignals;
+    setReadingSignals(nextSignals);
+    await Promise.all([saveStats(next), saveReadingSignals(nextSignals)]);
   }, [stats]);
 
   const resetAll = useCallback(async () => {
@@ -179,16 +263,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWords([]);
     setStats({ minutes: 0, words: 0, streak: 0 });
     setPreferences({ fontSize: 19, lineHeight: 32, theme: 'paper', onlineSentenceTranslation: true });
+    setRecommendationState({ preferredGenres: [], savedBookIds: [], feedback: {} });
+    setReadingSignals([]);
+    readingSignalsRef.current = [];
     await hydrate();
   }, [hydrate]);
 
   const value = useMemo(() => ({
-    ready, importing, books, words, stats, preferences, importBook,
+    ready, importing, books, words, stats, preferences, recommendationState, readingSignals, importBook,
     getBookContent: loadBookContent, updateProgress, addWord, toggleMastered,
-    removeWord, removeBook, updatePreferences, addReadingMinutes, resetAll,
+    removeWord, removeBook, updatePreferences, setReadingProfile, togglePreferredGenre,
+    toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll,
   }), [
-    ready, importing, books, words, stats, preferences, importBook, updateProgress,
+    ready, importing, books, words, stats, preferences, recommendationState, readingSignals, importBook, updateProgress,
     addWord, toggleMastered, removeWord, removeBook, updatePreferences, addReadingMinutes, resetAll,
+    setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
