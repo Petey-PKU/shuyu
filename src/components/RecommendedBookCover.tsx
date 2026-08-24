@@ -13,7 +13,7 @@ export function RecommendedBookCover({ book, width = 124 }: { book: RecommendedB
         <Text numberOfLines={4} style={[styles.title, { fontSize: Math.max(14, width * 0.135) }]}>{book.title}</Text>
         <Text numberOfLines={2} style={styles.author}>{book.author}</Text>
       </View>
-      <Text style={styles.mark}>书中语推荐</Text>
+      <Text style={styles.mark}>书语推荐</Text>
     </View>
   );
 }

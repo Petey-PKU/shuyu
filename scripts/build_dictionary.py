@@ -1,4 +1,4 @@
-"""Build the bundled Shuzhongyu offline dictionary from a pinned ECDICT snapshot."""
+"""Build the bundled Shuyu offline dictionary from a pinned ECDICT snapshot."""
 
 from __future__ import annotations
 
@@ -151,7 +151,7 @@ def main() -> None:
     alias_count = build_database(entries, aliases)
     source_sha256 = hashlib.sha256(CACHE.read_bytes()).hexdigest()
     metadata = {
-        "name": "ECDICT Core for Shuzhongyu",
+        "name": "ECDICT Core for Shuyu",
         "version": 1,
         "entryCount": len(entries),
         "aliasCount": alias_count,

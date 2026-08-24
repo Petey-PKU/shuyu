@@ -67,7 +67,7 @@ function AppShell() {
     return (
       <View style={styles.splash}>
         <View style={styles.logo}><Text style={styles.logoText}>语</Text></View>
-        <Text style={styles.brand}>书中语</Text>
+        <Text style={styles.brand}>书语</Text>
         <ActivityIndicator color={colors.accent} style={{ marginTop: 18 }} />
       </View>
     );

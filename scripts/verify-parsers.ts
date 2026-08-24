@@ -21,7 +21,7 @@ async function verifyEpub() {
     <container><rootfiles><rootfile full-path="OEBPS/content.opf" /></rootfiles></container>`);
   zip.file('OEBPS/content.opf', `<?xml version="1.0"?>
     <package>
-      <metadata><dc:title xmlns:dc="dc">A Small Test</dc:title><dc:creator xmlns:dc="dc">Shuzhongyu</dc:creator></metadata>
+      <metadata><dc:title xmlns:dc="dc">A Small Test</dc:title><dc:creator xmlns:dc="dc">Shuyu</dc:creator></metadata>
       <manifest><item id="chapter-1" href="chapter.xhtml" media-type="application/xhtml+xml" /></manifest>
       <spine><itemref idref="chapter-1" /></spine>
     </package>`);
@@ -33,7 +33,7 @@ async function verifyEpub() {
   const data = await zip.generateAsync({ type: 'arraybuffer' });
   const book = await parseEpub(data, 'Fallback');
   assert.equal(book.title, 'A Small Test');
-  assert.equal(book.author, 'Shuzhongyu');
+  assert.equal(book.author, 'Shuyu');
   assert.equal(book.chapters.length, 1);
   assert.equal(book.chapters[0].title, 'The First Light');
   assert.match(book.chapters[0].paragraphs.join(' '), /quiet & warm/);

@@ -152,7 +152,7 @@ export function DiscoverScreen({ navigation }: Props) {
         })}
       </View>
 
-      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>书中语不提供图书获取入口。你可以自行取得有权使用的 TXT 或 EPUB，再导入本地书架。</Text></View></View>
+      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>书语不提供图书获取入口。你可以自行取得有权使用的 TXT 或 EPUB，再导入本地书架。</Text></View></View>
     </ScrollView>
   );
 }

@@ -10,7 +10,7 @@ const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
   { icon: 'shield-checkmark-outline', title: '隐私说明', caption: '原文默认只保存在本地' },
   { icon: 'logo-github', title: '开源项目', caption: 'MIT License · 欢迎贡献' },
-  { icon: 'information-circle-outline', title: '关于书中语', caption: '版本 1.2.0' },
+  { icon: 'information-circle-outline', title: '关于书语', caption: '版本 1.2.0' },
 ] as const;
 
 export function SettingsScreen() {
@@ -71,7 +71,7 @@ export function SettingsScreen() {
         ))}
       </View>
       <Pressable onPress={confirmReset} style={styles.dangerButton}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
-      <Text style={styles.footer}>书中语 · SHUZHONGYU{`\n`}在书里，学会一门语言。</Text>
+      <Text style={styles.footer}>书语 · SHUYU{`\n`}在书里，学会一门语言。</Text>
     </ScrollView>
   );
 }

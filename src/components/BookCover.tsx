@@ -17,7 +17,7 @@ export function BookCover({ book, width = 126, compact = false }: Props) {
       <Text numberOfLines={compact ? 3 : 4} style={[styles.title, compact && styles.compactTitle]}>{book.title}</Text>
       <View style={styles.bottom}>
         <Text numberOfLines={1} style={styles.author}>{book.author}</Text>
-        <Text style={styles.mark}>书中语</Text>
+        <Text style={styles.mark}>书语</Text>
       </View>
     </View>
   );
