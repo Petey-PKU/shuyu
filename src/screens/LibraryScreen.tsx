@@ -41,7 +41,7 @@ export function LibraryScreen({ navigation }: Props) {
     <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}>
         <PageHeader title="我的书架" eyebrow={`${books.length} 本本地书籍`} />
-        <Pressable accessibilityRole="button" accessibilityLabel="导入 TXT 或 EPUB" onPress={handleImport} style={styles.addButton}><Ionicons name="add" size={24} color={colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="导入电子书" onPress={handleImport} style={styles.addButton}><Ionicons name="add" size={24} color={colors.ink} /></Pressable>
       </View>
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.inkMuted} />
@@ -59,7 +59,7 @@ export function LibraryScreen({ navigation }: Props) {
           <View style={styles.empty}>
             <Ionicons name="library-outline" size={34} color={colors.inkMuted} />
             <Text style={styles.emptyTitle}>没有找到书籍</Text>
-            <Text style={styles.emptyBody}>导入 TXT 或 EPUB，开始你的私人阅读空间。</Text>
+            <Text style={styles.emptyBody}>导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。</Text>
           </View>
         }
         renderItem={({ item }) => (

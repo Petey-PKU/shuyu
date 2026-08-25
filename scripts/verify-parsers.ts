@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { parseEpub } from '../src/services/epub';
+import { htmlToParagraphs } from '../src/services/markup';
+import { assertDrmFreeKindleFile } from '../src/services/mobi';
+import { parseExtractedPdfText, pdfNeedsOcr, PdfNeedsOcrError } from '../src/services/pdfText';
+import { splitTranslationText } from '../src/services/translation';
 import { splitPlainText } from '../src/utils/text';
 
 async function verifyTxt() {
@@ -39,10 +43,84 @@ async function verifyEpub() {
   assert.match(book.chapters[0].paragraphs.join(' '), /quiet & warm/);
 }
 
+async function verifyEpubCompatibility() {
+  const zip = new JSZip();
+  zip.file('mimetype', 'application/epub+zip');
+  zip.file('meta-inf/CONTAINER.XML', `<?xml version="1.0"?>
+    <container><rootfiles><rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml" /></rootfiles></container>`);
+  zip.file('ops/package.opf', `<?xml version="1.0"?>
+    <package>
+      <metadata><dc:title xmlns:dc="dc">Encoded Paths</dc:title><dc:creator xmlns:dc="dc">A Reader</dc:creator></metadata>
+      <manifest>
+        <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav" />
+        <item id="chapter" href="Text/Chapter%201.XHTML" media-type="application/xhtml+xml" />
+      </manifest>
+      <spine><itemref idref="chapter" /></spine>
+    </package>`);
+  zip.file('ops/nav.xhtml', `<html><body><nav epub:type="toc"><a href="Text/Chapter%201.XHTML#start">Opening Light</a></nav></body></html>`);
+  zip.file('ops/text/Chapter 1.xhtml', `<html><body><h1>Internal Heading</h1><p>A caf&eacute; stayed open after midnight.</p><p>Readers gathered around the fire.</p></body></html>`);
+  zip.file('META-INF/encryption.xml', `<?xml version="1.0"?>
+    <encryption><EncryptedData><EncryptionMethod Algorithm="http://www.idpf.org/2008/embedding" />
+    <CipherData><CipherReference URI="OPS/Fonts/book.otf" /></CipherData></EncryptedData></encryption>`);
+
+  const data = await zip.generateAsync({ type: 'arraybuffer' });
+  const book = await parseEpub(data, 'Fallback');
+  assert.equal(book.chapters.length, 1);
+  assert.equal(book.chapters[0].title, 'Opening Light');
+  assert.match(book.chapters[0].paragraphs.join(' '), /café/);
+}
+
+async function verifyEpubDrmRejection() {
+  const zip = new JSZip();
+  zip.file('META-INF/container.xml', `<container><rootfiles><rootfile full-path="book.opf" /></rootfiles></container>`);
+  zip.file('book.opf', `<package><metadata><title>Locked</title></metadata><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml" /></manifest><spine><itemref idref="c" /></spine></package>`);
+  zip.file('c.xhtml', `<html><body><p>This content should not be imported.</p></body></html>`);
+  zip.file('META-INF/encryption.xml', `<encryption><EncryptedData><EncryptionMethod Algorithm="http://www.w3.org/2001/04/xmlenc#aes256-cbc" /><CipherData><CipherReference URI="c.xhtml" /></CipherData></EncryptedData></encryption>`);
+  const data = await zip.generateAsync({ type: 'arraybuffer' });
+  await assert.rejects(() => parseEpub(data, 'Locked'), /DRM/);
+}
+
+function verifyMarkupAndPdf() {
+  const markup = htmlToParagraphs(`<html><head><title>Noise</title></head><body><h1>Chapter</h1><p>One&nbsp;quiet sentence.</p><script>ignore me</script></body></html>`);
+  assert.equal(markup.title, 'Chapter');
+  assert.doesNotMatch(markup.paragraphs.join(' '), /ignore me/);
+
+  const pdf = parseExtractedPdfText(`1\n\nChapter 1\n\nThe obser-\nvatory remained quiet through the evening.\n\nA second paragraph carried enough English words for reliable extraction.`, 'Digital PDF');
+  assert.equal(pdf.format, 'pdf');
+  assert.match(pdf.chapters[0].paragraphs.join(' '), /observatory/);
+  assert.throws(() => parseExtractedPdfText('1\n2\n3', 'Scan'), PdfNeedsOcrError);
+  assert.equal(pdfNeedsOcr('A short metadata sentence with a handful of readable English words.', 100), true);
+  assert.equal(pdfNeedsOcr(pdf.chapters[0].paragraphs.join(' '), 1), false);
+}
+
+function verifyTranslationChunking() {
+  const sentence = Array.from({ length: 120 }, (_, index) => `word${index}`).join(' ');
+  const chunks = splitTranslationText(sentence);
+  assert.ok(chunks.length > 1);
+  assert.equal(chunks.join(' '), sentence);
+}
+
+function verifyKindleDrmGuard() {
+  const file = new ArrayBuffer(160);
+  const view = new DataView(file);
+  view.setUint16(76, 1, false);
+  view.setUint32(78, 96, false);
+  view.setUint16(108, 0, false);
+  assert.doesNotThrow(() => assertDrmFreeKindleFile(file, 'azw3'));
+
+  view.setUint16(108, 2, false);
+  assert.throws(() => assertDrmFreeKindleFile(file, 'kf8'), /DRM/);
+}
+
 async function main() {
   await verifyTxt();
   await verifyEpub();
-  console.log('✓ TXT and EPUB parser checks passed');
+  await verifyEpubCompatibility();
+  await verifyEpubDrmRejection();
+  verifyMarkupAndPdf();
+  verifyTranslationChunking();
+  verifyKindleDrmGuard();
+  console.log('✓ TXT, EPUB, Kindle DRM guard, PDF/OCR fallback detection, markup, and translation parser checks passed');
 }
 
 main().catch((error) => {

@@ -1,6 +1,14 @@
-export type BookFormat = 'txt' | 'epub' | 'sample';
+export type BookFormat = 'txt' | 'epub' | 'mobi' | 'azw3' | 'kf8' | 'pdf' | 'sample';
 
 export type ReaderTheme = 'paper' | 'white' | 'night';
+
+export interface ImportStatus {
+  phase: 'parsing' | 'ocr';
+  currentPage?: number;
+  totalPages?: number;
+  skippedPages?: number;
+  cancelling?: boolean;
+}
 
 export type LanguageLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 

@@ -89,7 +89,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
 
       <View style={styles.sourceBoundary}>
         <Ionicons name="shield-checkmark-outline" size={22} color={colors.sage} />
-        <View style={{ flex: 1 }}><Text style={styles.sourceTitle}>获取方式由你决定</Text><Text style={styles.sourceBody}>本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT 或无 DRM EPUB 文件。</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.sourceTitle}>获取方式由你决定</Text><Text style={styles.sourceBody}>本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT、无 DRM EPUB/MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF。</Text></View>
       </View>
       <Pressable onPress={handleImport} style={styles.importButton}><Ionicons name="document-text-outline" size={18} color="#fff" /><Text style={styles.importText}>我已有文件，导入阅读</Text></Pressable>
     </ScrollView>

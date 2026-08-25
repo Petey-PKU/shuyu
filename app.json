@@ -45,7 +45,8 @@
           "imageWidth": 160,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

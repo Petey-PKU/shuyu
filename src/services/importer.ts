@@ -4,10 +4,24 @@ import { Platform } from 'react-native';
 import type { ParsedBook } from '../types';
 import { cleanFileName, splitPlainText } from '../utils/text';
 import { parseEpub } from './epub';
+import { parseKf8, parseMobi } from './mobi';
+import { parsePdf } from './pdf';
+import type { PdfImportOptions } from './pdfTypes';
 
-export async function pickAndParseBook(): Promise<ParsedBook | null> {
+const supportedMimeTypes = [
+  'text/plain',
+  'application/epub+zip',
+  'application/x-mobipocket-ebook',
+  'application/vnd.amazon.ebook',
+  'application/x-mobi8-ebook',
+  'application/vnd.amazon.mobi8-ebook',
+  'application/pdf',
+  'application/octet-stream',
+];
+
+export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<ParsedBook | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['text/plain', 'application/epub+zip', 'application/octet-stream'],
+    type: supportedMimeTypes,
     copyToCacheDirectory: true,
     multiple: false,
   });
@@ -41,5 +55,19 @@ export async function pickAndParseBook(): Promise<ParsedBook | null> {
     return parseEpub(data, fallbackTitle);
   }
 
-  throw new Error('目前仅支持 TXT 与 EPUB 文件');
+  if (extension === 'azw3' || extension === 'kf8') {
+    const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
+    return parseKf8(data, fallbackTitle, extension);
+  }
+
+  if (extension === 'mobi' || asset.mimeType === 'application/x-mobipocket-ebook') {
+    const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
+    return parseMobi(data, fallbackTitle);
+  }
+
+  if (extension === 'pdf' || asset.mimeType === 'application/pdf') {
+    return parsePdf(asset.uri, fallbackTitle, pdfOptions);
+  }
+
+  throw new Error('目前支持 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF 文件');
 }

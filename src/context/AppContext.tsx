@@ -1,9 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert } from 'react-native';
 import type {
   Book,
   BookContent,
   BookGenre,
   DifficultyFeedback,
+  ImportStatus,
   ReadingLevelProfile,
   ReadingPreferences,
   ReadingSignal,
@@ -46,6 +48,7 @@ interface AddWordInput {
 interface AppContextValue {
   ready: boolean;
   importing: boolean;
+  importStatus: ImportStatus | null;
   books: Book[];
   words: SavedWord[];
   stats: ReadingStats;
@@ -53,6 +56,7 @@ interface AppContextValue {
   recommendationState: RecommendationState;
   readingSignals: ReadingSignal[];
   importBook: () => Promise<Book | null>;
+  cancelImport: () => void;
   getBookContent: (bookId: string) => Promise<BookContent>;
   updateProgress: (bookId: string, chapter: number, paragraph: number, progress: number) => Promise<void>;
   addWord: (input: AddWordInput) => Promise<void>;
@@ -78,9 +82,29 @@ function localDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function confirmScannedPdfOcr(pageCount: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+    Alert.alert(
+      '检测到扫描版 PDF',
+      `这份 PDF 共 ${pageCount} 页，未找到足够的可复制文字。是否在本机逐页进行英文 OCR？识别可能需要较长时间，但书页不会上传。`,
+      [
+        { text: '取消导入', style: 'cancel', onPress: () => finish(false) },
+        { text: '开始识别', onPress: () => finish(true) },
+      ],
+      { cancelable: true, onDismiss: () => finish(false) },
+    );
+  });
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [words, setWords] = useState<SavedWord[]>([]);
   const [stats, setStats] = useState<ReadingStats>({ minutes: 0, words: 0, streak: 0 });
@@ -97,6 +121,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
+  const ocrCancelRef = useRef<(() => void) | null>(null);
 
   const hydrate = useCallback(async () => {
     const [loadedBooks, loadedWords, loadedStats, loadedPreferences, loadedRecommendations, loadedSignals] = await Promise.all([
@@ -123,9 +148,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrate]);
 
   const importBook = useCallback(async () => {
-    setImporting(true);
+    setImportStatus({ phase: 'parsing' });
     try {
-      const parsed = await pickAndParseBook();
+      const parsed = await pickAndParseBook({
+        confirmOcr: async (pageCount) => {
+          // Close the React Native import modal before opening the native Alert.
+          setImportStatus(null);
+          const confirmed = await confirmScannedPdfOcr(pageCount);
+          if (confirmed) {
+            setImportStatus({ phase: 'ocr', currentPage: 0, totalPages: pageCount, skippedPages: 0 });
+          }
+          return confirmed;
+        },
+        onOcrProgress: ({ currentPage, totalPages, skippedPages, cancelling }) => {
+          setImportStatus((current) => ({
+            phase: 'ocr',
+            currentPage,
+            totalPages,
+            skippedPages,
+            cancelling: current?.cancelling || cancelling,
+          }));
+        },
+        registerOcrCancel: (cancel) => {
+          ocrCancelRef.current = cancel;
+        },
+      });
       if (!parsed) return null;
       const { book } = await createBook(parsed);
       const next = [book, ...books];
@@ -133,9 +180,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await saveBooks(next);
       return book;
     } finally {
-      setImporting(false);
+      ocrCancelRef.current = null;
+      setImportStatus(null);
     }
   }, [books]);
+
+  const cancelImport = useCallback(() => {
+    const cancel = ocrCancelRef.current;
+    if (!cancel) return;
+    setImportStatus((current) => current?.phase === 'ocr'
+      ? { ...current, cancelling: true }
+      : current);
+    cancel();
+  }, []);
 
   const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number) => {
     const current = books.find((book) => book.id === bookId);
@@ -268,12 +325,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrate]);
 
   const value = useMemo(() => ({
-    ready, importing, books, words, stats, preferences, recommendationState, readingSignals, importBook,
+    ready, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
     getBookContent: loadBookContent, updateProgress, addWord, toggleMastered,
     removeWord, removeBook, updatePreferences, setReadingProfile, togglePreferredGenre,
     toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll,
   }), [
-    ready, importing, books, words, stats, preferences, recommendationState, readingSignals, importBook, updateProgress,
+    ready, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
     addWord, toggleMastered, removeWord, removeBook, updatePreferences, addReadingMinutes, resetAll,
     setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
   ]);

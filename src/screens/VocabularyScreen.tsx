@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -10,6 +9,7 @@ import { useApp } from '../context/AppContext';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
+import { speakEnglish } from '../services/speech';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Vocabulary'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -48,7 +48,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.word}>{item.word}</Text>
                 {item.phonetic ? <Text style={styles.phonetic}>{item.phonetic}</Text> : null}
-                <Pressable onPress={() => Speech.speak(item.word, { language: 'en-US', rate: 0.86 })}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
+                <Pressable onPress={() => void speakEnglish(item.word, 'word')}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>

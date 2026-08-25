@@ -109,7 +109,7 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
-          <Text style={styles.importBody}>TXT 或 EPUB</Text>
+          <Text style={styles.importBody}>TXT · EPUB · MOBI · AZW3 · PDF</Text>
         </Pressable>
       </ScrollView>
 
