@@ -29,6 +29,7 @@ const defaultPreferences: ReadingPreferences = {
   lineHeight: 32,
   theme: 'paper',
   onlineSentenceTranslation: true,
+  speechVoice: undefined,
 };
 
 const defaultRecommendationState: RecommendationState = {

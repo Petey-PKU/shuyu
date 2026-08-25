@@ -15,7 +15,7 @@ type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Vocabu
 
 export function VocabularyScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, toggleMastered } = useApp();
+  const { words, preferences, toggleMastered } = useApp();
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
   const filtered = useMemo(() => words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered), [words, tab]);
   const active = words.filter((word) => !word.mastered).length;
@@ -48,7 +48,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.word}>{item.word}</Text>
                 {item.phonetic ? <Text style={styles.phonetic}>{item.phonetic}</Text> : null}
-                <Pressable onPress={() => void speakEnglish(item.word, 'word')}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
+                <Pressable onPress={() => void speakEnglish(item.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { parseEpub } from '../src/services/epub';
 import { htmlToParagraphs } from '../src/services/markup';
-import { assertDrmFreeKindleFile } from '../src/services/mobi';
+import { assertDrmFreeKindleFile, inspectKindleFile } from '../src/services/mobi';
 import { parseExtractedPdfText, pdfNeedsOcr, PdfNeedsOcrError } from '../src/services/pdfText';
 import { splitTranslationText } from '../src/services/translation';
 import { splitPlainText } from '../src/utils/text';
@@ -105,8 +105,13 @@ function verifyKindleDrmGuard() {
   const view = new DataView(file);
   view.setUint16(76, 1, false);
   view.setUint32(78, 96, false);
+  for (const [offset, value] of [[60, 'BOOK'], [64, 'MOBI'], [112, 'MOBI']] as const) {
+    Array.from(value).forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+  }
+  view.setUint32(132, 8, false);
   view.setUint16(108, 0, false);
   assert.doesNotThrow(() => assertDrmFreeKindleFile(file, 'azw3'));
+  assert.deepEqual(inspectKindleFile(file), { isKindle: true, mobiVersion: 8, likelyKf8: true });
 
   view.setUint16(108, 2, false);
   assert.throws(() => assertDrmFreeKindleFile(file, 'kf8'), /DRM/);

@@ -122,6 +122,7 @@ export interface ReadingPreferences {
   lineHeight: number;
   theme: ReaderTheme;
   onlineSentenceTranslation: boolean;
+  speechVoice?: string;
 }
 
 export interface ParsedBook {

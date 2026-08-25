@@ -15,6 +15,12 @@ const MAX_EXTRACTED_CHARACTERS = 25_000_000;
 type KindleFormat = Extract<BookFormat, 'mobi' | 'azw3' | 'kf8'>;
 type KindleTocItem = MobiTocItem | Kf8TocItem;
 
+export interface KindleFileInspection {
+  isKindle: boolean;
+  mobiVersion?: number;
+  likelyKf8: boolean;
+}
+
 interface KindleTextParser {
   getMetadata(): MobiMetadata;
   getSpine(): { id: string; text?: string }[];
@@ -30,6 +36,30 @@ interface Kf8RawTextParser extends KindleTextParser {
 
 function formatLabel(format: KindleFormat) {
   return format === 'mobi' ? 'MOBI' : format.toUpperCase();
+}
+
+function asciiAt(data: ArrayBuffer, offset: number, length: number) {
+  if (offset < 0 || offset + length > data.byteLength) return '';
+  return String.fromCharCode(...new Uint8Array(data, offset, length));
+}
+
+export function inspectKindleFile(data: ArrayBuffer): KindleFileInspection {
+  if (data.byteLength < 118) return { isKindle: false, likelyKf8: false };
+  const view = new DataView(data);
+  const recordCount = view.getUint16(76, false);
+  if (recordCount < 1 || 78 + recordCount * 8 > data.byteLength) {
+    return { isKindle: false, likelyKf8: false };
+  }
+  const firstRecordOffset = view.getUint32(78, false);
+  const pdbSignature = `${asciiAt(data, 60, 4)}${asciiAt(data, 64, 4)}`;
+  if (pdbSignature !== 'BOOKMOBI' || firstRecordOffset + 56 > data.byteLength) {
+    return { isKindle: false, likelyKf8: false };
+  }
+  if (asciiAt(data, firstRecordOffset + 16, 4) !== 'MOBI') {
+    return { isKindle: false, likelyKf8: false };
+  }
+  const mobiVersion = view.getUint32(firstRecordOffset + 36, false);
+  return { isKindle: true, mobiVersion, likelyKf8: mobiVersion >= 8 };
 }
 
 export function assertDrmFreeKindleFile(data: ArrayBuffer, format: KindleFormat) {
@@ -186,4 +216,31 @@ export function parseKf8(
   format: Extract<KindleFormat, 'azw3' | 'kf8'>,
 ): Promise<ParsedBook> {
   return parseKindleBook(data, fallbackTitle, format, (input) => initKf8File(input) as Promise<Kf8>);
+}
+
+export async function parseKindle(
+  data: ArrayBuffer,
+  fallbackTitle: string,
+  requestedFormat: KindleFormat,
+): Promise<ParsedBook> {
+  const inspection = inspectKindleFile(data);
+  if (!inspection.isKindle) {
+    throw new Error(`${formatLabel(requestedFormat)} 文件头无法识别；文件可能损坏、扩展名不正确，或实际为 KFX/AZW4 等不受支持格式`);
+  }
+
+  const attempts: Array<() => Promise<ParsedBook>> = requestedFormat === 'mobi' && !inspection.likelyKf8
+    ? [() => parseMobi(data, fallbackTitle), () => parseKf8(data, fallbackTitle, 'kf8')]
+    : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat), () => parseMobi(data, fallbackTitle)];
+  const errors: string[] = [];
+  for (const attempt of attempts) {
+    try {
+      const parsed = await attempt();
+      return { ...parsed, format: requestedFormat };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/DRM|加密/.test(message)) throw error;
+      errors.push(message);
+    }
+  }
+  throw new Error(`无法解析 ${formatLabel(requestedFormat)} 文件。已尝试 KF8 与兼容 MOBI 内容：${errors.join('；')}`);
 }

@@ -26,6 +26,17 @@ Android 后续版本必须继续使用同一个签名，否则无法覆盖安装
 
 四项齐全后，同一个工作流会自动生成 `Shuyu-v<版本号>-release.apk`。缺少任意密码时构建会主动失败，避免产生签名状态不明确的安装包。
 
+## 可选：启用正式翻译代理
+
+在仓库 **Settings → Secrets and variables → Actions → Variables** 中可添加：
+
+| Variable | 内容 |
+| --- | --- |
+| `SHUYU_TRANSLATION_ENDPOINT` | 接收 `POST { text, source, target }` 并返回 `{ translation }` 的 HTTPS 代理地址 |
+| `SHUYU_TRANSLATION_PROVIDER_NAME` | 设置页显示的服务名称，建议填 `Azure Translator → 腾讯云 TMT` |
+
+仓库已经提供可选部署的 [Azure 主源、腾讯备用翻译网关](./translation-proxy/README.md)。翻译供应商 API 密钥必须只保存在网关环境变量中，不要添加到 Repository variables、`EXPO_PUBLIC_*` 或应用源码中。未配置代理时，构建仍会成功，App 默认由手机直连必应实验性兼容模式，并在失败时使用 MyMemory 兜底。
+
 ### Windows 生成 keystore
 
 安装 JDK 17 后，在安全目录执行：

@@ -113,6 +113,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lineHeight: 32,
     theme: 'paper',
     onlineSentenceTranslation: true,
+    speechVoice: undefined,
   });
   const [recommendationState, setRecommendationState] = useState<RecommendationState>({
     preferredGenres: [],
@@ -317,7 +318,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setBooks([]);
     setWords([]);
     setStats({ minutes: 0, words: 0, streak: 0 });
-    setPreferences({ fontSize: 19, lineHeight: 32, theme: 'paper', onlineSentenceTranslation: true });
+    setPreferences({ fontSize: 19, lineHeight: 32, theme: 'paper', onlineSentenceTranslation: true, speechVoice: undefined });
     setRecommendationState({ preferredGenres: [], savedBookIds: [], feedback: {} });
     setReadingSignals([]);
     readingSignalsRef.current = [];

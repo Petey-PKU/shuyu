@@ -8,8 +8,8 @@ import {
   StyleSheet,
   Text,
   View,
-  ViewToken,
 } from 'react-native';
+import { FlashList, type FlashListRef, type ViewToken } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -35,6 +35,7 @@ interface ReaderParagraphProps {
   fontSize: number;
   lineHeight: number;
   paragraph: string;
+  interactive: boolean;
   onSelect: (word: string, paragraph: string, offset: number) => void;
 }
 
@@ -52,7 +53,10 @@ function cachedTokens(paragraph: string) {
   return tokens;
 }
 
-const ReaderParagraph = React.memo(function ReaderParagraph({ color, fontSize, lineHeight, paragraph, onSelect }: ReaderParagraphProps) {
+const ReaderParagraph = React.memo(function ReaderParagraph({ color, fontSize, lineHeight, paragraph, interactive, onSelect }: ReaderParagraphProps) {
+  if (!interactive) {
+    return <Text style={[styles.paragraph, { color, fontSize, lineHeight }]}>{paragraph}</Text>;
+  }
   return (
     <Text style={[styles.paragraph, { color, fontSize, lineHeight }]}>
       {cachedTokens(paragraph).map((token, tokenIndex) => token.word ? (
@@ -95,13 +99,15 @@ export function ReaderScreen({ route, navigation }: Props) {
     theme: preferences.theme,
   }));
   const [chaptersVisible, setChaptersVisible] = useState(false);
+  const [fastScrolling, setFastScrolling] = useState(false);
   const sessionStarted = useRef(Date.now());
   const paragraphsSeen = useRef(new Set<number>());
   const lastSavedPosition = useRef('');
   const lookupRequest = useRef(0);
   const addReadingMinutesRef = useRef(addReadingMinutes);
   const averageChapterWordsRef = useRef(0);
-  const flatList = useRef<FlatList<string>>(null);
+  const resumeInteractionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flatList = useRef<FlashListRef<string>>(null);
 
   const theme = readerThemes[preferences.theme];
   const chapter = content?.chapters[chapterIndex];
@@ -130,6 +136,7 @@ export function ReaderScreen({ route, navigation }: Props) {
         Math.round(paragraphsSeen.current.size * averageChapterWordsRef.current),
       );
       void stopSpeech();
+      if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
     };
   }, []);
 
@@ -247,20 +254,26 @@ export function ReaderScreen({ route, navigation }: Props) {
     }));
   };
 
+  const pauseWordInteraction = useCallback(() => {
+    if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
+    setFastScrolling(true);
+  }, []);
+
+  const resumeWordInteraction = useCallback(() => {
+    if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
+    resumeInteractionTimer.current = setTimeout(() => setFastScrolling(false), 100);
+  }, []);
+
   const renderParagraph = useCallback(({ item }: { item: string }) => (
     <ReaderParagraph
       color={theme.text}
       fontSize={preferences.fontSize}
       lineHeight={preferences.lineHeight}
       paragraph={item}
+      interactive={!fastScrolling}
       onSelect={selectWord}
     />
-  ), [preferences.fontSize, preferences.lineHeight, selectWord, theme.text]);
-
-  const handleScrollToIndexFailed = useCallback((info: { averageItemLength: number; index: number }) => {
-    flatList.current?.scrollToOffset({ offset: Math.max(0, info.averageItemLength * info.index), animated: false });
-    setTimeout(() => flatList.current?.scrollToIndex({ index: info.index, animated: false, viewPosition: 0 }), 100);
-  }, []);
+  ), [fastScrolling, preferences.fontSize, preferences.lineHeight, selectWord, theme.text]);
 
   const jumpToChapter = (index: number) => {
     setChapterIndex(index);
@@ -287,17 +300,19 @@ export function ReaderScreen({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
 
-      <FlatList
+      <FlashList
         ref={flatList}
         data={chapter.paragraphs}
         keyExtractor={(_, index) => `${chapter.id}_${index}`}
         contentContainerStyle={[styles.readerContent, { paddingBottom: insets.bottom + 88 }]}
         showsVerticalScrollIndicator={false}
-        initialNumToRender={8}
-        maxToRenderPerBatch={8}
-        windowSize={7}
+        drawDistance={480}
+        extraData={`${preferences.fontSize}:${preferences.lineHeight}:${theme.text}:${fastScrolling}`}
+        onScrollBeginDrag={pauseWordInteraction}
+        onMomentumScrollBegin={pauseWordInteraction}
+        onScrollEndDrag={resumeWordInteraction}
+        onMomentumScrollEnd={resumeWordInteraction}
         onViewableItemsChanged={onViewableItemsChanged}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
         viewabilityConfig={{ itemVisiblePercentThreshold: 55 }}
         ListHeaderComponent={
           <View style={styles.chapterHeader}>
@@ -321,7 +336,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       />
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前段落" onPress={() => void speakEnglish(chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前段落" onPress={() => void speakEnglish(chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
@@ -340,7 +355,7 @@ export function ReaderScreen({ route, navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.wordTitle}>{selection?.word}</Text>
                 {lookup?.phonetic ? <Text style={styles.phonetic}>{lookup.phonetic}</Text> : null}
-                <Pressable onPress={() => selection && void speakEnglish(selection.word, 'word')} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
+                <Pressable onPress={() => selection && void speakEnglish(selection.word, 'word', preferences.speechVoice)} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={saveSelection} style={[styles.saveButton, isSaved && styles.savedButton]}>
@@ -376,7 +391,14 @@ export function ReaderScreen({ route, navigation }: Props) {
         <Pressable style={styles.centerBackdrop} onPress={applyReaderSettings}>
           <Pressable style={styles.settingsCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>阅读排版</Text>
-            <View style={styles.fontPreview}><Text style={[styles.previewSmall, { opacity: settingsDraft.fontSize === 16 ? 1 : 0.45 }]}>A</Text><View style={styles.sizeLine} /><Text style={[styles.previewLarge, { opacity: settingsDraft.fontSize === 25 ? 1 : 0.75 }]}>A</Text></View>
+            <View style={[styles.livePreview, { backgroundColor: readerThemes[settingsDraft.theme].background }]}>
+              <Text style={[styles.livePreviewLabel, { color: readerThemes[settingsDraft.theme].muted }]}>当前段落预览</Text>
+              <Text numberOfLines={3} style={[styles.livePreviewText, {
+                color: readerThemes[settingsDraft.theme].text,
+                fontSize: settingsDraft.fontSize,
+                lineHeight: settingsDraft.lineHeight,
+              }]}>{chapter.paragraphs[currentParagraph] || 'Stories let us travel without leaving the quiet of a room.'}</Text>
+            </View>
             <View style={styles.fontActions}>
               <Pressable onPress={() => changeDraftFont(-1)} style={styles.fontButton}><Ionicons name="remove" size={20} color={colors.ink} /></Pressable>
               <Text style={styles.fontValue}>{settingsDraft.fontSize}px</Text>
@@ -472,10 +494,9 @@ const styles = StyleSheet.create({
   centerBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.42)', alignItems: 'center', justifyContent: 'center', padding: 28 },
   settingsCard: { width: '100%', maxWidth: 340, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
   modalTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
-  fontPreview: { flexDirection: 'row', alignItems: 'baseline', marginTop: 24 },
-  previewSmall: { color: colors.ink, fontFamily: typography.serif, fontSize: 16 },
-  previewLarge: { color: colors.ink, fontFamily: typography.serif, fontSize: 26 },
-  sizeLine: { flex: 1, height: 1, marginHorizontal: 12, backgroundColor: colors.line },
+  livePreview: { minHeight: 148, borderRadius: radii.medium, paddingHorizontal: 18, paddingVertical: 16, marginTop: 20, overflow: 'hidden' },
+  livePreviewLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1, marginBottom: 10 },
+  livePreviewText: { fontFamily: typography.serif, letterSpacing: 0.12 },
   fontActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   fontButton: { width: 46, height: 42, borderRadius: 16, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   fontValue: { color: colors.inkMuted, fontSize: 11, fontWeight: '700' },

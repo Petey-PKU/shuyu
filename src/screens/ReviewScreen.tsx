@@ -12,7 +12,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, toggleMastered } = useApp();
+  const { words, preferences, toggleMastered } = useApp();
   const queue = words.filter((word) => !word.mastered);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -43,7 +43,7 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable onPress={() => void speakEnglish(current.word, 'word')}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>

@@ -47,4 +47,22 @@ Android 版使用 Google ML Kit Text Recognition v2 的随包 Latin 模型 `com.
 - 条款与隐私：https://developers.google.com/ml-kit/terms
 - 使用受 Google APIs Terms of Service 与 ML Kit Terms of Service 约束
 
+## 长章节列表渲染
+
+书语使用 `@shopify/flash-list@2.0.2` 虚拟化渲染长章节中的段落。
+
+- 上游：https://github.com/Shopify/flash-list
+- 许可：MIT License
+- Copyright (c) 2022-present Shopify Inc.
+
+## 可选在线翻译服务
+
+书语默认可由用户设备直接请求必应翻译网页服务的临时会话；这是实验性兼容方式，不是 Microsoft 面向开发者承诺稳定性的正式 API。App 也可以按配置先调用自有网关中的 Microsoft Azure Translator 与腾讯云机器翻译 API，并在前述服务不可用时使用 MyMemory。它们不是随安装包分发的软件组件，分别受对应服务条款、隐私政策、免费额度和限制约束。
+
+- 必应翻译：https://www.bing.com/translator
+- Microsoft 隐私声明：https://privacy.microsoft.com/privacystatement
+- Microsoft Azure Translator：https://learn.microsoft.com/azure/ai-services/translator/
+- 腾讯云机器翻译：https://cloud.tencent.com/document/product/551
+- MyMemory：https://mymemory.translated.net/doc/spec.php
+
 其余 JavaScript 与原生组件的精确版本以 `package-lock.json` 和 Gradle 构建解析结果为准，并遵循各自许可证或服务条款。
