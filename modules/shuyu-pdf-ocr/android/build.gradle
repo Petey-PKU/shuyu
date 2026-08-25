@@ -1,0 +1,39 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'maven-publish'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+if (expoModulesCorePlugin.exists()) {
+  apply from: expoModulesCorePlugin
+  applyKotlinExpoModulesCorePlugin()
+  useCoreDependencies()
+  useDefaultAndroidSdkVersions()
+} else {
+  throw new GradleException("'expo-modules-core' could not be found. Make sure the project has 'expo' installed.")
+}
+
+android {
+  namespace "app.shuyu.pdfocr"
+
+  defaultConfig {
+    minSdkVersion safeExtGet("minSdkVersion", 24)
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+
+  kotlinOptions {
+    jvmTarget = "17"
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+}
+
+def safeExtGet(String prop, Integer fallback) {
+  rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
+}

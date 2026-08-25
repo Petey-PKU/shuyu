@@ -34,7 +34,7 @@ export function sentenceAt(text: string, offset: number): string {
 }
 
 export function cleanFileName(name: string): string {
-  return name.replace(/\.(txt|epub)$/i, '').replace(/[_-]+/g, ' ').trim();
+  return name.replace(/\.(txt|epub|mobi|azw3|kf8|pdf)$/i, '').replace(/[_-]+/g, ' ').trim();
 }
 
 export function splitPlainText(text: string, fallbackTitle: string) {

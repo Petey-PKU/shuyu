@@ -62,7 +62,7 @@ function MainTabs() {
 }
 
 function AppShell() {
-  const { ready, importing } = useApp();
+  const { ready, importStatus, cancelImport } = useApp();
   if (!ready) {
     return (
       <View style={styles.splash}>
@@ -84,7 +84,7 @@ function AppShell() {
           <Stack.Screen name="Review" component={ReviewScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         </Stack.Navigator>
       </NavigationContainer>
-      <ImportOverlay visible={importing} />
+      <ImportOverlay status={importStatus} onCancel={cancelImport} />
       <StatusBar style="dark" />
     </>
   );

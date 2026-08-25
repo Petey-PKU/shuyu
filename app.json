@@ -3,7 +3,7 @@
     "name": "书语",
     "slug": "shuyu",
     "description": "在书里，学会一门语言。本地优先的英语语境阅读器。",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/shuyu-icon.png",
     "userInterfaceStyle": "automatic",
@@ -13,11 +13,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.shuyu.reader",
-      "buildNumber": "3"
+      "buildNumber": "4"
     },
     "android": {
       "package": "app.shuyu.reader",
-      "versionCode": 3,
+      "versionCode": 4,
       "allowBackup": false,
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -45,7 +45,8 @@
           "imageWidth": 160,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }

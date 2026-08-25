@@ -4,25 +4,52 @@ import { Platform } from 'react-native';
 import type { ParsedBook } from '../types';
 import { cleanFileName, splitPlainText } from '../utils/text';
 import { parseEpub } from './epub';
+import { inspectKindleFile, parseKindle } from './mobi';
+import { parsePdf } from './pdf';
+import type { PdfImportOptions } from './pdfTypes';
 
-export async function pickAndParseBook(): Promise<ParsedBook | null> {
+const kindleMimeTypes = new Set([
+  'application/x-mobipocket-ebook',
+  'application/vnd.amazon.ebook',
+  'application/x-mobi8-ebook',
+  'application/vnd.amazon.mobi8-ebook',
+  'application/x-kindle-ebook',
+  'application/x-kf8',
+  'application/azw3',
+  'application/octet-stream',
+]);
+
+function safeDecodeFileName(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<ParsedBook | null> {
   const result = await DocumentPicker.getDocumentAsync({
-    type: ['text/plain', 'application/epub+zip', 'application/octet-stream'],
+    // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
+    // and validate the extension plus BOOKMOBI signature inside the app.
+    type: '*/*',
     copyToCacheDirectory: true,
     multiple: false,
   });
 
   if (result.canceled) return null;
   const asset = result.assets[0];
-  const fallbackTitle = cleanFileName(asset.name || '未命名书籍');
-  const extension = (asset.name.split('.').pop() || '').toLowerCase();
+  const decodedUriName = safeDecodeFileName(asset.uri.split(/[\\/]/).pop() || '');
+  const fileName = asset.name || decodedUriName || '未命名书籍';
+  const fallbackTitle = cleanFileName(fileName);
+  const extension = (fileName.split('.').pop() || '').toLowerCase();
   const webFile = Platform.OS === 'web' ? asset.file : undefined;
+  const knownExtension = ['txt', 'epub', 'mobi', 'azw3', 'kf8', 'pdf'].includes(extension);
 
   if (asset.size && asset.size > 80 * 1024 * 1024) {
     throw new Error('文件超过 80 MB。为避免手机内存不足，请导入更小的书籍文件');
   }
 
-  if (extension === 'txt' || asset.mimeType === 'text/plain') {
+  if (extension === 'txt' || (!knownExtension && asset.mimeType === 'text/plain')) {
     if (asset.size && asset.size > 25 * 1024 * 1024) {
       throw new Error('TXT 文件超过 25 MB。建议按卷拆分后再导入');
     }
@@ -36,10 +63,26 @@ export async function pickAndParseBook(): Promise<ParsedBook | null> {
     return { title: fallbackTitle, author: '本地导入', chapters, format: 'txt' };
   }
 
-  if (extension === 'epub' || asset.mimeType === 'application/epub+zip') {
+  if (extension === 'epub' || (!knownExtension && asset.mimeType === 'application/epub+zip')) {
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
     return parseEpub(data, fallbackTitle);
   }
 
-  throw new Error('目前仅支持 TXT 与 EPUB 文件');
+  if (extension === 'azw3' || extension === 'kf8' || extension === 'mobi' || (!knownExtension && kindleMimeTypes.has(asset.mimeType || ''))) {
+    const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
+    const inspection = inspectKindleFile(data);
+    if (!inspection.isKindle && !['mobi', 'azw3', 'kf8'].includes(extension)) {
+      throw new Error('文件扩展名和内容均无法识别。请选择 TXT、EPUB、MOBI、AZW3、KF8 或 PDF 文件');
+    }
+    const format = extension === 'azw3' || extension === 'kf8'
+      ? extension
+      : inspection.likelyKf8 ? 'azw3' : 'mobi';
+    return parseKindle(data, fallbackTitle, format);
+  }
+
+  if (extension === 'pdf' || (!knownExtension && asset.mimeType === 'application/pdf')) {
+    return parsePdf(asset.uri, fallbackTitle, pdfOptions);
+  }
+
+  throw new Error('目前支持 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF 文件');
 }

@@ -1,18 +1,18 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Speech from 'expo-speech';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radii, shadows, typography } from '../theme';
+import { speakEnglish } from '../services/speech';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
 export function ReviewScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, toggleMastered } = useApp();
+  const { words, preferences, toggleMastered } = useApp();
   const queue = words.filter((word) => !word.mastered);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -43,7 +43,7 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable onPress={() => Speech.speak(current.word, { language: 'en-US', rate: 0.85 })}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>

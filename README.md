@@ -2,21 +2,24 @@
 
 > 在书里，学会一门语言。
 
-书语是一款面向中文母语学习者的开源英语语境阅读 App。用户导入自己有权使用的英文读物，在原文里点词查义、听发音、收藏带语境的生词，再用原句复习。当前支持英文 TXT 与 EPUB。
+书语是一款面向中文母语学习者的开源英语语境阅读 App。用户导入自己有权使用的英文读物，在原文里点词查义、听发音、收藏带语境的生词，再用原句复习。当前支持英文 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型和英文扫描版 PDF。
 
-> 当前版本为 v1.2，Android 优先，基于 Expo / React Native / TypeScript。它不是书城，也不内置受版权保护的书籍。
+> 当前开发版本为 v1.3，Android 优先，基于 Expo / React Native / TypeScript。它不是书城，也不内置受版权保护的书籍。
 
 产品与技术标识的统一命名约定见 [BRAND.md](./BRAND.md)。
 
 ## 已实现
 
-- 导入 UTF-8 编码的 `.txt` 与无 DRM 的标准 `.epub`
-- EPUB 目录、书名、作者和正文解析；TXT 自动识别英文 `Chapter / Part / Book` 分章
+- 导入 UTF-8 编码的 `.txt`、无 DRM 的 `.epub` / `.mobi` / `.azw3` / `.kf8`，以及数字文本型或英文扫描版 `.pdf`
+- EPUB 2/3 目录、书名、作者和正文解析，并兼容常见路径编码、大小写差异与字体混淆
+- MOBI 7 与 AZW3/KF8 目录、元数据和正文解析；Android 文件选择器对缺失或错误的 AZW3 MIME 类型进行扩展名与 `BOOKMOBI` 文件头识别，并在 KF8/MOBI 解析路径间安全回退
+- PDF 优先本地提取文本层，Android 扫描版自动提示并逐页离线 OCR；TXT/PDF 自动识别英文 `Chapter / Part / Book` 分章
 - 本地书架、阅读进度和最近阅读
-- 纸张、明亮、夜间三种阅读主题，字号和行高调节
+- 纸张、明亮、夜间三种阅读主题，字号和行高调节；阅读器用当前段落即时预览，确认后才重排整章
 - 内置 120,000 词条 ECDICT Core，点词中文释义与词形还原无需联网
-- 可选的整句在线翻译增强；可在设置中彻底关闭
-- 英文单词及当前段落朗读
+- 可关闭的整句在线翻译增强；默认由手机直连必应网页翻译兼容模式，并以 MyMemory 兜底，也可优先配置自有正式翻译代理
+- 英文单词及当前段落朗读；自动优选增强/自然英语音色，也可在设置中试听并固定设备音色
+- 长章节使用 FlashList 虚拟化；快速滚动期间暂时停用逐词触控节点，停止后自动恢复点词
 - 生词收藏、来源原句、掌握状态与遮词复习
 - 阅读分钟、词数和连续天数统计
 - A1–C2 本地阅读水平测试、72 本分级推荐、兴趣筛选与想读收藏
@@ -39,16 +42,33 @@ npm run android
 npm run web
 ```
 
+PDF 文本提取与 OCR 使用原生模块，不能在 Expo Go 或 Web 预览中测试；请使用正式安装包。Android 支持文本层提取和英文扫描版 OCR，iOS 当前只支持文本层提取。TXT、EPUB、MOBI 与 AZW3/KF8 不受此限制。
+
 ## 验证
 
 ```bash
 npm run typecheck
 npm test
+npm run test:translation
 npm run test:dictionary
+npm run test:translation-proxy
 npm run export:android
 ```
 
 `export:android` 验证 Android 生产 bundle。
+
+### 配置正式翻译服务
+
+App 默认不需要 API Key：Android 客户端会直接取得必应翻译网页的临时会话并翻译，失败时再使用 MyMemory。该兼容模式不是 Microsoft 面向开发者承诺稳定性的正式 API，可能因网页接口或限制变化而失效；界面因此明确标为“实验性”。
+
+仓库另包含可独立部署的[书语翻译网关](./translation-proxy/README.md)。它是可选的高质量优先项，接收 `POST { text, source, target }`，默认优先调用 Azure Translator，再回退到腾讯云 TMT，并返回 `{ translation, provider }`。供应商密钥只能保存在网关环境变量中，不能写入 `EXPO_PUBLIC_*`。本地 App 可复制 `.env.example` 为 `.env.local` 后配置公开地址：
+
+```dotenv
+EXPO_PUBLIC_TRANSLATION_ENDPOINT=https://your-proxy.example/translate
+EXPO_PUBLIC_TRANSLATION_PROVIDER_NAME=Azure Translator → 腾讯云 TMT
+```
+
+GitHub Actions 构建时，可在 **Settings → Secrets and variables → Actions → Variables** 添加 `SHUYU_TRANSLATION_ENDPOINT` 与 `SHUYU_TRANSLATION_PROVIDER_NAME`。未配置时构建仍可直接使用内置的必应兼容模式和 MyMemory 兜底，设置页会显示当前策略。
 
 ### 通过 GitHub 生成可安装 APK
 
@@ -64,16 +84,19 @@ src/
   context/        本地状态与业务操作
   data/           分级推荐书目与本地水平测试题
   screens/        首页、书架、阅读器、生词、复习、设置
-  services/       导入、EPUB 解析、本地存储、查词翻译
+  services/       导入、EPUB/Kindle/PDF 解析、本地存储、查词翻译与朗读
   utils/          文本分章、分词与句子定位
 scripts/          本地自动验证脚本
+translation-proxy/ Azure 主源、腾讯备用的独立翻译网关
 ```
 
 ## 当前边界
 
 - TXT v1 仅支持 UTF-8；不自动猜测 GBK 等旧编码。
-- EPUB v1 读取 spine 中的文本章节，不复刻出版社 CSS，不显示插图、复杂表格、脚注弹窗或 DRM 内容。
-- 词义优先来自随包分发的 ECDICT Core。未收录词与整句翻译可请求 MyMemory 公开演示服务，并有短超时保护；公开发布前应换成位于中国大陆、由服务端代签名的正式翻译接口。
+- EPUB 读取 spine 与目录中的文本章节，不复刻出版社 CSS，不显示插图、复杂表格或脚注弹窗；字体混淆不会阻止正文导入，但 DRM 内容不受支持。
+- MOBI/AZW3/KF8 仅解析无 DRM 的可重排文字内容，不绕过加密，不复刻原书 CSS、图片、固定版式与复杂排版；KFX、Topaz 和 AZW4 暂不支持。
+- PDF 不复刻页面排版、图片、表格或脚注弹窗。Android 可对英文扫描版和纯图片版逐页 OCR，但模糊、旋转、双栏或复杂版式可能影响准确率和阅读顺序；密码保护 PDF 与 iOS 扫描版 OCR 暂不支持。
+- 词义优先来自随包分发的 ECDICT Core。未收录词与整句在用户开启在线增强时，按“可选自有网关 → 手机直连必应实验性兼容模式 → MyMemory”回退。免费额度、可用地区、稳定性、数据处理位置和服务条款以供应商当前规则为准。
 - iOS 代码路径已兼容，但本版本只完成 Android / Web 构建验证，尚未在真实 iPhone 上验收。
 
 ## 隐私与版权
