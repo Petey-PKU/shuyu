@@ -42,6 +42,17 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
 
+      - name: Cache bundled TTS model
+        uses: actions/cache@v5
+        with:
+          path: .cache/tts-models
+          key: shuyu-tts-amy-medium-9a5d1fc497f85e80
+
+      - name: Bundle verified offline voice
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run prepare:tts-model
+
       - name: Set up Java
         uses: actions/setup-java@v5
         with:

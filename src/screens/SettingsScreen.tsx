@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
-import { listEnglishVoices, speakEnglish, type EnglishVoiceOption } from '../services/speech';
+import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
 import { getTranslationProviderSummary } from '../services/translation';
 
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
   { icon: 'shield-checkmark-outline', title: '隐私说明', caption: '原文默认只保存在本地' },
   { icon: 'logo-github', title: '开源项目', caption: 'GPL-3.0-only · 欢迎贡献' },
-  { icon: 'information-circle-outline', title: '关于书语', caption: '版本 1.3.0' },
+  { icon: 'information-circle-outline', title: '关于书语', caption: '版本 1.3.1' },
 ] as const;
 
 export function SettingsScreen() {
@@ -28,9 +28,15 @@ export function SettingsScreen() {
     return () => { active = false; };
   }, []);
 
-  const chooseVoice = (voice?: string) => {
+  const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+
+  const chooseVoice = (voice: string) => {
     void updatePreferences({ speechVoice: voice });
-    void speakEnglish('language', 'word', voice);
+    void speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice).then((provider) => {
+      if (voice === OFFLINE_VOICE_ID && provider === 'system') {
+        Alert.alert('离线音色暂不可用', '当前运行环境没有载入书语离线音色，试听已自动使用系统发音。请在正式 Android APK 中测试。');
+      }
+    });
   };
 
   const confirmReset = () => Alert.alert('清除全部本地数据？', '书籍、阅读进度和生词将从设备永久删除。', [
@@ -79,17 +85,13 @@ export function SettingsScreen() {
 
       <Text style={styles.sectionLabel}>英语发音音色</Text>
       <View style={styles.settingCard}>
-        <Pressable onPress={() => chooseVoice(undefined)} style={[styles.voiceRow, !preferences.speechVoice && styles.selectedVoiceRow]}>
-          <View style={{ flex: 1 }}><Text style={styles.settingTitle}>自动优选</Text><Text style={styles.settingCaption}>优先增强、自然或网络英语音色</Text></View>
-          {!preferences.speechVoice ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : null}
-        </Pressable>
         {voices.map((voice) => (
-          <Pressable key={voice.identifier} onPress={() => chooseVoice(voice.identifier)} style={[styles.voiceRow, preferences.speechVoice === voice.identifier && styles.selectedVoiceRow]}>
-            <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.settingTitle}>{voice.name}</Text><Text style={styles.settingCaption}>{voice.language} · {voice.quality === 'Enhanced' ? '增强音色' : '标准音色'}</Text></View>
-            {preferences.speechVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
+          <Pressable key={voice.identifier} onPress={() => chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow]}>
+            <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.settingTitle}>{voice.name}</Text><Text style={styles.settingCaption}>{voice.description}</Text></View>
+            {activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
           </Pressable>
         ))}
-        {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>设备暂未返回可选英语音色，将继续使用系统默认音色。</Text></View> : null}
+        {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
       </View>
 
       <Text style={styles.sectionLabel}>项目</Text>

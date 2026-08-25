@@ -1,15 +1,25 @@
+import { Platform } from 'react-native';
 import * as Speech from 'expo-speech';
+import type { StreamingTtsEngine, TtsStreamController } from 'react-native-sherpa-onnx/tts';
 
 type SpeechKind = 'word' | 'sentence' | 'paragraph';
+
+export const OFFLINE_VOICE_ID = 'shuyu-offline-amy';
+export const SYSTEM_AUTO_VOICE_ID = 'system-auto';
 
 export interface EnglishVoiceOption {
   identifier: string;
   language: string;
   name: string;
   quality: string;
+  source: 'offline' | 'system';
+  description: string;
 }
 
 let voicesPromise: Promise<Speech.Voice[]> | undefined;
+let offlineEnginePromise: Promise<StreamingTtsEngine> | undefined;
+let activeOfflineStream: TtsStreamController | undefined;
+let offlineGeneration = 0;
 
 function voiceScore(voice: Speech.Voice): number {
   const language = voice.language.toLowerCase();
@@ -25,7 +35,7 @@ function voiceScore(voice: Speech.Voice): number {
   return score;
 }
 
-async function getEnglishVoices(): Promise<Speech.Voice[]> {
+async function getEnglishSystemVoices(): Promise<Speech.Voice[]> {
   if (!voicesPromise) {
     voicesPromise = Speech.getAvailableVoicesAsync()
       .then((voices) => voices
@@ -37,17 +47,39 @@ async function getEnglishVoices(): Promise<Speech.Voice[]> {
 }
 
 export async function listEnglishVoices(): Promise<EnglishVoiceOption[]> {
-  return (await getEnglishVoices()).map((voice) => ({
+  const systemVoices = (await getEnglishSystemVoices()).map((voice) => ({
     identifier: voice.identifier,
     language: voice.language,
     name: voice.name,
     quality: String(voice.quality),
+    source: 'system' as const,
+    description: `${voice.language} · ${String(voice.quality).toLowerCase() === 'enhanced' ? '增强音色' : '系统音色'}`,
   }));
+  const bundledVoice: EnglishVoiceOption[] = Platform.OS === 'android' ? [{
+      identifier: OFFLINE_VOICE_ID,
+      language: 'en-US',
+      name: '书语 · Amy',
+      quality: 'Offline neural',
+      source: 'offline',
+      description: 'Piper 中等质量神经音色 · 完全离线',
+    }] : [];
+  return [
+    ...bundledVoice,
+    {
+      identifier: SYSTEM_AUTO_VOICE_ID,
+      language: 'en',
+      name: '系统自动优选',
+      quality: 'System',
+      source: 'system',
+      description: '使用手机已安装的最佳英语音色',
+    },
+    ...systemVoices,
+  ];
 }
 
-async function getPreferredVoice(requestedVoice?: string): Promise<Speech.Voice | undefined> {
-  const voices = await getEnglishVoices();
-  if (requestedVoice) {
+async function getPreferredSystemVoice(requestedVoice?: string): Promise<Speech.Voice | undefined> {
+  const voices = await getEnglishSystemVoices();
+  if (requestedVoice && requestedVoice !== SYSTEM_AUTO_VOICE_ID) {
     const selected = voices.find((voice) => voice.identifier === requestedVoice);
     if (selected) return selected;
   }
@@ -66,9 +98,8 @@ function speechChunks(text: string): string[] {
   for (const rawSentence of sentences) {
     const sentence = rawSentence.trim();
     const combined = current ? `${current} ${sentence}` : sentence;
-    if (combined.length <= limit) {
-      current = combined;
-    } else {
+    if (combined.length <= limit) current = combined;
+    else {
       if (current) chunks.push(current);
       current = sentence;
     }
@@ -77,11 +108,71 @@ function speechChunks(text: string): string[] {
   return chunks;
 }
 
-export async function speakEnglish(text: string, kind: SpeechKind = 'word', requestedVoice?: string) {
+async function getOfflineEngine(): Promise<StreamingTtsEngine> {
+  if (Platform.OS !== 'android') throw new Error('Bundled TTS is currently available on Android only.');
+  if (!offlineEnginePromise) {
+    offlineEnginePromise = import('react-native-sherpa-onnx/tts')
+      .then(({ createStreamingTTS }) => createStreamingTTS({
+        modelPath: { type: 'asset', path: 'models/vits-piper-en_US-amy-medium' },
+        modelType: 'vits',
+        numThreads: 2,
+        maxNumSentences: 1,
+        silenceScale: 0.18,
+        modelOptions: { vits: { noiseScale: 0.667, noiseScaleW: 0.8, lengthScale: 1 } },
+      }))
+      .catch((error) => {
+        offlineEnginePromise = undefined;
+        throw error;
+      });
+  }
+  return offlineEnginePromise;
+}
+
+async function stopOfflineSpeech() {
+  offlineGeneration += 1;
+  const controller = activeOfflineStream;
+  activeOfflineStream = undefined;
+  if (controller) await controller.cancel().catch(() => undefined);
+  const engine = offlineEnginePromise ? await offlineEnginePromise.catch(() => undefined) : undefined;
+  if (engine) {
+    await engine.cancelSpeechStream().catch(() => undefined);
+    await engine.stopPcmPlayer().catch(() => undefined);
+  }
+}
+
+async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
+  const engine = await getOfflineEngine();
+  const generation = ++offlineGeneration;
+  const sampleRate = await engine.getSampleRate();
+  await engine.startPcmPlayer(sampleRate, 1);
+  let writes = Promise.resolve();
+  let completed = false;
+  const speed = kind === 'word' ? 0.88 : kind === 'sentence' ? 0.94 : 0.97;
+  const controller = await engine.generateSpeechStream(text, { sid: 0, speed, silenceScale: 0.18 }, {
+    onChunk: (chunk) => {
+      if (generation !== offlineGeneration) return;
+      writes = writes.then(() => engine.writePcmChunk(chunk.samples)).catch(() => undefined);
+    },
+    onEnd: () => {
+      completed = true;
+      if (generation !== offlineGeneration) return;
+      activeOfflineStream = undefined;
+      void writes.finally(() => engine.stopPcmPlayer().catch(() => undefined));
+    },
+    onError: (error) => {
+      completed = true;
+      console.warn('Offline TTS playback failed:', error.message);
+      if (generation === offlineGeneration) activeOfflineStream = undefined;
+      void engine.stopPcmPlayer().catch(() => undefined);
+    },
+  });
+  if (!completed && generation === offlineGeneration) activeOfflineStream = controller;
+  else await controller.cancel().catch(() => undefined);
+}
+
+async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoice?: string) {
   const chunks = speechChunks(text);
-  if (!chunks.length) return;
-  await Speech.stop();
-  const voice = await getPreferredVoice(requestedVoice);
+  const voice = await getPreferredSystemVoice(requestedVoice);
   const rate = kind === 'word' ? 0.86 : kind === 'sentence' ? 0.9 : 0.92;
   for (const chunk of chunks) {
     Speech.speak(chunk, {
@@ -94,6 +185,23 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
   }
 }
 
+export async function speakEnglish(text: string, kind: SpeechKind = 'word', requestedVoice?: string) {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return undefined;
+  await stopSpeech();
+  const selectedVoice = requestedVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+  if (selectedVoice === OFFLINE_VOICE_ID) {
+    try {
+      await speakWithOfflineVoice(normalized, kind);
+      return 'offline' as const;
+    } catch (error) {
+      console.warn('Bundled offline voice unavailable; falling back to system TTS.', error);
+    }
+  }
+  await speakWithSystemVoice(normalized, kind, selectedVoice);
+  return 'system' as const;
+}
+
 export async function stopSpeech() {
-  await Speech.stop();
+  await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
 }

@@ -3,13 +3,16 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  type LayoutChangeEvent,
   Modal,
+  type NativeSyntheticEvent,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
+  type TextLayoutEventData,
   View,
 } from 'react-native';
-import { FlashList, type FlashListRef, type ViewToken } from '@shopify/flash-list';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -22,6 +25,13 @@ import { colors, radii, typography } from '../theme';
 import type { LookupResult } from '../services/translation';
 import { sentenceAt, tokenizeParagraph } from '../utils/text';
 import { speakEnglish, stopSpeech } from '../services/speech';
+import {
+  pageAtOffset,
+  paginateMeasuredText,
+  paragraphAtOffset,
+  paragraphStarts,
+  type ReaderPage,
+} from '../utils/pagination';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Reader'>;
 
@@ -30,39 +40,39 @@ interface Selection {
   sentence: string;
 }
 
-interface ReaderParagraphProps {
+interface ReaderPageTextProps {
   color: string;
   fontSize: number;
   lineHeight: number;
-  paragraph: string;
-  interactive: boolean;
-  onSelect: (word: string, paragraph: string, offset: number) => void;
+  page: ReaderPage;
+  onSelect: (word: string, globalOffset: number) => void;
 }
 
-const paragraphTokenCache = new Map<string, ReturnType<typeof tokenizeParagraph>>();
+const textTokenCache = new Map<string, ReturnType<typeof tokenizeParagraph>>();
+const paginationCache = new Map<string, ReaderPage[]>();
+const PAGE_HORIZONTAL_PADDING = 24;
+const PAGE_VERTICAL_PADDING = 18;
+const FIRST_PAGE_HEADER_HEIGHT = 112;
 
-function cachedTokens(paragraph: string) {
-  const cached = paragraphTokenCache.get(paragraph);
+function cachedTokens(text: string) {
+  const cached = textTokenCache.get(text);
   if (cached) return cached;
-  const tokens = tokenizeParagraph(paragraph);
-  paragraphTokenCache.set(paragraph, tokens);
-  if (paragraphTokenCache.size > 300) {
-    const oldest = paragraphTokenCache.keys().next().value as string | undefined;
-    if (oldest) paragraphTokenCache.delete(oldest);
+  const tokens = tokenizeParagraph(text);
+  textTokenCache.set(text, tokens);
+  if (textTokenCache.size > 120) {
+    const oldest = textTokenCache.keys().next().value as string | undefined;
+    if (oldest) textTokenCache.delete(oldest);
   }
   return tokens;
 }
 
-const ReaderParagraph = React.memo(function ReaderParagraph({ color, fontSize, lineHeight, paragraph, interactive, onSelect }: ReaderParagraphProps) {
-  if (!interactive) {
-    return <Text style={[styles.paragraph, { color, fontSize, lineHeight }]}>{paragraph}</Text>;
-  }
+const ReaderPageText = React.memo(function ReaderPageText({ color, fontSize, lineHeight, page, onSelect }: ReaderPageTextProps) {
   return (
-    <Text style={[styles.paragraph, { color, fontSize, lineHeight }]}>
-      {cachedTokens(paragraph).map((token, tokenIndex) => token.word ? (
+    <Text style={[styles.pageText, { color, fontSize, lineHeight }]}>
+      {cachedTokens(page.text).map((token, tokenIndex) => token.word ? (
         <Text
           key={`${token.start}_${tokenIndex}`}
-          onPress={() => onSelect(token.value, paragraph, token.start)}
+          onPress={() => onSelect(token.value, page.start + token.start)}
           suppressHighlighting={false}
           style={styles.wordToken}
         >{token.value}</Text>
@@ -99,18 +109,27 @@ export function ReaderScreen({ route, navigation }: Props) {
     theme: preferences.theme,
   }));
   const [chaptersVisible, setChaptersVisible] = useState(false);
-  const [fastScrolling, setFastScrolling] = useState(false);
+  const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
+  const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
+  const [currentPage, setCurrentPage] = useState(0);
   const sessionStarted = useRef(Date.now());
   const paragraphsSeen = useRef(new Set<number>());
   const lastSavedPosition = useRef('');
   const lookupRequest = useRef(0);
   const addReadingMinutesRef = useRef(addReadingMinutes);
   const averageChapterWordsRef = useRef(0);
-  const resumeInteractionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flatList = useRef<FlashListRef<string>>(null);
+  const pageAnchorOffset = useRef<number | null>(null);
 
   const theme = readerThemes[preferences.theme];
   const chapter = content?.chapters[chapterIndex];
+  const chapterText = useMemo(() => chapter?.paragraphs.join('\n\n') ?? '', [chapter]);
+  const chapterParagraphStarts = useMemo(() => paragraphStarts(chapter?.paragraphs ?? []), [chapter]);
+  const pageBodyHeight = Math.max(80, readerLayout.height - PAGE_VERTICAL_PADDING * 2);
+  const firstPageBodyHeight = Math.max(80, pageBodyHeight - FIRST_PAGE_HEADER_HEIGHT);
+  const paginationKey = chapter && readerLayout.width > 0 && readerLayout.height > 0
+    ? `${chapter.id}:${chapterText.length}:${Math.round(readerLayout.width)}:${Math.round(readerLayout.height)}:${preferences.fontSize}:${preferences.lineHeight}`
+    : '';
+  const pages = pageSet.key === paginationKey ? pageSet.pages : [];
 
   useEffect(() => {
     getBookContent(bookId).then(setContent).catch((error) => Alert.alert('无法打开书籍', error.message, [{ text: '返回', onPress: () => navigation.goBack() }]));
@@ -136,9 +155,40 @@ export function ReaderScreen({ route, navigation }: Props) {
         Math.round(paragraphsSeen.current.size * averageChapterWordsRef.current),
       );
       void stopSpeech();
-      if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!paginationKey) return;
+    const cached = paginationCache.get(paginationKey);
+    if (!cached) {
+      setPageSet({ key: '', pages: [] });
+      return;
+    }
+    const anchor = pageAnchorOffset.current ?? chapterParagraphStarts[currentParagraph] ?? 0;
+    setPageSet({ key: paginationKey, pages: cached });
+    setCurrentPage(pageAtOffset(cached, anchor));
+  }, [paginationKey]);
+
+  const onReaderLayout = useCallback((event: LayoutChangeEvent) => {
+    const width = Math.floor(event.nativeEvent.layout.width);
+    const height = Math.floor(event.nativeEvent.layout.height);
+    setReaderLayout((current) => current.width === width && current.height === height ? current : { width, height });
+  }, []);
+
+  const onChapterTextLayout = useCallback((event: NativeSyntheticEvent<TextLayoutEventData>) => {
+    if (!paginationKey || pageSet.key === paginationKey) return;
+    const measured = event.nativeEvent.lines.map((line) => ({ text: line.text, y: line.y, height: line.height }));
+    const nextPages = paginateMeasuredText(chapterText, measured, pageBodyHeight, firstPageBodyHeight);
+    paginationCache.set(paginationKey, nextPages);
+    if (paginationCache.size > 24) {
+      const oldest = paginationCache.keys().next().value as string | undefined;
+      if (oldest) paginationCache.delete(oldest);
+    }
+    const anchor = pageAnchorOffset.current ?? chapterParagraphStarts[currentParagraph] ?? 0;
+    setPageSet({ key: paginationKey, pages: nextPages });
+    setCurrentPage(pageAtOffset(nextPages, anchor));
+  }, [chapterParagraphStarts, chapterText, currentParagraph, firstPageBodyHeight, pageBodyHeight, pageSet.key, paginationKey]);
 
   const savePosition = useCallback((paragraph: number) => {
     if (!content || !chapter || !book) return;
@@ -148,13 +198,15 @@ export function ReaderScreen({ route, navigation }: Props) {
     updateProgress(bookId, chapterIndex, paragraph, progress);
   }, [book, bookId, chapter, chapterIndex, content, updateProgress]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<string>[] }) => {
-    const visible = viewableItems.filter((item) => item.isViewable && item.index !== null);
-    if (!visible.length) return;
-    const index = visible[0].index ?? 0;
-    visible.forEach((item) => item.index !== null && paragraphsSeen.current.add(item.index));
-    setCurrentParagraph(index);
-  }).current;
+  useEffect(() => {
+    const page = pages[currentPage];
+    if (!page) return;
+    pageAnchorOffset.current = page.start;
+    const firstParagraph = paragraphAtOffset(chapterParagraphStarts, page.start);
+    const lastParagraph = paragraphAtOffset(chapterParagraphStarts, Math.max(page.start, page.end - 1));
+    for (let index = firstParagraph; index <= lastParagraph; index += 1) paragraphsSeen.current.add(index);
+    setCurrentParagraph(firstParagraph);
+  }, [chapterParagraphStarts, currentPage, pages]);
 
   useEffect(() => {
     const positionKey = `${chapterIndex}:${currentParagraph}`;
@@ -179,15 +231,16 @@ export function ReaderScreen({ route, navigation }: Props) {
     }
   }, [translateContext]);
 
-  const selectWord = useCallback(async (word: string, paragraph: string, offset: number) => {
-    void recordLookup(bookId);
-    const sentence = sentenceAt(paragraph, offset);
+  const selectWord = useCallback(async (word: string, globalOffset: number) => {
+    const sentence = sentenceAt(chapterText, globalOffset);
     const request = ++lookupRequest.current;
     setSelection({ word, sentence });
     setLookup(null);
     setContextTranslation(undefined);
     setTranslationFailed(false);
     setLookupLoading(true);
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    void recordLookup(bookId);
     const lookupTask = (async () => {
       try {
         const result = await lookupDictionary(word, preferences.onlineSentenceTranslation);
@@ -200,7 +253,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       ? requestSentenceTranslation(sentence, request)
       : Promise.resolve();
     await Promise.allSettled([lookupTask, translationTask]);
-  }, [bookId, lookupDictionary, preferences.onlineSentenceTranslation, recordLookup, requestSentenceTranslation]);
+  }, [bookId, chapterText, lookupDictionary, preferences.onlineSentenceTranslation, recordLookup, requestSentenceTranslation]);
 
   const closeSelection = () => {
     lookupRequest.current += 1;
@@ -241,9 +294,8 @@ export function ReaderScreen({ route, navigation }: Props) {
       || settingsDraft.lineHeight !== preferences.lineHeight
       || settingsDraft.theme !== preferences.theme;
     if (!changed) return;
+    pageAnchorOffset.current = pages[currentPage]?.start ?? chapterParagraphStarts[currentParagraph] ?? 0;
     void updatePreferences(settingsDraft);
-    const anchor = currentParagraph;
-    setTimeout(() => flatList.current?.scrollToIndex({ index: anchor, animated: false, viewPosition: 0 }), 120);
   };
 
   const changeDraftFont = (delta: number) => {
@@ -254,35 +306,41 @@ export function ReaderScreen({ route, navigation }: Props) {
     }));
   };
 
-  const pauseWordInteraction = useCallback(() => {
-    if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
-    setFastScrolling(true);
-  }, []);
-
-  const resumeWordInteraction = useCallback(() => {
-    if (resumeInteractionTimer.current) clearTimeout(resumeInteractionTimer.current);
-    resumeInteractionTimer.current = setTimeout(() => setFastScrolling(false), 100);
-  }, []);
-
-  const renderParagraph = useCallback(({ item }: { item: string }) => (
-    <ReaderParagraph
-      color={theme.text}
-      fontSize={preferences.fontSize}
-      lineHeight={preferences.lineHeight}
-      paragraph={item}
-      interactive={!fastScrolling}
-      onSelect={selectWord}
-    />
-  ), [fastScrolling, preferences.fontSize, preferences.lineHeight, selectWord, theme.text]);
-
-  const jumpToChapter = (index: number) => {
+  const jumpToChapter = useCallback((index: number, paragraph = 0) => {
+    const targetChapter = content?.chapters[index];
+    const safeParagraph = targetChapter
+      ? Math.max(0, Math.min(targetChapter.paragraphs.length - 1, paragraph))
+      : 0;
+    pageAnchorOffset.current = targetChapter ? paragraphStarts(targetChapter.paragraphs)[safeParagraph] ?? 0 : 0;
     setChapterIndex(index);
-    setCurrentParagraph(0);
+    setCurrentParagraph(safeParagraph);
+    setCurrentPage(0);
     paragraphsSeen.current.clear();
     setChaptersVisible(false);
-    setTimeout(() => flatList.current?.scrollToOffset({ offset: 0, animated: false }), 30);
-    updateProgress(bookId, index, 0, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0);
-  };
+    updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0);
+  }, [book, bookId, content, updateProgress]);
+
+  const turnPage = useCallback((direction: -1 | 1) => {
+    const next = currentPage + direction;
+    if (next >= 0 && next < pages.length) {
+      setCurrentPage(next);
+      return;
+    }
+    if (direction > 0 && content && chapterIndex < content.chapters.length - 1) {
+      jumpToChapter(chapterIndex + 1);
+    } else if (direction < 0 && content && chapterIndex > 0) {
+      const previous = content.chapters[chapterIndex - 1];
+      jumpToChapter(chapterIndex - 1, Math.max(0, previous.paragraphs.length - 1));
+    }
+  }, [chapterIndex, content, currentPage, jumpToChapter, pages.length]);
+
+  const pagePanResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dx <= -42) turnPage(1);
+      else if (gesture.dx >= 42) turnPage(-1);
+    },
+  }), [turnPage]);
 
   if (!book || !content || !chapter) {
     return <View style={[styles.loading, { backgroundColor: theme.background }]}><ActivityIndicator color={colors.accent} /><Text style={[styles.loadingText, { color: theme.muted }]}>正在打开书页</Text></View>;
@@ -300,47 +358,65 @@ export function ReaderScreen({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
 
-      <FlashList
-        ref={flatList}
-        data={chapter.paragraphs}
-        keyExtractor={(_, index) => `${chapter.id}_${index}`}
-        contentContainerStyle={[styles.readerContent, { paddingBottom: insets.bottom + 88 }]}
-        showsVerticalScrollIndicator={false}
-        drawDistance={480}
-        extraData={`${preferences.fontSize}:${preferences.lineHeight}:${theme.text}:${fastScrolling}`}
-        onScrollBeginDrag={pauseWordInteraction}
-        onMomentumScrollBegin={pauseWordInteraction}
-        onScrollEndDrag={resumeWordInteraction}
-        onMomentumScrollEnd={resumeWordInteraction}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 55 }}
-        ListHeaderComponent={
-          <View style={styles.chapterHeader}>
-            <Text style={[styles.chapterNumber, { color: colors.accent }]}>CHAPTER {chapterIndex + 1}</Text>
-            <Text style={[styles.chapterTitle, { color: theme.text }]}>{chapter.title}</Text>
-            <View style={[styles.chapterRule, { backgroundColor: theme.muted }]} />
-          </View>
-        }
-        ListFooterComponent={
-          <View style={styles.chapterEnd}>
-            <View style={[styles.endMark, { borderColor: theme.muted }]} />
-            <Text style={[styles.endText, { color: theme.muted }]}>{chapterIndex < content.chapters.length - 1 ? '本章读完了' : '全书读完了'}</Text>
-            {chapterIndex < content.chapters.length - 1 ? (
-              <Pressable onPress={() => jumpToChapter(chapterIndex + 1)} style={styles.nextButton}>
-                <Text style={styles.nextText}>下一章</Text><Ionicons name="arrow-forward" size={16} color="#fff" />
-              </Pressable>
+      <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
+        {pages.length ? (
+          <View style={styles.pageSurface}>
+            {currentPage === 0 ? (
+              <View style={styles.pageChapterHeader}>
+                <Text style={[styles.chapterNumber, { color: colors.accent }]}>CHAPTER {chapterIndex + 1}</Text>
+                <Text numberOfLines={2} style={[styles.pageChapterTitle, { color: theme.text }]}>{chapter.title}</Text>
+                <View style={[styles.chapterRule, { backgroundColor: theme.muted }]} />
+              </View>
             ) : null}
+            <ReaderPageText
+              color={theme.text}
+              fontSize={preferences.fontSize}
+              lineHeight={preferences.lineHeight}
+              page={pages[currentPage] ?? pages[0]}
+              onSelect={selectWord}
+            />
+            <Text style={[styles.pageNumber, { color: theme.muted }]}>{currentPage + 1} / {pages.length}</Text>
+            {currentPage === pages.length - 1 ? <Text style={[styles.chapterEndLabel, { color: theme.muted }]}>本章末</Text> : null}
           </View>
-        }
-        renderItem={renderParagraph}
-      />
+        ) : (
+          <View style={styles.paginating}><ActivityIndicator color={colors.accent} /><Text style={[styles.loadingText, { color: theme.muted }]}>正在按屏幕排版…</Text></View>
+        )}
+
+        {paginationKey && !pages.length ? (
+          <Text
+            key={paginationKey}
+            onTextLayout={onChapterTextLayout}
+            style={[styles.measureText, {
+              width: Math.max(1, readerLayout.width - PAGE_HORIZONTAL_PADDING * 2),
+              color: theme.text,
+              fontSize: preferences.fontSize,
+              lineHeight: preferences.lineHeight,
+            }]}
+          >{chapterText}</Text>
+        ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="上一页"
+          disabled={currentPage === 0 && chapterIndex === 0}
+          onPress={() => turnPage(-1)}
+          style={[styles.pageEdge, styles.pageEdgeLeft]}
+        ><Ionicons name="chevron-back" size={17} color={theme.muted} /></Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={currentPage === pages.length - 1 ? '下一章' : '下一页'}
+          disabled={!pages.length || (currentPage === pages.length - 1 && chapterIndex === content.chapters.length - 1)}
+          onPress={() => turnPage(1)}
+          style={[styles.pageEdge, styles.pageEdgeRight]}
+        ><Ionicons name="chevron-forward" size={17} color={theme.muted} /></Pressable>
+      </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前段落" onPress={() => void speakEnglish(chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" onPress={() => void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
-          <View style={styles.bottomMeta}><Text style={[styles.bottomText, { color: theme.muted }]}>第 {chapterIndex + 1}/{content.chapters.length} 章</Text><Text style={[styles.bottomText, { color: theme.muted }]}>{Math.round(book.progress * 100)}%</Text></View>
+          <View style={styles.bottomMeta}><Text style={[styles.bottomText, { color: theme.muted }]}>第 {chapterIndex + 1}/{content.chapters.length} 章 · {pages.length ? `${currentPage + 1}/${pages.length} 页` : '排版中'}</Text><Text style={[styles.bottomText, { color: theme.muted }]}>{Math.round(book.progress * 100)}%</Text></View>
           <View style={[styles.bottomTrack, { backgroundColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}><View style={[styles.bottomFill, { width: `${Math.max(2, book.progress * 100)}%` }]} /></View>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.audioButton}><Ionicons name="list-outline" size={20} color={theme.text} /></Pressable>
@@ -449,19 +525,22 @@ const styles = StyleSheet.create({
   topTitle: { fontSize: 12, fontWeight: '700', maxWidth: '90%' },
   topChapter: { fontSize: 9, marginTop: 2, maxWidth: '90%' },
   aa: { fontFamily: typography.serif, fontSize: 17, fontWeight: '700' },
-  readerContent: { paddingHorizontal: 24 },
-  chapterHeader: { alignItems: 'center', paddingTop: 45, paddingBottom: 34 },
+  pageViewport: { flex: 1, position: 'relative', overflow: 'hidden' },
+  pageSurface: { flex: 1, paddingHorizontal: PAGE_HORIZONTAL_PADDING, paddingVertical: PAGE_VERTICAL_PADDING, overflow: 'hidden' },
+  paginating: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  measureText: { position: 'absolute', left: PAGE_HORIZONTAL_PADDING, top: 0, opacity: 0, fontFamily: typography.serif, letterSpacing: 0.12 },
+  pageChapterHeader: { height: FIRST_PAGE_HEADER_HEIGHT, alignItems: 'center', justifyContent: 'center', paddingBottom: 14 },
   chapterNumber: { fontSize: 10, fontWeight: '800', letterSpacing: 1.8, marginBottom: 14 },
-  chapterTitle: { fontFamily: typography.serif, fontSize: 30, lineHeight: 36, fontWeight: '700', textAlign: 'center', letterSpacing: -0.7 },
-  chapterRule: { width: 24, height: 1, opacity: 0.45, marginTop: 22 },
-  paragraph: { fontFamily: typography.serif, marginBottom: 20, letterSpacing: 0.12 },
+  pageChapterTitle: { fontFamily: typography.serif, fontSize: 25, lineHeight: 30, fontWeight: '700', textAlign: 'center', letterSpacing: -0.5 },
+  chapterRule: { width: 24, height: 1, opacity: 0.45, marginTop: 14 },
+  pageText: { fontFamily: typography.serif, letterSpacing: 0.12 },
   wordToken: { textDecorationLine: 'none' },
-  chapterEnd: { alignItems: 'center', paddingVertical: 52 },
-  endMark: { width: 9, height: 9, borderWidth: 1, transform: [{ rotate: '45deg' }], marginBottom: 16, opacity: 0.55 },
-  endText: { fontFamily: typography.serif, fontSize: 13, marginBottom: 18 },
-  nextButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.ink, paddingHorizontal: 20, paddingVertical: 12, borderRadius: radii.pill },
-  nextText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1 },
+  pageNumber: { position: 'absolute', right: 24, bottom: 5, fontSize: 8, fontWeight: '600' },
+  chapterEndLabel: { position: 'absolute', left: 24, bottom: 5, fontSize: 8, fontWeight: '700', letterSpacing: 1 },
+  pageEdge: { position: 'absolute', top: '43%', width: 28, height: 58, alignItems: 'center', justifyContent: 'center', opacity: 0.45 },
+  pageEdgeLeft: { left: 0 },
+  pageEdgeRight: { right: 0 },
+  bottomBar: { paddingTop: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1 },
   audioButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   bottomProgress: { flex: 1 },
   bottomMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
