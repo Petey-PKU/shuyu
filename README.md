@@ -2,11 +2,21 @@
 
 > 在书里，学会一门语言。
 
+[下载 Android APK（v1.3.1）](https://github.com/Petey-PKU/shuyu/releases/download/v1.3.1/Shuyu-v1.3.1-release.apk) · [查看 v1.3.1 发布说明](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1) · [历史版本](https://github.com/Petey-PKU/shuyu/releases)
+
 书语是一款面向中文母语学习者的开源英语语境阅读 App。用户导入自己有权使用的英文读物，在原文里点词查义、听发音、收藏带语境的生词，再用原句复习。当前支持英文 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型和英文扫描版 PDF。
 
-> 当前开发版本为 v1.3，Android 优先，基于 Expo / React Native / TypeScript。它不是书城，也不内置受版权保护的书籍。
+> 当前稳定版本为 v1.3.1，Android 优先，基于 Expo / React Native / TypeScript。它不是书城，也不内置受版权保护的书籍。
 
 产品与技术标识的统一命名约定见 [BRAND.md](./BRAND.md)。
+
+## 下载安装
+
+从 [GitHub Releases](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1) 下载最新正式版，或直接下载 [Shuyu-v1.3.1-release.apk](https://github.com/Petey-PKU/shuyu/releases/download/v1.3.1/Shuyu-v1.3.1-release.apk)。安装包已内置离线英语音色，大小约 340 MB；首次安装时，Android 可能要求为浏览器或文件管理器临时开启“安装未知应用”权限。
+
+APK SHA-256：`ED05055B0EF55EDF2CDAE6533647C3174DE83410AA1836DB30E927F8344EA1FE`
+
+v1.3.1 重点加入真实文字布局分页、左右点击与滑动翻页、字号即时预览和内置 Piper Amy 离线神经音色；同时包含 EPUB/MOBI/AZW3/KF8/PDF 导入、英文扫描版 PDF OCR 和整句翻译兼容性改进。
 
 ## 已实现
 
