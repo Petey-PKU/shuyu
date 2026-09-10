@@ -35,7 +35,7 @@ function BookTile({ book, saved, targetScore, onPress, onSave }: {
     <Pressable onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
       <View>
         <RecommendedBookCover book={book} width={132} />
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={onSave} style={[styles.saveButton, saved && styles.savedButton]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? '#fff' : colors.ink} />
         </Pressable>
       </View>
@@ -56,6 +56,7 @@ export function DiscoverScreen({ navigation }: Props) {
     toggleSavedRecommendedBook,
   } = useApp();
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
 
   useEffect(() => {
     if (recommendationState.profile) setBrowseLevel(recommendationState.profile.level);
@@ -66,7 +67,7 @@ export function DiscoverScreen({ navigation }: Props) {
     () => rankRecommendedBooks(recommendationState, readingSignals, books),
     [books, readingSignals, recommendationState],
   );
-  const personal = ranked.slice(0, 8);
+  const personal = (showSavedOnly ? ranked.filter((book) => recommendationState.savedBookIds.includes(book.id)) : ranked).slice(0, 8);
   const levelBooks = recommendedBooks.filter((book) => book.level === browseLevel);
   const filteredLevelBooks = recommendationState.preferredGenres.length
     ? levelBooks.filter((book) => book.genres.some((genre) => recommendationState.preferredGenres.includes(genre)))
@@ -115,7 +116,11 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}>
         <View><Text style={styles.sectionTitle}>{recommendationState.profile ? '正适合你的书' : '从这里开始看看'}</Text><Text style={styles.sectionSub}>难度、兴趣与近期阅读共同排序</Text></View>
-        {recommendationState.savedBookIds.length ? <View style={styles.savedCount}><Ionicons name="bookmark" size={12} color={colors.accent} /><Text style={styles.savedCountText}>{recommendationState.savedBookIds.length}</Text></View> : null}
+        {recommendationState.savedBookIds.length ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
+            <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${recommendationState.savedBookIds.length} 想读`}</Text>
+          </Pressable>
+        ) : null}
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
         {personal.map((book) => (
@@ -128,6 +133,7 @@ export function DiscoverScreen({ navigation }: Props) {
             onSave={() => toggleSavedRecommendedBook(book.id)}
           />
         ))}
+        {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>还没有想读的书</Text></View> : null}
       </ScrollView>
 
       <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>按等级浏览</Text><Text style={styles.sectionSub}>分级改写版与原版会明确标注</Text></View></View>
@@ -142,7 +148,7 @@ export function DiscoverScreen({ navigation }: Props) {
             <Pressable key={book.id} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
-                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable onPress={() => toggleSavedRecommendedBook(book.id)} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
+                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
                 <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>
@@ -194,6 +200,10 @@ const styles = StyleSheet.create({
   match: { fontSize: 9, fontWeight: '800', marginTop: 6 },
   savedCount: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accentSoft, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
   savedCountText: { color: colors.accent, fontSize: 10, fontWeight: '900' },
+  savedCountSelected: { backgroundColor: colors.accent },
+  savedCountTextSelected: { color: '#fff' },
+  savedEmpty: { height: 190, width: 220, borderRadius: radii.large, backgroundColor: 'rgba(255,255,255,0.55)', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  savedEmptyText: { color: colors.inkMuted, fontSize: 11, fontWeight: '700' },
   levelRow: { gap: 9, paddingRight: 8 },
   levelChip: { minWidth: 82, height: 57, paddingHorizontal: 13, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.62)', borderWidth: 1, borderColor: colors.line, justifyContent: 'center' },
   levelChipSelected: { backgroundColor: colors.accentSoft, borderColor: 'rgba(255,112,67,0.36)' },

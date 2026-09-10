@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ImportStatus } from '../types';
 import { colors, radii, typography } from '../theme';
@@ -13,6 +13,19 @@ export function ImportOverlay({ status, onCancel }: Props) {
   const currentPage = status?.currentPage ?? 0;
   const totalPages = status?.totalPages ?? 0;
   const progress = totalPages > 0 ? Math.min(1, currentPage / totalPages) : 0;
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!status) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [status?.startedAt]);
+
+  const elapsedSeconds = status?.startedAt ? Math.max(0, Math.floor((now - status.startedAt) / 1000)) : 0;
+  const elapsedLabel = elapsedSeconds >= 60
+    ? `${Math.floor(elapsedSeconds / 60)} 分 ${elapsedSeconds % 60} 秒`
+    : `${elapsedSeconds} 秒`;
 
   return (
     <Modal
@@ -50,7 +63,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
               </Pressable>
             </>
           ) : (
-            <Text style={styles.body}>本地解析章节与文字，书籍原文不会上传。</Text>
+            <Text style={styles.body}>本地解析章节与文字，书籍原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</Text>
           )}
         </View>
       </View>

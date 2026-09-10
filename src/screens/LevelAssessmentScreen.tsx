@@ -51,8 +51,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
           <View><Text style={styles.scoreLabel}>阅读适配分</Text><Text style={styles.scoreHint}>用于排序，不是考试成绩</Text></View>
           <Text style={styles.scoreValue}>{result.score}</Text>
         </View>
-        <Pressable onPress={() => navigation.goBack()} style={styles.primaryButton}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
-        <Pressable onPress={restart} style={styles.secondaryButton}><Text style={styles.secondaryText}>重新测试</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="查看我的推荐" onPress={() => navigation.goBack()} style={styles.primaryButton}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="重新测试" onPress={restart} style={styles.secondaryButton}><Text style={styles.secondaryText}>重新测试</Text></Pressable>
       </ScrollView>
     );
   }
@@ -71,7 +71,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         <Text style={styles.prompt}>{question.prompt}</Text>
         <View style={styles.options}>
           {question.options.map((option, index) => (
-            <Pressable key={option} onPress={() => choose(index)} style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
+            <Pressable key={option} accessibilityRole="button" accessibilityLabel={`选择答案 ${String.fromCharCode(65 + index)}：${option}`} onPress={() => void choose(index)} style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
               <View style={styles.optionLetter}><Text style={styles.optionLetterText}>{String.fromCharCode(65 + index)}</Text></View>
               <Text style={styles.optionText}>{option}</Text>
             </Pressable>

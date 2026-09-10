@@ -47,6 +47,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/verify-all.ts",
+    "test:in-process": "node scripts/run-verifier.mjs",
     "test:translation": "tsx scripts/verify-translation.ts",
     "test:translation-proxy": "node --test translation-proxy/test/gateway.test.mjs",
     "test:dictionary": "python scripts/verify_dictionary.py",

@@ -10,23 +10,19 @@ import type {
   ReadingStats,
   RecommendationState,
   SavedWord,
+  BackupPayload,
 } from '../types';
 import { bookAccents } from '../theme';
-
-const KEYS = {
-  books: '@shuyu/books',
-  words: '@shuyu/words',
-  stats: '@shuyu/stats',
-  preferences: '@shuyu/preferences',
-  recommendations: '@shuyu/recommendations',
-  readingSignals: '@shuyu/reading-signals',
-  sample: '@shuyu/sample-seeded',
-};
+import { seedSampleOnce } from '../utils/bootstrap';
+import { libraryKeys as KEYS } from '../utils/storageKeys';
+import { recoverInterruptedRestore, restoreBackupSnapshot, type RestoreStorage } from '../utils/backupRestore';
+import { isSafeBookId } from '../utils/backup';
 
 const booksDirectory = Platform.OS === 'web' ? null : new Directory(Paths.document, 'shuyu-books');
 const defaultPreferences: ReadingPreferences = {
   fontSize: 19,
   lineHeight: 32,
+  dailyGoalMinutes: 15,
   theme: 'paper',
   onlineSentenceTranslation: true,
   speechVoice: undefined,
@@ -43,12 +39,28 @@ function ensureBooksDirectory() {
 }
 
 function contentFile(bookId: string) {
+  if (!isSafeBookId(bookId)) throw new Error('书籍文件标识无效');
   if (!booksDirectory) throw new Error('Web 预览使用浏览器存储，不创建本地文件');
   ensureBooksDirectory();
   return new File(booksDirectory, `${bookId}.json`);
 }
 
 const contentKey = (bookId: string) => `@shuyu/content/${bookId}`;
+
+const writeQueues = new Map<string, Promise<void>>();
+let restoring = false;
+
+function assertWritable() {
+  if (restoring) throw new Error('正在恢复本地数据，请稍候再操作');
+}
+
+function enqueueWrite(key: string, task: () => Promise<void>) {
+  assertWritable();
+  const previous = writeQueues.get(key) ?? Promise.resolve();
+  const next = previous.catch(() => undefined).then(task);
+  writeQueues.set(key, next);
+  return next;
+}
 
 export function makeId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -60,7 +72,7 @@ export async function loadBooks(): Promise<Book[]> {
 }
 
 export async function saveBooks(books: Book[]) {
-  await AsyncStorage.setItem(KEYS.books, JSON.stringify(books));
+  await enqueueWrite(KEYS.books, () => AsyncStorage.setItem(KEYS.books, JSON.stringify(books)));
 }
 
 export async function loadWords(): Promise<SavedWord[]> {
@@ -69,16 +81,18 @@ export async function loadWords(): Promise<SavedWord[]> {
 }
 
 export async function saveWords(words: SavedWord[]) {
-  await AsyncStorage.setItem(KEYS.words, JSON.stringify(words));
+  await enqueueWrite(KEYS.words, () => AsyncStorage.setItem(KEYS.words, JSON.stringify(words)));
 }
 
 export async function loadStats(): Promise<ReadingStats> {
   const raw = await AsyncStorage.getItem(KEYS.stats);
-  return raw ? JSON.parse(raw) : { minutes: 0, words: 0, streak: 0 };
+  return raw
+    ? { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0, ...JSON.parse(raw) }
+    : { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 };
 }
 
 export async function saveStats(stats: ReadingStats) {
-  await AsyncStorage.setItem(KEYS.stats, JSON.stringify(stats));
+  await enqueueWrite(KEYS.stats, () => AsyncStorage.setItem(KEYS.stats, JSON.stringify(stats)));
 }
 
 export async function loadPreferences(): Promise<ReadingPreferences> {
@@ -87,7 +101,7 @@ export async function loadPreferences(): Promise<ReadingPreferences> {
 }
 
 export async function savePreferences(preferences: ReadingPreferences) {
-  await AsyncStorage.setItem(KEYS.preferences, JSON.stringify(preferences));
+  await enqueueWrite(KEYS.preferences, () => AsyncStorage.setItem(KEYS.preferences, JSON.stringify(preferences)));
 }
 
 export async function loadRecommendationState(): Promise<RecommendationState> {
@@ -96,7 +110,7 @@ export async function loadRecommendationState(): Promise<RecommendationState> {
 }
 
 export async function saveRecommendationState(state: RecommendationState) {
-  await AsyncStorage.setItem(KEYS.recommendations, JSON.stringify(state));
+  await enqueueWrite(KEYS.recommendations, () => AsyncStorage.setItem(KEYS.recommendations, JSON.stringify(state)));
 }
 
 export async function loadReadingSignals(): Promise<ReadingSignal[]> {
@@ -105,10 +119,11 @@ export async function loadReadingSignals(): Promise<ReadingSignal[]> {
 }
 
 export async function saveReadingSignals(signals: ReadingSignal[]) {
-  await AsyncStorage.setItem(KEYS.readingSignals, JSON.stringify(signals));
+  await enqueueWrite(KEYS.readingSignals, () => AsyncStorage.setItem(KEYS.readingSignals, JSON.stringify(signals)));
 }
 
 export async function createBook(parsed: ParsedBook): Promise<{ book: Book; content: BookContent }> {
+  assertWritable();
   const id = makeId('book');
   const content: BookContent = {
     id,
@@ -141,6 +156,17 @@ export async function createBook(parsed: ParsedBook): Promise<{ book: Book; cont
   return { book, content };
 }
 
+async function writeNewBookContent(bookId: string, content: BookContent) {
+  if (Platform.OS === 'web') {
+    if (await AsyncStorage.getItem(contentKey(bookId)) !== null) throw new Error('恢复副本的文件名已存在');
+    await AsyncStorage.setItem(contentKey(bookId), JSON.stringify(content));
+    return;
+  }
+  const file = contentFile(bookId);
+  file.create({ intermediates: true, overwrite: false });
+  file.write(JSON.stringify(content));
+}
+
 export async function loadBookContent(bookId: string): Promise<BookContent> {
   if (Platform.OS === 'web') {
     const raw = await AsyncStorage.getItem(contentKey(bookId));
@@ -152,13 +178,47 @@ export async function loadBookContent(bookId: string): Promise<BookContent> {
   return file.json();
 }
 
+export async function restoreBackupData(payload: BackupPayload) {
+  assertWritable();
+  restoring = true;
+  try {
+    await Promise.allSettled([...writeQueues.values()]);
+    return await restoreBackupSnapshot(payload, restoreStorage);
+  } finally {
+    restoring = false;
+  }
+}
+
 export async function deleteBookContent(bookId: string) {
+  assertWritable();
+  await removeBookContent(bookId);
+}
+
+async function removeBookContent(bookId: string) {
   if (Platform.OS === 'web') {
     await AsyncStorage.removeItem(contentKey(bookId));
     return;
   }
   const file = contentFile(bookId);
   if (file.exists) file.delete();
+}
+
+const restoreStorage: RestoreStorage = {
+  getItem: (key) => AsyncStorage.getItem(key),
+  setItem: (key, value) => AsyncStorage.setItem(key, value),
+  removeItem: (key) => AsyncStorage.removeItem(key),
+  contentExists: async (id) => Platform.OS === 'web'
+    ? (await AsyncStorage.getItem(contentKey(id))) !== null : contentFile(id).exists,
+  writeNewContent: writeNewBookContent,
+  removeContent: removeBookContent,
+  makeBookId: () => makeId('restored'),
+};
+
+export async function recoverPendingRestore() {
+  assertWritable();
+  restoring = true;
+  try { await recoverInterruptedRestore(restoreStorage); }
+  finally { restoring = false; }
 }
 
 const sample: ParsedBook = {
@@ -189,15 +249,18 @@ const sample: ParsedBook = {
   ],
 };
 
-export async function ensureSampleBook(): Promise<Book | null> {
-  const seeded = await AsyncStorage.getItem(KEYS.sample);
-  if (seeded) return null;
-  const { book } = await createBook(sample);
-  await AsyncStorage.setItem(KEYS.sample, 'true');
-  return book;
+export async function ensureSampleBook(books: Book[]): Promise<Book[]> {
+  return seedSampleOnce(books, {
+    isSeeded: async () => (await AsyncStorage.getItem(KEYS.sample)) !== null,
+    create: async () => (await createBook(sample)).book,
+    saveBooks,
+    markSeeded: () => AsyncStorage.setItem(KEYS.sample, 'true'),
+  });
 }
 
 export async function clearAllLocalData() {
+  assertWritable();
+  await Promise.allSettled([...writeQueues.values()]);
   const contentKeys = (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith('@shuyu/content/'));
   await AsyncStorage.multiRemove([...Object.values(KEYS), ...contentKeys]);
   if (booksDirectory?.exists) booksDirectory.delete();

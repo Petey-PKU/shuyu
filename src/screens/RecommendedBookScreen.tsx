@@ -42,7 +42,10 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       const imported = await importBook();
       if (imported) navigation.replace('Reader', { bookId: imported.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试');
+      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试', [
+        { text: '取消', style: 'cancel' },
+        { text: '重试', onPress: () => { void handleImport(); } },
+      ]);
     }
   };
 
@@ -51,7 +54,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={23} color={colors.ink} /></Pressable>
         <Text style={styles.topTitle}>选书详情</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => toggleSavedRecommendedBook(book.id)} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => { void toggleSavedRecommendedBook(book.id); }} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
 
       <View style={styles.hero}>
@@ -83,7 +86,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.feedbackRow}>
         {feedbackOptions.map((option) => {
           const selected = feedback === option.value;
-          return <Pressable key={option.value} onPress={() => setRecommendedBookFeedback(book.id, option.value)} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
+          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} onPress={() => { void setRecommendedBookFeedback(book.id, option.value); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
         })}
       </View>
 
@@ -91,7 +94,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
         <Ionicons name="shield-checkmark-outline" size={22} color={colors.sage} />
         <View style={{ flex: 1 }}><Text style={styles.sourceTitle}>获取方式由你决定</Text><Text style={styles.sourceBody}>本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT、无 DRM EPUB/MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF。</Text></View>
       </View>
-      <Pressable onPress={handleImport} style={styles.importButton}><Ionicons name="document-text-outline" size={18} color="#fff" /><Text style={styles.importText}>我已有文件，导入阅读</Text></Pressable>
+      <Pressable accessibilityRole="button" accessibilityLabel="导入自己的文件开始阅读" onPress={handleImport} style={styles.importButton}><Ionicons name="document-text-outline" size={18} color="#fff" /><Text style={styles.importText}>我已有文件，导入阅读</Text></Pressable>
     </ScrollView>
   );
 }

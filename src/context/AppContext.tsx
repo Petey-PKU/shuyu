@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import type {
   Book,
   BookContent,
+  BackupPayload,
   BookGenre,
   DifficultyFeedback,
   ImportStatus,
@@ -32,8 +33,14 @@ import {
   saveRecommendationState,
   saveStats,
   saveWords,
+  restoreBackupData,
+  recoverPendingRestore,
 } from '../services/library';
 import { pickAndParseBook } from '../services/importer';
+import { deferReview } from '../utils/review';
+import { loadAppSnapshot } from '../utils/bootstrap';
+import { createBackupPayload } from '../utils/backup';
+import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
   word: string;
@@ -43,10 +50,15 @@ interface AddWordInput {
   contextTranslation?: string;
   bookId: string;
   bookTitle: string;
+  chapterIndex?: number;
+  paragraphIndex?: number;
 }
 
 interface AppContextValue {
   ready: boolean;
+  storageActivity: 'export' | 'restore' | null;
+  startupError: string | null;
+  retryLoad: () => Promise<void>;
   importing: boolean;
   importStatus: ImportStatus | null;
   books: Book[];
@@ -58,11 +70,13 @@ interface AppContextValue {
   importBook: () => Promise<Book | null>;
   cancelImport: () => void;
   getBookContent: (bookId: string) => Promise<BookContent>;
-  updateProgress: (bookId: string, chapter: number, paragraph: number, progress: number) => Promise<void>;
+  updateProgress: (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => Promise<void>;
   addWord: (input: AddWordInput) => Promise<void>;
   toggleMastered: (wordId: string) => Promise<void>;
+  deferWord: (wordId: string) => Promise<void>;
   removeWord: (wordId: string) => Promise<void>;
   removeBook: (bookId: string) => Promise<void>;
+  updateBookMetadata: (bookId: string, title: string, author: string) => Promise<void>;
   updatePreferences: (next: Partial<ReadingPreferences>) => Promise<void>;
   setReadingProfile: (profile: ReadingLevelProfile) => Promise<void>;
   togglePreferredGenre: (genre: BookGenre) => Promise<void>;
@@ -71,6 +85,9 @@ interface AppContextValue {
   recordLookup: (bookId: string) => Promise<void>;
   addReadingMinutes: (bookId: string, minutes: number, wordsRead: number) => Promise<void>;
   resetAll: () => Promise<void>;
+  exportBackup: () => Promise<string | null>;
+  pickBackup: () => Promise<BackupPayload | null>;
+  restoreBackup: (payload: BackupPayload) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -104,52 +121,76 @@ function confirmScannedPdfOcr(pageCount: number): Promise<boolean> {
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const hydratingRef = useRef(false);
+  const resettingRef = useRef(false);
+  const importingRef = useRef(false);
+  const storageActivityRef = useRef<'export' | 'restore' | null>(null);
+  const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
+  const booksRef = useRef<Book[]>([]);
   const [words, setWords] = useState<SavedWord[]>([]);
-  const [stats, setStats] = useState<ReadingStats>({ minutes: 0, words: 0, streak: 0 });
+  const wordsRef = useRef<SavedWord[]>([]);
+  const [stats, setStats] = useState<ReadingStats>({ minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 });
+  const statsRef = useRef<ReadingStats>({ minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 });
   const [preferences, setPreferences] = useState<ReadingPreferences>({
     fontSize: 19,
     lineHeight: 32,
+    dailyGoalMinutes: 15,
     theme: 'paper',
     onlineSentenceTranslation: true,
     speechVoice: undefined,
   });
+  const preferencesRef = useRef<ReadingPreferences>(preferences);
   const [recommendationState, setRecommendationState] = useState<RecommendationState>({
     preferredGenres: [],
     savedBookIds: [],
     feedback: {},
   });
+  const recommendationStateRef = useRef<RecommendationState>(recommendationState);
   const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
   const ocrCancelRef = useRef<(() => void) | null>(null);
 
   const hydrate = useCallback(async () => {
-    const [loadedBooks, loadedWords, loadedStats, loadedPreferences, loadedRecommendations, loadedSignals] = await Promise.all([
-      loadBooks(), loadWords(), loadStats(), loadPreferences(), loadRecommendationState(), loadReadingSignals(),
-    ]);
-    const sampleBook = await ensureSampleBook();
-    const nextBooks = sampleBook ? [sampleBook, ...loadedBooks] : loadedBooks;
-    if (sampleBook) await saveBooks(nextBooks);
-    setBooks(nextBooks);
-    setWords(loadedWords);
-    setStats(loadedStats);
-    setPreferences(loadedPreferences);
-    setRecommendationState(loadedRecommendations);
-    setReadingSignals(loadedSignals);
-    readingSignalsRef.current = loadedSignals;
-    setReady(true);
+    if (hydratingRef.current) return;
+    hydratingRef.current = true;
+    setReady(false);
+    setStartupError(null);
+    try {
+      const snapshot = await loadAppSnapshot({
+        recoverPendingRestore, loadBooks, loadWords, loadStats, loadPreferences, loadRecommendationState, loadReadingSignals, ensureSampleBook,
+      });
+      booksRef.current = snapshot.books;
+      wordsRef.current = snapshot.words;
+      statsRef.current = snapshot.stats;
+      preferencesRef.current = snapshot.preferences;
+      recommendationStateRef.current = snapshot.recommendationState;
+      readingSignalsRef.current = snapshot.readingSignals;
+      setBooks(snapshot.books);
+      setWords(snapshot.words);
+      setStats(snapshot.stats);
+      setPreferences(snapshot.preferences);
+      setRecommendationState(snapshot.recommendationState);
+      setReadingSignals(snapshot.readingSignals);
+      setReady(true);
+    } catch {
+      setStartupError('暂时无法读取本地书架。重试不会清除已有数据；若问题持续，可先重启应用。');
+    } finally {
+      hydratingRef.current = false;
+    }
   }, []);
 
   useEffect(() => {
-    hydrate().catch((error) => {
-      console.error(error);
-      setReady(true);
-    });
+    void hydrate();
   }, [hydrate]);
 
   const importBook = useCallback(async () => {
-    setImportStatus({ phase: 'parsing' });
+    if (storageActivityRef.current || resettingRef.current || importingRef.current) return null;
+    importingRef.current = true;
+    const startedAt = Date.now();
+    setImportStatus({ phase: 'parsing', startedAt });
     try {
       const parsed = await pickAndParseBook({
         confirmOcr: async (pageCount) => {
@@ -157,13 +198,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setImportStatus(null);
           const confirmed = await confirmScannedPdfOcr(pageCount);
           if (confirmed) {
-            setImportStatus({ phase: 'ocr', currentPage: 0, totalPages: pageCount, skippedPages: 0 });
+            setImportStatus({ phase: 'ocr', startedAt, currentPage: 0, totalPages: pageCount, skippedPages: 0 });
           }
           return confirmed;
         },
         onOcrProgress: ({ currentPage, totalPages, skippedPages, cancelling }) => {
           setImportStatus((current) => ({
             phase: 'ocr',
+            startedAt: current?.startedAt ?? startedAt,
             currentPage,
             totalPages,
             skippedPages,
@@ -176,15 +218,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       if (!parsed) return null;
       const { book } = await createBook(parsed);
-      const next = [book, ...books];
+      const next = [book, ...booksRef.current];
+      booksRef.current = next;
       setBooks(next);
       await saveBooks(next);
       return book;
     } finally {
+      importingRef.current = false;
       ocrCancelRef.current = null;
       setImportStatus(null);
     }
-  }, [books]);
+  }, []);
 
   const cancelImport = useCallback(() => {
     const cancel = ocrCancelRef.current;
@@ -195,86 +239,144 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cancel();
   }, []);
 
-  const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number) => {
-    const current = books.find((book) => book.id === bookId);
-    if (current && current.currentChapter === chapter && current.currentParagraph === paragraph && Math.abs(current.progress - progress) < 0.0001) return;
+  const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => {
+    if (storageActivityRef.current || resettingRef.current) return;
+    const current = booksRef.current.find((book) => book.id === bookId);
+    if (!current) return;
     const now = new Date().toISOString();
-    const next = books.map((book) => book.id === bookId
-      ? { ...book, currentChapter: chapter, currentParagraph: paragraph, progress, lastOpenedAt: now }
+    const next = booksRef.current.map((book) => book.id === bookId
+      ? { ...book, currentChapter: chapter, currentParagraph: paragraph, currentOffset: offset, progress, lastOpenedAt: now }
       : book);
+    booksRef.current = next;
     setBooks(next);
     await saveBooks(next);
-  }, [books]);
+  }, []);
 
   const addWord = useCallback(async (input: AddWordInput) => {
-    const existing = words.find((item) => item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
+    if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === input.bookId)) return;
+    const currentWords = wordsRef.current;
+    const existing = currentWords.find((item) => item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
     if (existing) return;
-    const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0 }, ...words];
+    const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0, nextReviewAt: new Date().toISOString() }, ...currentWords];
+    wordsRef.current = next;
     setWords(next);
     await saveWords(next);
-  }, [words]);
+  }, []);
 
   const toggleMastered = useCallback(async (wordId: string) => {
-    const next = words.map((item) => item.id === wordId
-      ? { ...item, mastered: !item.mastered, reviewCount: item.reviewCount + 1 }
+    if (storageActivityRef.current || resettingRef.current) return;
+    const reviewedAt = new Date().toISOString();
+    const next = wordsRef.current.map((item) => item.id === wordId
+      ? { ...item, mastered: !item.mastered, reviewCount: item.reviewCount + 1, lastReviewedAt: reviewedAt, nextReviewAt: item.mastered ? reviewedAt : undefined }
       : item);
+    wordsRef.current = next;
     setWords(next);
     await saveWords(next);
-  }, [words]);
+  }, []);
+
+  const deferWord = useCallback(async (wordId: string) => {
+    if (storageActivityRef.current || resettingRef.current) return;
+    const currentWords = wordsRef.current;
+    const current = currentWords.find((item) => item.id === wordId);
+    if (!current) return;
+    const next = currentWords.map((item) => item.id === wordId ? deferReview(item) : item);
+    wordsRef.current = next;
+    setWords(next);
+    await saveWords(next);
+  }, []);
 
   const removeWord = useCallback(async (wordId: string) => {
-    const next = words.filter((item) => item.id !== wordId);
+    if (storageActivityRef.current || resettingRef.current) return;
+    const next = wordsRef.current.filter((item) => item.id !== wordId);
+    wordsRef.current = next;
     setWords(next);
     await saveWords(next);
-  }, [words]);
+  }, []);
 
   const removeBook = useCallback(async (bookId: string) => {
-    const nextBooks = books.filter((book) => book.id !== bookId);
-    const nextWords = words.filter((word) => word.bookId !== bookId);
+    if (storageActivityRef.current || resettingRef.current) return;
+    const nextBooks = booksRef.current.filter((book) => book.id !== bookId);
+    const nextWords = wordsRef.current.filter((word) => word.bookId !== bookId);
+    const nextSignals = readingSignalsRef.current.filter((signal) => signal.bookId !== bookId);
+    readingSignalsRef.current = nextSignals;
+    setReadingSignals(nextSignals);
+    booksRef.current = nextBooks;
+    wordsRef.current = nextWords;
     setBooks(nextBooks);
     setWords(nextWords);
-    await Promise.all([saveBooks(nextBooks), saveWords(nextWords), deleteBookContent(bookId)]);
-  }, [books, words]);
+    await Promise.all([saveBooks(nextBooks), saveWords(nextWords), saveReadingSignals(nextSignals), deleteBookContent(bookId)]);
+  }, []);
+
+  const updateBookMetadata = useCallback(async (bookId: string, title: string, author: string) => {
+    if (storageActivityRef.current || resettingRef.current) return;
+    const nextTitle = title.trim();
+    if (!nextTitle) throw new Error('书名不能为空');
+    const next = booksRef.current.map((book) => book.id === bookId
+      ? { ...book, title: nextTitle, author: author.trim() || '未知作者' }
+      : book);
+    const nextWords = wordsRef.current.map((word) => word.bookId === bookId
+      ? { ...word, bookTitle: nextTitle }
+      : word);
+    booksRef.current = next;
+    wordsRef.current = nextWords;
+    setBooks(next);
+    setWords(nextWords);
+    await Promise.all([saveBooks(next), saveWords(nextWords)]);
+  }, []);
 
   const updatePreferences = useCallback(async (next: Partial<ReadingPreferences>) => {
-    const value = { ...preferences, ...next };
+    if (storageActivityRef.current || resettingRef.current) return;
+    const value = { ...preferencesRef.current, ...next };
+    preferencesRef.current = value;
     setPreferences(value);
     await savePreferences(value);
-  }, [preferences]);
+  }, []);
 
   const setReadingProfile = useCallback(async (profile: ReadingLevelProfile) => {
-    const next = { ...recommendationState, profile };
+    if (storageActivityRef.current || resettingRef.current) return;
+    const next = { ...recommendationStateRef.current, profile };
+    recommendationStateRef.current = next;
     setRecommendationState(next);
     await saveRecommendationState(next);
-  }, [recommendationState]);
+  }, []);
 
   const togglePreferredGenre = useCallback(async (genre: BookGenre) => {
-    const exists = recommendationState.preferredGenres.includes(genre);
+    if (storageActivityRef.current || resettingRef.current) return;
+    const current = recommendationStateRef.current;
+    const exists = current.preferredGenres.includes(genre);
     const preferredGenres = exists
-      ? recommendationState.preferredGenres.filter((item) => item !== genre)
-      : [...recommendationState.preferredGenres, genre];
-    const next = { ...recommendationState, preferredGenres };
+      ? current.preferredGenres.filter((item) => item !== genre)
+      : [...current.preferredGenres, genre];
+    const next = { ...current, preferredGenres };
+    recommendationStateRef.current = next;
     setRecommendationState(next);
     await saveRecommendationState(next);
-  }, [recommendationState]);
+  }, []);
 
   const toggleSavedRecommendedBook = useCallback(async (bookId: string) => {
-    const exists = recommendationState.savedBookIds.includes(bookId);
+    if (storageActivityRef.current || resettingRef.current) return;
+    const current = recommendationStateRef.current;
+    const exists = current.savedBookIds.includes(bookId);
     const savedBookIds = exists
-      ? recommendationState.savedBookIds.filter((item) => item !== bookId)
-      : [...recommendationState.savedBookIds, bookId];
-    const next = { ...recommendationState, savedBookIds };
+      ? current.savedBookIds.filter((item) => item !== bookId)
+      : [...current.savedBookIds, bookId];
+    const next = { ...current, savedBookIds };
+    recommendationStateRef.current = next;
     setRecommendationState(next);
     await saveRecommendationState(next);
-  }, [recommendationState]);
+  }, []);
 
   const setRecommendedBookFeedback = useCallback(async (bookId: string, feedback: DifficultyFeedback) => {
-    const next = { ...recommendationState, feedback: { ...recommendationState.feedback, [bookId]: feedback } };
+    if (storageActivityRef.current || resettingRef.current) return;
+    const current = recommendationStateRef.current;
+    const next = { ...current, feedback: { ...current.feedback, [bookId]: feedback } };
+    recommendationStateRef.current = next;
     setRecommendationState(next);
     await saveRecommendationState(next);
-  }, [recommendationState]);
+  }, []);
 
   const recordLookup = useCallback(async (bookId: string) => {
+    if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
     const currentSignals = readingSignalsRef.current;
     const current = currentSignals.find((signal) => signal.bookId === bookId);
     const next = current
@@ -286,19 +388,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
+    if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
     if (minutes <= 0 && wordsRead <= 0) return;
+    const currentStats = statsRef.current;
     const today = localDateKey(new Date());
-    let streak = stats.streak;
-    if (stats.lastReadDate !== today) {
+    let streak = currentStats.streak;
+    if (currentStats.lastReadDate !== today) {
       const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
-      streak = stats.lastReadDate === yesterday ? stats.streak + 1 : 1;
+      streak = currentStats.lastReadDate === yesterday ? currentStats.streak + 1 : 1;
     }
+    const sameDay = currentStats.todayDate === today;
     const next = {
-      minutes: stats.minutes + Math.max(0, minutes),
-      words: stats.words + Math.max(0, wordsRead),
+      minutes: currentStats.minutes + Math.max(0, minutes),
+      words: currentStats.words + Math.max(0, wordsRead),
+      todayMinutes: (sameDay ? currentStats.todayMinutes : 0) + Math.max(0, minutes),
+      todayWords: (sameDay ? currentStats.todayWords : 0) + Math.max(0, wordsRead),
+      todayDate: today,
       streak,
       lastReadDate: today,
     };
+    statsRef.current = next;
     setStats(next);
     const currentSignals = readingSignalsRef.current;
     const currentSignal = currentSignals.find((signal) => signal.bookId === bookId);
@@ -310,30 +419,102 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
     await Promise.all([saveStats(next), saveReadingSignals(nextSignals)]);
-  }, [stats]);
+  }, []);
 
   const resetAll = useCallback(async () => {
-    await clearAllLocalData();
+    if (resettingRef.current || importingRef.current || storageActivityRef.current) return;
+    resettingRef.current = true;
     setReady(false);
-    setBooks([]);
-    setWords([]);
-    setStats({ minutes: 0, words: 0, streak: 0 });
-    setPreferences({ fontSize: 19, lineHeight: 32, theme: 'paper', onlineSentenceTranslation: true, speechVoice: undefined });
-    setRecommendationState({ preferredGenres: [], savedBookIds: [], feedback: {} });
-    setReadingSignals([]);
-    readingSignalsRef.current = [];
-    await hydrate();
+    setStartupError(null);
+    try {
+      await clearAllLocalData();
+      setBooks([]);
+      booksRef.current = [];
+      setWords([]);
+      wordsRef.current = [];
+      const emptyStats = { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 };
+      statsRef.current = emptyStats;
+      setStats(emptyStats);
+      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: true, speechVoice: undefined };
+      const emptyRecommendations = { preferredGenres: [], savedBookIds: [], feedback: {} };
+      preferencesRef.current = emptyPreferences;
+      recommendationStateRef.current = emptyRecommendations;
+      setPreferences(emptyPreferences);
+      setRecommendationState(emptyRecommendations);
+      setReadingSignals([]);
+      readingSignalsRef.current = [];
+      await hydrate();
+    } catch {
+      setStartupError('清除数据未能完成。请重新读取当前数据，确认书架状态后再操作。');
+    } finally {
+      resettingRef.current = false;
+    }
+  }, [hydrate]);
+
+  const exportBackup = useCallback(async () => {
+    if (storageActivityRef.current || resettingRef.current || importingRef.current) throw new Error('请等待当前数据操作完成后再备份');
+    storageActivityRef.current = 'export';
+    setStorageActivity('export');
+    const snapshot = {
+      books: booksRef.current,
+      words: wordsRef.current,
+      stats: statsRef.current,
+      preferences: preferencesRef.current,
+      recommendationState: recommendationStateRef.current,
+      readingSignals: readingSignalsRef.current,
+    };
+    try {
+      const contents: Record<string, BookContent> = {};
+      for (const book of snapshot.books) contents[book.id] = await loadBookContent(book.id);
+      return await writeBackupFile(createBackupPayload({ ...snapshot, contents }));
+    } finally {
+      storageActivityRef.current = null;
+      setStorageActivity(null);
+    }
+  }, []);
+
+  const restoreBackup = useCallback(async (payload: BackupPayload) => {
+    if (storageActivityRef.current || resettingRef.current || importingRef.current) throw new Error('请等待当前数据操作完成后再恢复');
+    storageActivityRef.current = 'restore';
+    setStorageActivity('restore');
+    setReady(false);
+    setStartupError(null);
+    try {
+      const restored = await restoreBackupData(payload);
+      booksRef.current = restored.books;
+      wordsRef.current = restored.words;
+      statsRef.current = restored.stats;
+      preferencesRef.current = restored.preferences;
+      recommendationStateRef.current = restored.recommendationState;
+      readingSignalsRef.current = restored.readingSignals;
+      setBooks(restored.books);
+      setWords(restored.words);
+      setStats(restored.stats);
+      setPreferences(restored.preferences);
+      setRecommendationState(restored.recommendationState);
+      setReadingSignals(restored.readingSignals);
+      setReady(true);
+    } catch (error) {
+      // Re-read only after the persisted rollback has completed; otherwise stay on recovery screen.
+      await hydrate();
+      throw error;
+    } finally {
+      storageActivityRef.current = null;
+      setStorageActivity(null);
+    }
   }, [hydrate]);
 
   const value = useMemo(() => ({
-    ready, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
-    getBookContent: loadBookContent, updateProgress, addWord, toggleMastered,
-    removeWord, removeBook, updatePreferences, setReadingProfile, togglePreferredGenre,
+    ready, storageActivity, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
+    getBookContent: loadBookContent, updateProgress, addWord, toggleMastered, deferWord,
+    removeWord, removeBook, updateBookMetadata, updatePreferences, setReadingProfile, togglePreferredGenre,
     toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll,
+    exportBackup, pickBackup: pickBackupFile, restoreBackup,
   }), [
-    ready, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
-    addWord, toggleMastered, removeWord, removeBook, updatePreferences, addReadingMinutes, resetAll,
+    ready, storageActivity, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
+    addWord, toggleMastered, deferWord, removeWord, removeBook, updateBookMetadata, updatePreferences, addReadingMinutes, resetAll,
     setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
+    exportBackup, restoreBackup,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

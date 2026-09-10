@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -9,15 +9,18 @@ import { useApp } from '../context/AppContext';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { BookCover } from '../components/BookCover';
 import { PageHeader } from '../components/PageHeader';
-import { colors, radii, shadows } from '../theme';
+import { colors, radii, shadows, typography } from '../theme';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Library'>, NativeStackScreenProps<RootStackParamList>>;
 
 export function LibraryScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { books, importBook, removeBook } = useApp();
+  const { books, importBook, removeBook, updateBookMetadata } = useApp();
   const [query, setQuery] = useState('');
+  const [editingBook, setEditingBook] = useState<{ id: string; title: string; author: string } | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
   const filtered = useMemo(() => books.filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
 
@@ -26,15 +29,36 @@ export function LibraryScreen({ navigation }: Props) {
       const book = await importBook();
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请稍后再试');
+      Alert.alert('无法导入', error instanceof Error ? error.message : '请稍后再试', [
+        { text: '取消', style: 'cancel' },
+        { text: '重试', onPress: () => { void handleImport(); } },
+      ]);
     }
   };
 
   const confirmDelete = (bookId: string, title: string) => {
     Alert.alert('删除本地书籍？', `“${title}”的阅读进度和相关生词也会删除。`, [
       { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: () => removeBook(bookId) },
+      { text: '删除', style: 'destructive', onPress: () => { void removeBook(bookId); } },
     ]);
+  };
+
+  const openBookMenu = (bookId: string, title: string, author: string) => {
+    Alert.alert(`管理《${title}》`, '你可以编辑书籍信息，或从本地书架删除它。', [
+      { text: '取消', style: 'cancel' },
+      { text: '编辑信息', onPress: () => { setEditingBook({ id: bookId, title, author }); setDraftTitle(title); setDraftAuthor(author); } },
+      { text: '删除书籍', style: 'destructive', onPress: () => confirmDelete(bookId, title) },
+    ]);
+  };
+
+  const saveMetadata = async () => {
+    if (!editingBook) return;
+    try {
+      await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
+      setEditingBook(null);
+    } catch (error) {
+      Alert.alert('无法保存', error instanceof Error ? error.message : '请检查书名后重试');
+    }
   };
 
   return (
@@ -46,7 +70,7 @@ export function LibraryScreen({ navigation }: Props) {
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.inkMuted} />
         <TextInput value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
-        {query ? <Pressable onPress={() => setQuery('')}><Ionicons name="close-circle" size={18} color={colors.inkMuted} /></Pressable> : null}
+        {query ? <Pressable accessibilityRole="button" accessibilityLabel="清除搜索" onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.inkMuted} /></Pressable> : null}
       </View>
       <FlatList
         data={filtered}
@@ -58,8 +82,14 @@ export function LibraryScreen({ navigation }: Props) {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="library-outline" size={34} color={colors.inkMuted} />
-            <Text style={styles.emptyTitle}>没有找到书籍</Text>
-            <Text style={styles.emptyBody}>导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。</Text>
+            <Text style={styles.emptyTitle}>{query ? '没有匹配的书籍' : '还没有书籍'}</Text>
+            <Text style={styles.emptyBody}>{query ? '试试其他书名或作者关键词。' : '导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。'}</Text>
+            {!query ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="导入第一本书" onPress={handleImport} style={styles.emptyButton}>
+                <Ionicons name="document-text-outline" size={17} color="#fff" />
+                <Text style={styles.emptyButtonText}>导入第一本书</Text>
+              </Pressable>
+            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -75,7 +105,7 @@ export function LibraryScreen({ navigation }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`管理《${item.title}》`}
-                onPress={() => confirmDelete(item.id, item.title)}
+                onPress={(event) => { event.stopPropagation(); openBookMenu(item.id, item.title, item.author); }}
                 style={styles.bookMenu}
               >
                 <Ionicons name="ellipsis-horizontal" size={17} color="#fff" />
@@ -90,6 +120,25 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         )}
       />
+      <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={() => setEditingBook(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setEditingBook(null)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
+            <Pressable style={styles.editCard} onPress={(event) => event.stopPropagation()}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                <Text style={styles.editTitle}>编辑书籍信息</Text>
+                <Text style={styles.editLabel}>书名</Text>
+                <TextInput value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
+                <Text style={styles.editLabel}>作者</Text>
+                <TextInput value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
+                <View style={styles.editActions}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" onPress={() => setEditingBook(null)} style={styles.editCancel}><Text style={styles.editCancelText}>取消</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" onPress={() => void saveMetadata()} style={styles.editSave}><Text style={styles.editSaveText}>保存</Text></Pressable>
+                </View>
+              </ScrollView>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -112,4 +161,17 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 30 },
   emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '700', marginTop: 16 },
   emptyBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
+  emptyButton: { marginTop: 20, height: 48, borderRadius: radii.medium, paddingHorizontal: 18, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  emptyButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.42)', justifyContent: 'flex-end' },
+  keyboardAvoiding: { width: '100%' },
+  editCard: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 34 },
+  editTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 22, fontWeight: '700', marginBottom: 20 },
+  editLabel: { color: colors.inkMuted, fontSize: 10, fontWeight: '800', marginTop: 10, marginBottom: 7 },
+  editInput: { height: 48, borderRadius: 14, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, color: colors.ink, fontSize: 14 },
+  editActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
+  editCancel: { flex: 1, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.canvas },
+  editCancelText: { color: colors.inkMuted, fontSize: 13, fontWeight: '800' },
+  editSave: { flex: 1, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
+  editSaveText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 });

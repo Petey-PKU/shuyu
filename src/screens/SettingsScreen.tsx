@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
+import { useDictionary } from '../context/DictionaryContext';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
 import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
@@ -17,8 +18,10 @@ const rows = [
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { preferences, updatePreferences, resetAll } = useApp();
+  const { preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
+  const { entryCount } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -29,6 +32,18 @@ export function SettingsScreen() {
   }, []);
 
   const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+
+  const openInfo = (title: string) => {
+    if (title === '隐私说明') {
+      Alert.alert('隐私说明', '书籍正文、阅读进度和生词默认只保存在设备。只有主动查询未收录单词或获取整句翻译时，相关文字才可能发送给第三方服务。');
+      return;
+    }
+    if (title === '开源项目') {
+      void Linking.openURL('https://github.com/Petey-PKU/shuyu');
+      return;
+    }
+    Alert.alert('关于书语', '书语是一款本地优先的英语语境阅读器。\n\n在书里，学会一门语言。\n版本 1.3.1');
+  };
 
   const chooseVoice = (voice: string) => {
     void updatePreferences({ speechVoice: voice });
@@ -41,8 +56,51 @@ export function SettingsScreen() {
 
   const confirmReset = () => Alert.alert('清除全部本地数据？', '书籍、阅读进度和生词将从设备永久删除。', [
     { text: '取消', style: 'cancel' },
-    { text: '全部清除', style: 'destructive', onPress: resetAll },
+    { text: '全部清除', style: 'destructive', onPress: () => { void resetAll(); } },
   ]);
+
+  const handleExportBackup = async () => {
+    if (backupBusy) return;
+    if (Platform.OS === 'web') {
+      Alert.alert('正式安装包可用', 'Web 预览不支持选择本地备份目录，请在 Android 或 iOS 安装包中使用。');
+      return;
+    }
+    setBackupBusy(true);
+    try {
+      const filename = await exportBackup();
+      if (!filename) return;
+      Alert.alert('备份已保存', `${filename}\n请妥善保管这个文件；其中包含你导入的书籍正文。`);
+    } catch (error) {
+      Alert.alert('备份未完成', error instanceof Error ? error.message : '请选择一个可写入的目录后重试');
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleRestoreBackup = async () => {
+    if (backupBusy) return;
+    if (Platform.OS === 'web') {
+      Alert.alert('正式安装包可用', 'Web 预览不支持恢复本地备份，请在 Android 或 iOS 安装包中使用。');
+      return;
+    }
+    setBackupBusy(true);
+    try {
+      const payload = await pickBackup();
+      if (!payload) { setBackupBusy(false); return; }
+      Alert.alert('覆盖当前本地数据？', `备份时间：${new Date(payload.exportedAt).toLocaleString()}\n包含 ${payload.books.length} 本书和 ${payload.words.length} 个生词。当前书架与学习记录会被替换。`, [
+        { text: '取消', style: 'cancel', onPress: () => setBackupBusy(false) },
+        {
+          text: '恢复备份', style: 'destructive', onPress: () => {
+            setBackupBusy(true);
+            void restoreBackup(payload).then(() => Alert.alert('恢复完成', '重新打开书架即可继续阅读。')).catch((error) => Alert.alert('恢复未完成', error instanceof Error ? error.message : '请检查备份文件后重试')).finally(() => setBackupBusy(false));
+          },
+        },
+      ], { cancelable: false });
+    } catch (error) {
+      setBackupBusy(false);
+      Alert.alert('无法读取备份', error instanceof Error ? error.message : '请选择书语生成的 JSON 备份文件');
+    }
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
@@ -56,8 +114,19 @@ export function SettingsScreen() {
         <View style={styles.settingRow}>
           <View><Text style={styles.settingTitle}>正文字号</Text><Text style={styles.settingCaption}>{preferences.fontSize}px</Text></View>
           <View style={styles.stepper}>
-            <Pressable onPress={() => updatePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) })} style={styles.step}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
-            <Pressable onPress={() => updatePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) })} style={styles.step}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="减小字号" onPress={() => updatePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) })} style={styles.step}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="增大字号" onPress={() => updatePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) })} style={styles.step}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
+          </View>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.goalSettingRow}>
+          <View><Text style={styles.settingTitle}>每日阅读目标</Text><Text style={styles.settingCaption}>完成目标后仍可继续阅读</Text></View>
+          <View style={styles.goalChoices}>
+            {[10, 15, 20, 30].map((minutes) => (
+              <Pressable accessibilityRole="button" accessibilityLabel={`每日${minutes}分钟`} key={minutes} onPress={() => updatePreferences({ dailyGoalMinutes: minutes })} style={[styles.goalChoice, preferences.dailyGoalMinutes === minutes && styles.goalChoiceSelected]}>
+                <Text style={[styles.goalChoiceText, preferences.dailyGoalMinutes === minutes && styles.goalChoiceTextSelected]}>{minutes}分</Text>
+              </Pressable>
+            ))}
           </View>
         </View>
         <View style={styles.divider} />
@@ -65,7 +134,7 @@ export function SettingsScreen() {
           <View><Text style={styles.settingTitle}>阅读主题</Text><Text style={styles.settingCaption}>纸张、明亮或夜间</Text></View>
           <View style={styles.swatches}>
             {(['paper', 'white', 'night'] as const).map((theme) => (
-              <Pressable key={theme} onPress={() => updatePreferences({ theme })} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={theme === 'paper' ? '纸张主题' : theme === 'white' ? '明亮主题' : '夜间主题'} key={theme} onPress={() => updatePreferences({ theme })} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
                 {preferences.theme === theme ? <Ionicons name="checkmark" size={14} color={theme === 'night' ? '#fff' : colors.ink} /> : null}
               </Pressable>
             ))}
@@ -73,8 +142,9 @@ export function SettingsScreen() {
         </View>
         <View style={styles.divider} />
         <View style={styles.settingRow}>
-          <View style={{ flex: 1, paddingRight: 18 }}><Text style={styles.settingTitle}>在线翻译增强</Text><Text style={styles.settingCaption}>当前：{getTranslationProviderSummary()}；关闭后点词全程离线</Text></View>
+          <View style={{ flex: 1, paddingRight: 18 }}><Text style={styles.settingTitle}>在线翻译增强</Text><Text style={styles.settingCaption}>当前：{getTranslationProviderSummary()}；查询未收录单词或主动获取整句翻译时可能联网</Text></View>
           <Switch
+            accessibilityLabel="在线翻译增强"
             value={preferences.onlineSentenceTranslation}
             onValueChange={(value) => updatePreferences({ onlineSentenceTranslation: value })}
             trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
@@ -86,7 +156,7 @@ export function SettingsScreen() {
       <Text style={styles.sectionLabel}>英语发音音色</Text>
       <View style={styles.settingCard}>
         {voices.map((voice) => (
-          <Pressable key={voice.identifier} onPress={() => chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow]}>
+          <Pressable key={voice.identifier} accessibilityRole="button" accessibilityLabel={`选择${voice.name}`} onPress={() => chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow]}>
             <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.settingTitle}>{voice.name}</Text><Text style={styles.settingCaption}>{voice.description}</Text></View>
             {activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
           </Pressable>
@@ -97,14 +167,27 @@ export function SettingsScreen() {
       <Text style={styles.sectionLabel}>项目</Text>
       <View style={styles.settingCard}>
         {rows.map((row, index) => (
-          <View key={row.title} style={[styles.infoRow, index < rows.length - 1 && styles.infoBorder]}>
+          <Pressable key={row.title} accessibilityRole="button" accessibilityLabel={row.title} disabled={row.title === '离线英汉词典'} onPress={() => openInfo(row.title)} style={[styles.infoRow, index < rows.length - 1 && styles.infoBorder, row.title !== '离线英汉词典' && styles.infoInteractive]}>
             <View style={styles.infoIcon}><Ionicons name={row.icon} size={20} color={colors.ink} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingTitle}>{row.title}</Text><Text style={styles.settingCaption}>{row.caption}</Text></View>
-            {'status' in row ? <Text style={styles.readyBadge}>{row.status}</Text> : null}
-          </View>
+            <View style={{ flex: 1 }}><Text style={styles.settingTitle}>{row.title}</Text><Text style={styles.settingCaption}>{row.title === '离线英汉词典' && !entryCount ? 'Web 预览使用在线查词；正式 Android 版载入本地词典' : row.title === '离线英汉词典' ? `ECDICT Core · ${entryCount.toLocaleString()} 词条` : row.caption}</Text></View>
+            {'status' in row ? <Text style={styles.readyBadge}>{entryCount ? row.status : 'Web'}</Text> : <Ionicons name="chevron-forward" size={17} color={colors.inkMuted} />}
+          </Pressable>
         ))}
       </View>
-      <Pressable onPress={confirmReset} style={styles.dangerButton}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
+      <Text style={styles.sectionLabel}>本地备份</Text>
+      <View style={styles.backupCard}>
+        <Text style={styles.settingTitle}>把学习记录带到另一台设备</Text>
+        <Text style={styles.settingCaption}>备份包含书籍正文、阅读进度、生词、统计和偏好，只写入你选择的本地目录，不会上传到书语服务器。</Text>
+        <View style={styles.backupActions}>
+          <Pressable accessibilityRole="button" accessibilityLabel="导出本地备份" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={() => void handleExportBackup()} style={[styles.backupButton, styles.backupPrimary, backupBusy && styles.backupDisabled]}>
+            <Ionicons name="download-outline" size={17} color="#fff" /><Text style={styles.backupPrimaryText}>{backupBusy ? '处理中…' : '导出备份'}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="从本地备份恢复" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={() => void handleRestoreBackup()} style={[styles.backupButton, styles.backupSecondary, backupBusy && styles.backupDisabled]}>
+            <Ionicons name="cloud-upload-outline" size={17} color={colors.ink} /><Text style={styles.backupSecondaryText}>恢复备份</Text>
+          </Pressable>
+        </View>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
       <Text style={styles.footer}>书语 · SHUYU{`\n`}在书里，学会一门语言。</Text>
     </ScrollView>
   );
@@ -127,9 +210,24 @@ const styles = StyleSheet.create({
   stepper: { flexDirection: 'row', gap: 8 },
   step: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   swatches: { flexDirection: 'row', gap: 10 },
+  goalChoices: { flexDirection: 'row', gap: 6 },
+  goalSettingRow: { padding: 18, gap: 12 },
+  backupCard: { padding: 18, borderRadius: radii.large, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
+  backupActions: { flexDirection: 'row', gap: 9, marginTop: 16 },
+  backupButton: { flex: 1, minHeight: 46, borderRadius: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  backupPrimary: { backgroundColor: colors.ink },
+  backupSecondary: { backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line },
+  backupPrimaryText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  backupSecondaryText: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  backupDisabled: { opacity: 0.52 },
+  goalChoice: { minWidth: 40, height: 32, borderRadius: 16, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  goalChoiceSelected: { backgroundColor: colors.ink },
+  goalChoiceText: { color: colors.inkMuted, fontSize: 10, fontWeight: '800' },
+  goalChoiceTextSelected: { color: '#fff' },
   swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },
   selectedSwatch: { borderColor: colors.accent, borderWidth: 2 },
   infoRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 12 },
+  infoInteractive: { backgroundColor: 'rgba(255,255,255,0.16)' },
   infoBorder: { borderBottomWidth: 1, borderBottomColor: colors.line },
   infoIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   readyBadge: { color: colors.sage, backgroundColor: 'rgba(95,125,102,0.1)', borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: '800' },

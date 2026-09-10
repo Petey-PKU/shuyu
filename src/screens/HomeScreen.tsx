@@ -21,18 +21,37 @@ function greeting() {
   return '晚上好';
 }
 
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { books, stats, words, importBook } = useApp();
+  const { books, stats, words, preferences, importBook } = useApp();
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
+  const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const activeWords = words.filter((word) => !word.mastered).length;
+  const isSampleOnly = books.length === 1 && books[0].format === 'sample';
+  const today = localDateKey(new Date());
+  const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
+  const displayedStreak = stats.lastReadDate === today || stats.lastReadDate === yesterday ? stats.streak : 0;
+  const displayedTodayMinutes = stats.todayDate === today ? stats.todayMinutes : 0;
+  const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
+    ? '今日目标已完成'
+    : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
 
   const handleImport = async () => {
     try {
       const book = await importBook();
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试');
+      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试', [
+        { text: '取消', style: 'cancel' },
+        { text: '重试', onPress: () => { void handleImport(); } },
+      ]);
     }
   };
 
@@ -42,14 +61,25 @@ export function HomeScreen({ navigation }: Props) {
         eyebrow="书语 · 语境阅读"
         title={greeting()}
         right={
-          <Pressable onPress={handleImport} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="导入电子书" onPress={handleImport} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <Ionicons name="add" size={25} color={colors.ink} />
           </Pressable>
         }
       />
 
+      {isSampleOnly ? (
+        <View style={styles.welcomeCard}>
+          <View style={styles.welcomeIcon}><Ionicons name="sparkles-outline" size={20} color={colors.accent} /></View>
+          <View style={styles.welcomeCopy}>
+            <Text style={styles.welcomeTitle}>这是一本体验书</Text>
+            <Text style={styles.welcomeBody}>先试试点词查义；准备好后，导入自己的英文书继续阅读。</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="导入自己的英文书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
+        </View>
+      ) : null}
+
       {current ? (
-        <Pressable onPress={() => navigation.navigate('Reader', { bookId: current.id })} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`继续上次阅读：${current.title}`} onPress={() => navigation.navigate('Reader', { bookId: current.id })} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
           <LinearGradient colors={['#242520', '#171815']} style={StyleSheet.absoluteFill} />
           <View style={styles.heroCopy}>
             <View>
@@ -74,18 +104,18 @@ export function HomeScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>今日节奏</Text>
-        <Text style={styles.sectionCaption}>一点点，也算向前</Text>
+        <Text style={styles.sectionCaption}>{goalCaption}</Text>
       </View>
       <View style={styles.metrics}>
         <View style={[styles.metricCard, styles.metricWarm]}>
           <Ionicons name="flame-outline" size={21} color={colors.accent} />
-          <Text style={styles.metricValue}>{stats.streak}</Text>
+          <Text style={styles.metricValue}>{displayedStreak}</Text>
           <Text style={styles.metricLabel}>连续天数</Text>
         </View>
         <View style={[styles.metricCard, styles.metricSage]}>
           <Ionicons name="time-outline" size={21} color={colors.sage} />
-          <Text style={styles.metricValue}>{stats.minutes}</Text>
-          <Text style={styles.metricLabel}>阅读分钟</Text>
+          <Text style={styles.metricValue}>{displayedTodayMinutes}</Text>
+          <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
         <View style={[styles.metricCard, styles.metricBlue]}>
           <Ionicons name="sparkles-outline" size={21} color={colors.blue} />
@@ -96,17 +126,17 @@ export function HomeScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>最近书页</Text>
-        <Pressable onPress={() => navigation.navigate('Library')}><Text style={styles.link}>查看全部</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="查看全部书籍" onPress={() => navigation.navigate('Library')}><Text style={styles.link}>查看全部</Text></Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
-        {books.slice(0, 5).map((book) => (
-          <Pressable key={book.id} onPress={() => navigation.navigate('Reader', { bookId: book.id })} style={styles.bookItem}>
+        {recentBooks.map((book) => (
+          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`继续阅读《${book.title}》`} onPress={() => navigation.navigate('Reader', { bookId: book.id })} style={styles.bookItem}>
             <BookCover book={book} width={116} compact />
             <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
             <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
           </Pressable>
         ))}
-        <Pressable onPress={handleImport} style={styles.importCard}>
+        <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
           <Text style={styles.importBody}>TXT · EPUB · MOBI · AZW3 · PDF</Text>
@@ -117,7 +147,7 @@ export function HomeScreen({ navigation }: Props) {
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
         <View style={{ flex: 1 }}>
           <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>正文与词典查词留在设备；启用整句翻译后，仅在你点词时发送当前句子。</Text>
+          <Text style={styles.privacyBody}>书籍正文保存在设备。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
         </View>
       </View>
     </ScrollView>
@@ -131,6 +161,13 @@ const styles = StyleSheet.create({
   pressed: { transform: [{ scale: 0.96 }], opacity: 0.85 },
   hero: { marginTop: 25, height: 250, borderRadius: 30, overflow: 'hidden', flexDirection: 'row', ...shadows.card },
   heroPressed: { transform: [{ scale: 0.992 }] },
+  welcomeCard: { marginTop: 18, padding: 14, borderRadius: radii.medium, backgroundColor: colors.sageSoft, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  welcomeIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
+  welcomeCopy: { flex: 1 },
+  welcomeTitle: { color: colors.ink, fontSize: 12, fontWeight: '800' },
+  welcomeBody: { color: colors.inkMuted, fontSize: 10, lineHeight: 15, marginTop: 3 },
+  welcomeButton: { borderRadius: radii.pill, backgroundColor: colors.ink, paddingHorizontal: 13, paddingVertical: 9 },
+  welcomeButtonText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCopy: { flex: 1, padding: 24, justifyContent: 'space-between', zIndex: 2 },
   heroCover: { width: 116, justifyContent: 'center', transform: [{ rotate: '4deg' }, { translateX: 6 }] },
   heroEyebrow: { color: colors.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 11 },
