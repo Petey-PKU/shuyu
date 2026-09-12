@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHeader } from '../components/PageHeader';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
 import { useApp } from '../context/AppContext';
+import { assessmentQuestions } from '../data/assessment';
 import { recommendedBooks } from '../data/recommendedBooks';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import type { LanguageLevel, RecommendedBook } from '../types';
@@ -69,7 +70,11 @@ export function DiscoverScreen({ navigation }: Props) {
     void AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
       try {
         const parsed = raw ? JSON.parse(raw) as Record<string, unknown> : null;
-        setAssessmentDraftExists(!!parsed && Object.keys(parsed).length > 0);
+        const hasValidAnswer = !!parsed && assessmentQuestions.some((question) => {
+          const value = parsed[question.id];
+          return Number.isInteger(value) && Number(value) >= 0 && Number(value) < question.options.length;
+        });
+        setAssessmentDraftExists(hasValidAnswer);
       } catch {
         setAssessmentDraftExists(false);
       }

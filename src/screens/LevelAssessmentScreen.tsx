@@ -164,7 +164,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         <Pressable style={styles.exitBackdrop} onPress={() => setExitVisible(false)}>
           <Pressable accessibilityViewIsModal style={styles.exitCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.exitTitle}>退出水平测试？</Text>
-            <Text style={styles.exitBody}>已完成的作答不会保存为结果，退出后需要重新开始这次测试。</Text>
+            <Text style={styles.exitBody}>已完成的作答会保存在本机草稿中，之后可以继续这次测试；如果确认退出，当前草稿会被放弃。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="退出并放弃当前测试" onPress={confirmExit} style={styles.exitDanger}><Text style={styles.exitDangerText}>退出测试</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="继续当前测试" onPress={() => setExitVisible(false)} style={styles.exitCancel}><Text style={styles.exitCancelText}>继续测试</Text></Pressable>
           </Pressable>
