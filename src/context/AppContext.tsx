@@ -59,7 +59,7 @@ interface AddWordInput {
 
 interface AppContextValue {
   ready: boolean;
-  storageActivity: 'export' | 'restore' | null;
+  storageActivity: 'export' | 'restore' | 'reset' | null;
   storageNotice: string | null;
   dismissStorageNotice: () => void;
   startupError: string | null;
@@ -126,8 +126,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const hydratingRef = useRef(false);
   const resettingRef = useRef(false);
   const importingRef = useRef(false);
-  const storageActivityRef = useRef<'export' | 'restore' | null>(null);
-  const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | null>(null);
+  const storageActivityRef = useRef<'export' | 'restore' | 'reset' | null>(null);
+  const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | 'reset' | null>(null);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
@@ -459,6 +459,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const resetAll = useCallback(async () => {
     if (resettingRef.current || importingRef.current || storageActivityRef.current) return;
     resettingRef.current = true;
+    storageActivityRef.current = 'reset';
+    setStorageActivity('reset');
     setReady(false);
     setStartupError(null);
     try {
@@ -485,6 +487,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setStartupError('清除数据未能完成。请重新读取当前数据，确认书架状态后再操作。');
     } finally {
       resettingRef.current = false;
+      storageActivityRef.current = null;
+      setStorageActivity(null);
     }
   }, [hydrate, persistence]);
 

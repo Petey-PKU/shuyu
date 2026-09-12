@@ -119,8 +119,8 @@ function AppShell() {
             </Pressable>
           </View>
         ) : <>
-          <ActivityIndicator accessibilityLabel={storageActivity === 'restore' ? '正在恢复备份' : '正在读取本地书架'} color={colors.accent} style={{ marginTop: 18 }} />
-          {storageActivity === 'restore' ? <Text style={styles.recoveryBody}>正在恢复备份，请保持应用打开…</Text> : null}
+          <ActivityIndicator accessibilityLabel={storageActivity === 'restore' ? '正在恢复备份' : storageActivity === 'reset' ? '正在清除本地数据' : '正在读取本地书架'} color={colors.accent} style={{ marginTop: 18 }} />
+          {storageActivity === 'restore' ? <Text style={styles.recoveryBody}>正在恢复备份，请保持应用打开…</Text> : storageActivity === 'reset' ? <Text style={styles.recoveryBody}>正在清除本地数据，请保持应用打开…</Text> : null}
         </>}
       </View>
       <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={() => { setRecoveryResetVisible(false); void resetAll(); }} />
