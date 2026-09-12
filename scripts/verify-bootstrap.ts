@@ -62,14 +62,17 @@ async function main() {
   let failIndex = true;
   let failMarker = false;
   let creates = 0;
+  let removedSamples = 0;
   const sampleStorage = {
     isSeeded: async () => seeded,
     create: async () => { creates += 1; return sampleBook; },
     saveBooks: async (books: Book[]) => { if (failIndex) throw new Error('index write failure'); persistedBooks = books; },
+    remove: async (book: Book) => { assert.equal(book.id, sampleBook.id); removedSamples += 1; },
     markSeeded: async () => { if (failMarker) throw new Error('marker write failure'); seeded = true; },
   };
   await assert.rejects(() => seedSampleOnce(persistedBooks, sampleStorage), /index write failure/);
   assert.equal(seeded, false, 'Do not mark initialization complete until the sample is indexed');
+  assert.equal(removedSamples, 1, 'Failed sample indexing must clean up the created content');
   assert.deepEqual(persistedBooks, [userBook]);
   failIndex = false;
   failMarker = true;

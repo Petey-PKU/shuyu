@@ -47,6 +47,7 @@ interface SampleStorage {
   isSeeded: () => Promise<boolean>;
   create: () => Promise<Book>;
   saveBooks: (books: Book[]) => Promise<void>;
+  remove?: (book: Book) => Promise<void>;
   markSeeded: () => Promise<void>;
 }
 
@@ -59,7 +60,12 @@ export async function seedSampleOnce(books: Book[], storage: SampleStorage): Pro
   }
   const book = await storage.create();
   const next = [book, ...books];
-  await storage.saveBooks(next);
+  try {
+    await storage.saveBooks(next);
+  } catch (error) {
+    try { await storage.remove?.(book); } catch { /* Preserve the original index error. */ }
+    throw error;
+  }
   await storage.markSeeded();
   return next;
 }

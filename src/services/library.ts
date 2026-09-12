@@ -263,6 +263,7 @@ export async function ensureSampleBook(books: Book[]): Promise<Book[]> {
     isSeeded: async () => (await AsyncStorage.getItem(KEYS.sample)) !== null,
     create: async () => (await createBook(sample)).book,
     saveBooks,
+    remove: (book) => deleteBookContent(book.id),
     markSeeded: () => AsyncStorage.setItem(KEYS.sample, 'true'),
   });
 }
