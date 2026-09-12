@@ -103,6 +103,16 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable accessibilityRole="button" accessibilityLabel="导入自己的英文书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
         </View>
       ) : null}
+      {!current ? (
+        <View style={styles.welcomeCard}>
+          <View style={styles.welcomeIcon}><Ionicons name="library-outline" size={20} color={colors.accent} /></View>
+          <View style={styles.welcomeCopy}>
+            <Text style={styles.welcomeTitle}>书架还没有书</Text>
+            <Text style={styles.welcomeBody}>导入一本你有权使用的英文书，书语会从上次位置帮你继续阅读。</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="导入第一本书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
+        </View>
+      ) : null}
 
       {current ? (
         <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
