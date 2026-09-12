@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useDictionary } from '../context/DictionaryContext';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
-import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
+import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, stopSpeech, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
 import { getTranslationProviderSummary } from '../services/translation';
 import type { BackupPayload } from '../types';
 import { InlineNotice } from '../components/InlineNotice';
@@ -44,6 +44,10 @@ export function SettingsScreen() {
     });
     return () => { active = false; };
   }, [preferences.speechVoice]);
+
+  useEffect(() => () => {
+    void stopSpeech();
+  }, []);
 
   const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
 

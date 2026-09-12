@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 离开设置页时停止试听
+
+- 设置页试听英语音色时离开页面，原先播放任务可能继续响到阅读或复习页面。
+- 现在设置页卸载时主动停止系统或离线朗读，避免试听声音越过页面边界；试听期间的状态锁仍会在页面内生效。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 避免英语音色试听交叠
 
 - 设置页快速点击多个英语音色时，试听请求可能交叠，用户无法判断当前播放和最终选择。
