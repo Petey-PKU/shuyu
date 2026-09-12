@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 过滤失效的想读书目状态
+
+- 旧版本或备份可能保留已从推荐目录移除的书目 ID，发现页原先仍显示想读数量，筛选后却没有对应内容。
+- 现在发现页按当前推荐目录过滤想读状态，数量、筛选结果和书签视觉状态保持一致；旧数据仍保留，不影响未来目录重新提供同一 ID 时恢复状态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 清理体验书初始化失败的孤立正文
 
 - 首次启动创建体验书时，正文写入成功但书架索引写入失败会留下用户看不到的文件，后续重试还可能重复占用空间。

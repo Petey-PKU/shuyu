@@ -10,7 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
 import { useApp } from '../context/AppContext';
 import { assessmentQuestions } from '../data/assessment';
-import { recommendedBooks } from '../data/recommendedBooks';
+import { recommendedBookById, recommendedBooks } from '../data/recommendedBooks';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import type { LanguageLevel, RecommendedBook } from '../types';
 import {
@@ -94,11 +94,16 @@ export function DiscoverScreen({ navigation }: Props) {
   }, [recommendationState.profile]);
 
   const targetScore = effectiveReadingScore(recommendationState, readingSignals, books);
+  const validSavedBookIds = useMemo(
+    () => new Set(recommendationState.savedBookIds.filter((bookId) => recommendedBookById.has(bookId))),
+    [recommendationState.savedBookIds],
+  );
+  const savedBookCount = validSavedBookIds.size;
   const ranked = useMemo(
     () => rankRecommendedBooks(recommendationState, readingSignals, books),
     [books, readingSignals, recommendationState],
   );
-  const personal = (showSavedOnly ? ranked.filter((book) => recommendationState.savedBookIds.includes(book.id)) : ranked).slice(0, 8);
+  const personal = (showSavedOnly ? ranked.filter((book) => validSavedBookIds.has(book.id)) : ranked).slice(0, 8);
   const levelBooks = recommendedBooks.filter((book) => book.level === browseLevel);
   const filteredLevelBooks = recommendationState.preferredGenres.length
     ? levelBooks.filter((book) => book.genres.some((genre) => recommendationState.preferredGenres.includes(genre)))
@@ -161,9 +166,9 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}>
         <View><Text style={styles.sectionTitle}>{recommendationState.profile ? '正适合你的书' : '从这里开始看看'}</Text><Text style={styles.sectionSub}>难度、兴趣与近期阅读共同排序</Text></View>
-        {showSavedOnly || recommendationState.savedBookIds.length ? (
+        {showSavedOnly || savedBookCount ? (
           <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} accessibilityState={{ selected: showSavedOnly }} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
-            <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${recommendationState.savedBookIds.length} 想读`}</Text>
+            <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${savedBookCount} 想读`}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -172,7 +177,7 @@ export function DiscoverScreen({ navigation }: Props) {
           <BookTile
             key={book.id}
             book={book}
-            saved={recommendationState.savedBookIds.includes(book.id)}
+            saved={validSavedBookIds.has(book.id)}
             targetScore={targetScore}
             onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })}
             onSave={() => { void handleToggleSaved(book.id); }}
@@ -189,7 +194,7 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.catalogList}>
         {shelf.map((book) => {
-          const saved = recommendationState.savedBookIds.includes(book.id);
+          const saved = validSavedBookIds.has(book.id);
           return (
             <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
