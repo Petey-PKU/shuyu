@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 对齐推荐依据说明
+
+- 发现页原先只要存在足够阅读量就显示“推荐已结合近期阅读”，但算法还要求导入书名与推荐目录匹配，文案可能夸大实际影响。
+- 现在提取相同匹配条件供算法和界面共同使用，只有确实能参与调整的阅读记录才会显示近期阅读依据。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 处理文件选择器的空资产返回
 
 - 部分文件提供器可能返回未取消但没有文件资产，导入流程原先会在读取文件名时触发底层属性错误。
