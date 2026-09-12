@@ -40,6 +40,7 @@ import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
 import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
+import { createPersistenceTracker } from '../utils/persistence';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -155,51 +156,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
   const ocrCancelRef = useRef<(() => void) | null>(null);
-  const persistenceRetryRef = useRef<(() => Promise<void>) | null>(null);
-  const persistenceRetryingRef = useRef(false);
-  const persistenceErrorRef = useRef<string | null>(null);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [persistenceRetrying, setPersistenceRetrying] = useState(false);
-
-  const reportPersistenceFailure = useCallback((area: string, error: unknown, retry: () => Promise<void>) => {
-    const detail = error instanceof Error && error.message ? `：${error.message}` : '';
-    const message = `${area}尚未保存${detail}`;
-    persistenceRetryRef.current = retry;
-    persistenceErrorRef.current = message;
-    setPersistenceError(message);
-  }, []);
-
-  const persist = useCallback(async (area: string, write: () => Promise<void>, retry: () => Promise<void>) => {
-    try {
-      await write();
-      if (persistenceErrorRef.current?.startsWith(area)) {
-        persistenceErrorRef.current = null;
-        persistenceRetryRef.current = null;
-        setPersistenceError(null);
-      }
-    } catch (error) {
-      reportPersistenceFailure(area, error, retry);
-      throw error;
-    }
-  }, [reportPersistenceFailure]);
+  const [persistence] = useState(() => createPersistenceTracker((state) => {
+    setPersistenceError(state.error);
+    setPersistenceRetrying(state.retrying);
+  }));
+  const persist = persistence.persist;
 
   const retryPersistence = useCallback(async () => {
-    const retry = persistenceRetryRef.current;
-    if (!retry || persistenceRetryingRef.current) return;
-    persistenceRetryingRef.current = true;
-    setPersistenceRetrying(true);
-    try {
-      await retry();
-      persistenceRetryRef.current = null;
-      persistenceErrorRef.current = null;
-      setPersistenceError(null);
-    } catch {
-      // The persistence helper keeps the retry action after another failure.
-    } finally {
-      persistenceRetryingRef.current = false;
-      setPersistenceRetrying(false);
-    }
-  }, []);
+    if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return;
+    await persistence.retryAll();
+  }, [persistence]);
 
   const hydrate = useCallback(async () => {
     if (hydratingRef.current) return;
@@ -269,7 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
-      await persist('书架', () => saveBooks(next), () => saveBooks(booksRef.current));
+      await persist('books', '书架', () => saveBooks(next), () => saveBooks(booksRef.current));
       return book;
     } finally {
       importingRef.current = false;
@@ -297,7 +265,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : book);
     booksRef.current = next;
     setBooks(next);
-    await persist('阅读进度', () => saveBooks(next), () => saveBooks(booksRef.current));
+    await persist('books', '阅读进度', () => saveBooks(next), () => saveBooks(booksRef.current));
   }, [persist]);
 
   const addWord = useCallback(async (input: AddWordInput) => {
@@ -308,7 +276,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0, nextReviewAt: new Date().toISOString() }, ...currentWords];
     wordsRef.current = next;
     setWords(next);
-    await persist('生词', () => saveWords(next), () => saveWords(wordsRef.current));
+    await persist('words', '生词', () => saveWords(next), () => saveWords(wordsRef.current));
   }, [persist]);
 
   const toggleMastered = useCallback(async (wordId: string) => {
@@ -319,7 +287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : item);
     wordsRef.current = next;
     setWords(next);
-    await persist('生词', () => saveWords(next), () => saveWords(wordsRef.current));
+    await persist('words', '生词', () => saveWords(next), () => saveWords(wordsRef.current));
   }, [persist]);
 
   const deferWord = useCallback(async (wordId: string) => {
@@ -330,7 +298,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = currentWords.map((item) => item.id === wordId ? deferReview(item) : item);
     wordsRef.current = next;
     setWords(next);
-    await persist('生词', () => saveWords(next), () => saveWords(wordsRef.current));
+    await persist('words', '生词', () => saveWords(next), () => saveWords(wordsRef.current));
   }, [persist]);
 
   const removeWord = useCallback(async (wordId: string) => {
@@ -338,7 +306,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = wordsRef.current.filter((item) => item.id !== wordId);
     wordsRef.current = next;
     setWords(next);
-    await persist('生词', () => saveWords(next), () => saveWords(wordsRef.current));
+    await persist('words', '生词', () => saveWords(next), () => saveWords(wordsRef.current));
   }, [persist]);
 
   const removeBook = useCallback(async (bookId: string) => {
@@ -352,7 +320,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wordsRef.current = nextWords;
     setBooks(nextBooks);
     setWords(nextWords);
-    await persist('书架', () => Promise.all([saveBooks(nextBooks), saveWords(nextWords), saveReadingSignals(nextSignals), deleteBookContent(bookId)]).then(() => undefined), async () => {
+    await persist(`delete-book:${bookId}`, '书籍删除', () => Promise.all([saveBooks(nextBooks), saveWords(nextWords), saveReadingSignals(nextSignals), deleteBookContent(bookId)]).then(() => undefined), async () => {
       await Promise.all([saveBooks(booksRef.current), saveWords(wordsRef.current), saveReadingSignals(readingSignalsRef.current), deleteBookContent(bookId)]);
     });
   }, [persist]);
@@ -371,7 +339,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wordsRef.current = nextWords;
     setBooks(next);
     setWords(nextWords);
-    await persist('书籍信息', () => Promise.all([saveBooks(next), saveWords(nextWords)]).then(() => undefined), async () => {
+    await persist('book-metadata', '书籍信息', () => Promise.all([saveBooks(next), saveWords(nextWords)]).then(() => undefined), async () => {
       await Promise.all([saveBooks(booksRef.current), saveWords(wordsRef.current)]);
     });
   }, [persist]);
@@ -381,7 +349,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const value = { ...preferencesRef.current, ...next };
     preferencesRef.current = value;
     setPreferences(value);
-    await persist('阅读设置', () => savePreferences(value), () => savePreferences(preferencesRef.current));
+    await persist('preferences', '阅读设置', () => savePreferences(value), () => savePreferences(preferencesRef.current));
   }, [persist]);
 
   const setReadingProfile = useCallback(async (profile: ReadingLevelProfile) => {
@@ -389,7 +357,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = { ...recommendationStateRef.current, profile };
     recommendationStateRef.current = next;
     setRecommendationState(next);
-    await persist('推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
+    await persist('recommendations', '推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
   }, [persist]);
 
   const togglePreferredGenre = useCallback(async (genre: BookGenre) => {
@@ -402,7 +370,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = { ...current, preferredGenres };
     recommendationStateRef.current = next;
     setRecommendationState(next);
-    await persist('推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
+    await persist('recommendations', '推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
   }, [persist]);
 
   const toggleSavedRecommendedBook = useCallback(async (bookId: string) => {
@@ -415,7 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = { ...current, savedBookIds };
     recommendationStateRef.current = next;
     setRecommendationState(next);
-    await persist('推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
+    await persist('recommendations', '推荐偏好', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
   }, [persist]);
 
   const setRecommendedBookFeedback = useCallback(async (bookId: string, feedback: DifficultyFeedback) => {
@@ -424,7 +392,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const next = { ...current, feedback: { ...current.feedback, [bookId]: feedback } };
     recommendationStateRef.current = next;
     setRecommendationState(next);
-    await persist('推荐反馈', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
+    await persist('recommendations', '推荐反馈', () => saveRecommendationState(next), () => saveRecommendationState(recommendationStateRef.current));
   }, [persist]);
 
   const recordLookup = useCallback(async (bookId: string) => {
@@ -436,7 +404,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 1, wordsRead: 0, minutes: 0 }];
     readingSignalsRef.current = next;
     setReadingSignals(next);
-    await persist('阅读记录', () => saveReadingSignals(next), () => saveReadingSignals(readingSignalsRef.current));
+    await persist('reading-signals', '阅读记录', () => saveReadingSignals(next), () => saveReadingSignals(readingSignalsRef.current));
   }, [persist]);
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
@@ -470,7 +438,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 0, minutes: Math.max(0, minutes), wordsRead: Math.max(0, wordsRead) }];
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
-    await persist('阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {
+    await persist('reading-stats', '阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {
       await Promise.all([saveStats(statsRef.current), saveReadingSignals(readingSignalsRef.current)]);
     });
   }, [persist]);
@@ -481,7 +449,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReady(false);
     setStartupError(null);
     try {
+      await persistence.waitForIdle();
       await clearAllLocalData();
+      persistence.clear();
       setBooks([]);
       booksRef.current = [];
       setWords([]);
@@ -503,7 +473,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } finally {
       resettingRef.current = false;
     }
-  }, [hydrate]);
+  }, [hydrate, persistence]);
 
   const exportBackup = useCallback(async () => {
     if (storageActivityRef.current || resettingRef.current || importingRef.current) throw new Error('请等待当前数据操作完成后再备份');
@@ -518,6 +488,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       readingSignals: readingSignalsRef.current,
     };
     try {
+      await persistence.waitForIdle();
       const contents: Record<string, BookContent> = {};
       for (const book of snapshot.books) contents[book.id] = await loadBookContent(book.id);
       return await writeBackupFile(createBackupPayload({ ...snapshot, contents }));
@@ -525,7 +496,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       storageActivityRef.current = null;
       setStorageActivity(null);
     }
-  }, []);
+  }, [persistence]);
 
   const restoreBackup = useCallback(async (payload: BackupPayload) => {
     if (storageActivityRef.current || resettingRef.current || importingRef.current) throw new Error('请等待当前数据操作完成后再恢复');
@@ -534,7 +505,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setReady(false);
     setStartupError(null);
     try {
+      await persistence.waitForIdle();
       const restored = await restoreBackupData(payload);
+      persistence.clear();
       booksRef.current = restored.books;
       wordsRef.current = restored.words;
       statsRef.current = restored.stats;
@@ -556,7 +529,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       storageActivityRef.current = null;
       setStorageActivity(null);
     }
-  }, [hydrate]);
+  }, [hydrate, persistence]);
 
   const value = useMemo(() => ({
     ready, storageActivity, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
