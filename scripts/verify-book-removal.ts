@@ -46,6 +46,8 @@ async function main() {
     const writeRemoval = () => persistBookRemoval('deleted', snapshot, storage);
     await assert.rejects(tracker.persist('delete-book:deleted', '书籍删除', writeRemoval, writeRemoval));
     assert.ok(contents.has('deleted'), `${failingArea} failure must retain the original source`);
+    if (failingArea === 'content') assert.ok(!disk.books.some((item) => item.id === 'deleted'), 'Content cleanup failure may leave the deleted shelf index committed');
+    else assert.ok(disk.books.some((item) => item.id === 'deleted'), `${failingArea} failure must not publish a shelf without its dependent indexes`);
     assert.equal(cleanupCalls, failingArea === 'content' ? 1 : 0);
     assert.ok(error, 'Failed removal must remain retryable');
 

@@ -811,3 +811,10 @@
 - 查词卡片、生词目录和阅读排版弹层原先缺少标题语义，读屏用户进入后需要遍历控件才能理解上下文。
 - 为三个弹层的标题补充 `accessibilityRole="header"`，让辅助技术可以直接定位当前内容。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 删除索引崩溃窗口
+
+- 删除书籍时书架、生词和阅读记录原先并行写入；进程可能在部分索引成功后退出，下一次启动看到生词指向已不存在的书籍并停在数据损坏页。
+- 现在先保存生词和阅读记录，确认两个依赖索引完成后再保存书架，最后清理正文；中途退出最多留下未完成的删除，不会破坏启动所需的引用一致性。
+- 增加书籍删除边界验证，覆盖各索引写入失败、正文清理失败和重试后的新数据保护。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；完整发布前仍会继续执行 Web 与 Android bundle 导出。
