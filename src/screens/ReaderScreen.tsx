@@ -122,10 +122,13 @@ function ReaderSession({ route, navigation }: Props) {
     theme: preferences.theme,
   }));
   const [chaptersVisible, setChaptersVisible] = useState(false);
+  const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
+  const completionShown = useRef(false);
+  const completionDismissed = useRef(false);
   const readingCoverage = useRef(new ReadingCoverage());
   const hasVisiblePage = useRef(false);
   const lookupRequest = useRef(0);
@@ -267,6 +270,16 @@ function ReaderSession({ route, navigation }: Props) {
     });
   }, [bookId, chapter, chapterIndex, chapterParagraphStarts, chapterText.length, content, currentPage, pages, updateProgress]);
 
+  useEffect(() => {
+    const reachedEnd = !!content && !!chapter && pages.length > 0
+      && chapterIndex === content.chapters.length - 1
+      && currentPage === pages.length - 1;
+    if (reachedEnd && !completionShown.current && !completionDismissed.current) {
+      completionShown.current = true;
+      setCompletionVisible(true);
+    }
+  }, [chapter, chapterIndex, content, currentPage, pages.length]);
+
   const requestSentenceTranslation = useCallback(async (sentence: string, request: number) => {
     setTranslationLoading(true);
     setTranslationFailed(false);
@@ -407,6 +420,15 @@ function ReaderSession({ route, navigation }: Props) {
   }), [turnPage]);
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
+  const restartBook = () => {
+    completionDismissed.current = true;
+    setCompletionVisible(false);
+    pageAnchorOffset.current = 0;
+    setChapterIndex(0);
+    setCurrentParagraph(0);
+    setCurrentPage(0);
+    if (content && book) void updateProgress(bookId, 0, 0, 0, 0);
+  };
 
   if (!book || contentError || !content || !chapter) {
     const error = !book ? '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。' : contentError;
@@ -615,6 +637,18 @@ function ReaderSession({ route, navigation }: Props) {
           />
         </View>
       </Modal>
+
+      <Modal visible={completionVisible} transparent animationType="fade" onRequestClose={() => setCompletionVisible(false)}>
+        <Pressable style={styles.completionBackdrop} onPress={() => setCompletionVisible(false)}>
+          <Pressable style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
+            <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
+            <Text style={styles.completionBody}>你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="返回书架" onPress={returnToLibrary} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>返回书架</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="从头再读一遍" onPress={restartBook} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>从头再读一遍</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -697,6 +731,15 @@ const styles = StyleSheet.create({
   settingsDone: { alignItems: 'center', justifyContent: 'center', height: 44, borderRadius: radii.pill, backgroundColor: colors.ink, marginTop: 22 },
   settingsDoneText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   chapterSheet: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 10 },
+  completionBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.48)', alignItems: 'center', justifyContent: 'center', padding: 28 },
+  completionCard: { width: '100%', maxWidth: 340, backgroundColor: colors.surfaceStrong, borderRadius: 28, padding: 26, alignItems: 'center' },
+  completionIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  completionTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 25, fontWeight: '700' },
+  completionBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
+  completionPrimary: { width: '100%', minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  completionPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  completionSecondary: { minHeight: 42, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  completionSecondaryText: { color: colors.accent, fontSize: 12, fontWeight: '800' },
   chapterRow: { flexDirection: 'row', alignItems: 'center', minHeight: 68, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.line, gap: 14 },
   activeChapterRow: { backgroundColor: colors.accentSoft, borderRadius: radii.medium, borderBottomColor: 'transparent' },
   chapterRowNumber: { color: colors.inkMuted, fontFamily: typography.serif, fontSize: 13, fontWeight: '700' },
