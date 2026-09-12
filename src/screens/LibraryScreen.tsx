@@ -70,7 +70,7 @@ export function LibraryScreen({ navigation }: Props) {
       </View>
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.inkMuted} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
+        <TextInput accessibilityLabel="搜索书架" value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
         {query ? <Pressable accessibilityRole="button" accessibilityLabel="清除搜索" onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.inkMuted} /></Pressable> : null}
       </View>
       {errorMessage ? <InlineNotice message={errorMessage} actionLabel={errorKind === 'import' ? '重试导入' : undefined} onAction={errorKind === 'import' ? () => void handleImport() : undefined} onDismiss={() => setErrorMessage(null)} /> : null}
