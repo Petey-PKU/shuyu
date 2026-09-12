@@ -100,7 +100,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.feedbackRow}>
         {feedbackOptions.map((option) => {
           const selected = feedback === option.value;
-          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} onPress={() => { void setRecommendedBookFeedback(book.id, option.value).catch(() => undefined); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
+          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} accessibilityState={{ selected }} onPress={() => { void setRecommendedBookFeedback(book.id, option.value).catch(() => undefined); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
         })}
       </View>
 

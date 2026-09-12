@@ -35,7 +35,7 @@ function BookTile({ book, saved, targetScore, onPress, onSave }: {
     <Pressable accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
       <View>
         <RecommendedBookCover book={book} width={132} />
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? '#fff' : colors.ink} />
         </Pressable>
       </View>
@@ -110,14 +110,14 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
       <View style={styles.sectionHeader}>
         <View><Text style={styles.sectionTitle}>{recommendationState.profile ? '正适合你的书' : '从这里开始看看'}</Text><Text style={styles.sectionSub}>难度、兴趣与近期阅读共同排序</Text></View>
         {showSavedOnly || recommendationState.savedBookIds.length ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
+          <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} accessibilityState={{ selected: showSavedOnly }} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
             <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${recommendationState.savedBookIds.length} 想读`}</Text>
           </Pressable>
         ) : null}
@@ -138,7 +138,7 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>按等级浏览</Text><Text style={styles.sectionSub}>分级改写版与原版会明确标注</Text></View></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelRow}>
-        {levelOrder.map((level) => <Pressable key={level} accessibilityRole="button" accessibilityLabel={`浏览${level}级别：${levelLabels[level]}`} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
+        {levelOrder.map((level) => <Pressable key={level} accessibilityRole="button" accessibilityLabel={`浏览${level}级别：${levelLabels[level]}`} accessibilityState={{ selected: browseLevel === level }} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
       </ScrollView>
 
       <View style={styles.catalogList}>
@@ -148,7 +148,7 @@ export function DiscoverScreen({ navigation }: Props) {
             <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
-                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
+                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
                 <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>

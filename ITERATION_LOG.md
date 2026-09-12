@@ -582,3 +582,9 @@
 - 推荐详情页收藏“想读”原先只有图标变化，保存失败时用户无法判断是否需要再次处理。
 - 新增加入/移除成功提示、设备保存失败说明，以及收藏按钮的选中语义；提示会保留当前会话结果并指向稍后重试。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 发现页筛选无障碍状态
+
+- 发现页兴趣、想读筛选、等级浏览和推荐难度反馈此前只有视觉选中样式，读屏用户无法确认当前状态。
+- 为相关按钮补充 `accessibilityState.selected`，并同步推荐卡片和目录列表中的收藏按钮。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
