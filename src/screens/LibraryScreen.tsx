@@ -162,7 +162,7 @@ export function LibraryScreen({ navigation }: Props) {
             <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
             <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认删除书籍" onPress={() => {
-              if (deleteBook) void removeBook(deleteBook.id);
+              if (deleteBook) void removeBook(deleteBook.id).catch(() => undefined);
               setDeleteBook(null);
             }} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消删除" onPress={() => setDeleteBook(null)} style={styles.actionCancel}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>

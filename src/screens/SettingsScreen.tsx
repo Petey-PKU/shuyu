@@ -50,7 +50,7 @@ export function SettingsScreen() {
   };
 
   const chooseVoice = (voice: string) => {
-    void updatePreferences({ speechVoice: voice });
+    void updatePreferences({ speechVoice: voice }).catch(() => undefined);
     void speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice).then((provider) => {
       if (voice === OFFLINE_VOICE_ID && provider === 'system') {
         Alert.alert('离线音色暂不可用', '当前运行环境没有载入书语离线音色，试听已自动使用系统发音。请在正式 Android APK 中测试。');

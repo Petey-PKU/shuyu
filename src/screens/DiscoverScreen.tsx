@@ -148,7 +148,7 @@ export function DiscoverScreen({ navigation }: Props) {
             <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
-                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
+                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
                 <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>

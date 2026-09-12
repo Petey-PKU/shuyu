@@ -197,7 +197,7 @@ function ReaderSession({ route, navigation }: Props) {
     if (minutes <= 0 && words <= 0) return;
     sessionMinutesSaved.current = totalMinutes;
     sessionWordsSaved.current = totalWords;
-    void addReadingMinutesRef.current(bookId, minutes, words);
+    void addReadingMinutesRef.current(bookId, minutes, words).catch(() => undefined);
   }, [bookId]);
 
   useEffect(() => {
@@ -328,7 +328,7 @@ function ReaderSession({ route, navigation }: Props) {
     setTranslationFailed(false);
     setLookupLoading(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    void recordLookup(bookId);
+    void recordLookup(bookId).catch(() => undefined);
     await requestWordLookup(word, request);
   }, [bookId, chapterParagraphStarts, chapterText, recordLookup, requestWordLookup, tapHintVisible]);
 
@@ -374,7 +374,7 @@ function ReaderSession({ route, navigation }: Props) {
       || settingsDraft.theme !== preferences.theme;
     if (!changed) return;
     pageAnchorOffset.current = pages[currentPage]?.start ?? chapterParagraphStarts[currentParagraph] ?? 0;
-    void updatePreferences(settingsDraft);
+    void updatePreferences(settingsDraft).catch(() => undefined);
   };
 
   const changeDraftFont = (delta: number) => {
@@ -395,7 +395,7 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(safeParagraph);
     setCurrentPage(0);
     setChaptersVisible(false);
-    updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0);
+    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0).catch(() => undefined);
   }, [book, bookId, content, updateProgress]);
 
   const turnPage = useCallback((direction: -1 | 1) => {
@@ -433,7 +433,7 @@ function ReaderSession({ route, navigation }: Props) {
     setChapterIndex(0);
     setCurrentParagraph(0);
     setCurrentPage(0);
-    if (content && book) void updateProgress(bookId, 0, 0, 0, 0);
+    if (content && book) void updateProgress(bookId, 0, 0, 0, 0).catch(() => undefined);
   };
 
   if (!book || contentError || !content || !chapter) {
@@ -558,7 +558,7 @@ function ReaderSession({ route, navigation }: Props) {
                 <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => selection && void speakEnglish(selection.word, 'word', preferences.speechVoice)} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={saveSelection} style={[styles.saveButton, isSaved && styles.savedButton]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>
               <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={19} color={isSaved ? '#fff' : colors.ink} />
             </Pressable>
           </View>

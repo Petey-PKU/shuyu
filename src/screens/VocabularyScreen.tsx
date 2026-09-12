@@ -86,7 +86,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <Pressable accessibilityRole="button" accessibilityLabel={`移除${item.word}`} onPress={() => confirmRemove(item.id, item.word)} style={styles.removeButton}>
                 <Ionicons name="trash-outline" size={16} color={colors.inkMuted} />
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} onPress={() => toggleMastered(item.id)} style={[styles.check, item.mastered && styles.checked]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} onPress={() => { void toggleMastered(item.id).catch(() => undefined); }} style={[styles.check, item.mastered && styles.checked]}>
                 <Ionicons name={item.mastered ? 'checkmark' : 'checkmark-outline'} size={17} color={item.mastered ? '#fff' : colors.inkMuted} />
               </Pressable>
             </View>
@@ -99,7 +99,7 @@ export function VocabularyScreen({ navigation }: Props) {
             <Text accessibilityRole="header" style={styles.confirmTitle}>移除这个词？</Text>
             <Text style={styles.confirmBody}>“{removeTarget?.word}”会从生词本中删除，但不会影响原书内容。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认移除生词" onPress={() => {
-              if (removeTarget) void removeWord(removeTarget.id);
+              if (removeTarget) void removeWord(removeTarget.id).catch(() => undefined);
               setRemoveTarget(null);
             }} style={styles.confirmDanger}><Text style={styles.confirmDangerText}>移除</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" onPress={() => setRemoveTarget(null)} style={styles.confirmCancel}><Text style={styles.confirmCancelText}>取消</Text></Pressable>

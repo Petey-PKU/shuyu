@@ -54,7 +54,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={23} color={colors.ink} /></Pressable>
         <Text style={styles.topTitle}>选书详情</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => { void toggleSavedRecommendedBook(book.id); }} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
       {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
 
@@ -87,7 +87,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.feedbackRow}>
         {feedbackOptions.map((option) => {
           const selected = feedback === option.value;
-          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} onPress={() => { void setRecommendedBookFeedback(book.id, option.value); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
+          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} onPress={() => { void setRecommendedBookFeedback(book.id, option.value).catch(() => undefined); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
         })}
       </View>
 
