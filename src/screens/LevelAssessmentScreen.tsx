@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +14,7 @@ import { colors, radii, typography } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelAssessment'>;
 
 const confidenceLabels = { low: '初步判断', medium: '可信度中等', high: '可信度较高' } as const;
+const assessmentDraftKey = '@shuyu/assessment-draft';
 
 export function LevelAssessmentScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -21,9 +23,31 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
   const [answering, setAnswering] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(true);
   const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
   const allowExitRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
+      if (!active) return;
+      try {
+        const parsed = raw ? JSON.parse(raw) as Record<string, number> : {};
+        const restored = Object.fromEntries(Object.entries(parsed).filter(([id, value]) => assessmentQuestions.some((item) => item.id === id) && Number.isInteger(value) && value >= 0 && value < 4));
+        const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
+        setAnswers(restored);
+        setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
+      } catch {
+        void AsyncStorage.removeItem(assessmentDraftKey);
+      } finally {
+        setDraftLoading(false);
+      }
+    }).catch(() => {
+      if (active) setDraftLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
   const question = assessmentQuestions[questionIndex];
 
   useEffect(() => {
@@ -47,6 +71,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
 
   const confirmExit = () => {
     allowExitRef.current = true;
+    void AsyncStorage.removeItem(assessmentDraftKey);
     setExitVisible(false);
     navigation.goBack();
   };
@@ -59,10 +84,12 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       const next = { ...answers, [question.id]: optionIndex };
       setAnswers(next);
       if (questionIndex < assessmentQuestions.length - 1) {
+        void AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next)).catch(() => undefined);
         setQuestionIndex(questionIndex + 1);
         return;
       }
       const profile = scoreAssessment(next);
+      void AsyncStorage.removeItem(assessmentDraftKey);
       try {
         await setReadingProfile(profile);
       } catch {
@@ -79,6 +106,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   };
 
   const restart = () => {
+    void AsyncStorage.removeItem(assessmentDraftKey);
     setAnswers({});
     setQuestionIndex(0);
     setResult(null);
@@ -98,6 +126,15 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="查看我的推荐" onPress={() => navigation.goBack()} style={styles.primaryButton}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="重新测试" onPress={restart} style={styles.secondaryButton}><Text style={styles.secondaryText}>重新测试</Text></Pressable>
       </ScrollView>
+    );
+  }
+
+  if (draftLoading) {
+    return (
+      <View style={[styles.loading, { paddingTop: insets.top + 8 }]}>
+        <ActivityIndicator color={colors.accent} accessibilityLabel="正在恢复水平测试进度" />
+        <Text style={styles.loadingText}>正在恢复测试进度…</Text>
+      </View>
     );
   }
 
@@ -139,6 +176,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  loading: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: colors.inkMuted, fontSize: 12 },
   topBar: { height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 5, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },

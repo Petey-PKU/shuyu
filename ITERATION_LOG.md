@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 保存未完成的水平测试草稿
+
+- 水平测试原先只在当前页面内保留答案，应用被系统回收后重新进入会从第一题开始，首次使用者可能需要重复作答。
+- 现在将未完成答案仅保存到本机并恢复到第一道未答题；完成测试、明确退出或重新开始时清理草稿，不上传答案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 离开设置页时停止试听
 
 - 设置页试听英语音色时离开页面，原先播放任务可能继续响到阅读或复习页面。
