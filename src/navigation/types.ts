@@ -13,5 +13,5 @@ export type RootStackParamList = {
   Reader: { bookId: string; chapterIndex?: number; paragraphIndex?: number; replay?: boolean; returnTo?: 'Library' | 'Vocabulary' };
   LevelAssessment: undefined;
   RecommendedBook: { bookId: string };
-  Review: undefined;
+  Review: { returnTo?: 'Today' | 'Vocabulary' } | undefined;
 };

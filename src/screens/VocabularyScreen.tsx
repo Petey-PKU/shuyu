@@ -95,7 +95,7 @@ export function VocabularyScreen({ navigation }: Props) {
       <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
       {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
-      <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review', { returnTo: 'Vocabulary' })} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.reviewEyebrow}>今日复习</Text>

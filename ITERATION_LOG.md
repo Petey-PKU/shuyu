@@ -654,3 +654,9 @@
 - 水平测试进行中点关闭或系统返回原先会直接离开，已完成的作答也会丢失。
 - 增加退出确认弹层，并拦截未完成测试的系统返回；用户可继续测试或明确放弃当前作答。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 复习完成返回上下文
+
+- 复习可从首页或生词本进入，但完成页原先固定显示“返回生词本”，首页入口会让用户返回位置产生误解。
+- 记录复习入口并让完成页返回对应页面，同时同步按钮文案和读屏标签。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。

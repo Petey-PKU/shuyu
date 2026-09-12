@@ -12,7 +12,7 @@ import { isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
-export function ReviewScreen({ navigation }: Props) {
+export function ReviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { words, preferences, toggleMastered, deferWord } = useApp();
   const now = Date.now();
@@ -30,13 +30,15 @@ export function ReviewScreen({ navigation }: Props) {
   const [revealed, setRevealed] = useState(false);
   const current = queue[0];
   const nextReviewAt = nextReviewTime(words);
+  const returnTo = route.params?.returnTo === 'Today' ? 'Today' : 'Vocabulary';
+  const returnLabel = returnTo === 'Today' ? '返回今天' : '返回生词本';
   const speakWord = (word: string) => {
     setSpeechError(null);
     void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   };
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>返回生词本</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
   }
 
   const next = async (mastered: boolean) => {

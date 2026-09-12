@@ -153,14 +153,14 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.metricValue}>{displayedTodayMinutesLabel}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review') : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review', { returnTo: 'Today' }) : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
           <Ionicons name="sparkles-outline" size={21} color={colors.blue} />
           <Text style={styles.metricValue}>{activeWords}</Text>
           <Text style={styles.metricLabel}>待掌握词</Text>
         </Pressable>
       </View>
       {dueWords > 0 ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`开始复习，${dueWords} 个词今天到期`} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`开始复习，${dueWords} 个词今天到期`} onPress={() => navigation.navigate('Review', { returnTo: 'Today' })} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
           <View style={styles.nextActionIcon}><Ionicons name="layers-outline" size={20} color={colors.accent} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.nextActionEyebrow}>今天可以先复习</Text>
