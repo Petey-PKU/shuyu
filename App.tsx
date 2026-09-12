@@ -62,7 +62,7 @@ function MainTabs() {
 }
 
 function AppShell() {
-  const { ready, storageActivity, startupError, retryLoad, importStatus, cancelImport, persistenceError, retryPersistence } = useApp();
+  const { ready, storageActivity, startupError, retryLoad, importStatus, cancelImport, persistenceError, persistenceRetrying, retryPersistence } = useApp();
   if (!ready) {
     return (
       <View style={styles.splash}>
@@ -103,8 +103,8 @@ function AppShell() {
           <Text style={styles.persistenceTitle}>本地数据需要重试</Text>
           <Text numberOfLines={2} style={styles.persistenceBody}>{persistenceError}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="重试保存本地数据" onPress={() => void retryPersistence()} style={styles.persistenceButton}>
-          <Text style={styles.persistenceButtonText}>重试</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="重试保存本地数据" accessibilityState={{ disabled: persistenceRetrying }} disabled={persistenceRetrying} onPress={() => void retryPersistence()} style={[styles.persistenceButton, persistenceRetrying && styles.persistenceButtonDisabled]}>
+          <Text style={styles.persistenceButtonText}>{persistenceRetrying ? '保存中…' : '重试'}</Text>
         </Pressable>
       </View> : null}
       {storageActivity === 'export' ? <View accessibilityViewIsModal style={styles.storageOverlay}>
@@ -135,6 +135,7 @@ const styles = StyleSheet.create({
   persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
   persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },
   persistenceButton: { minWidth: 52, minHeight: 40, borderRadius: 20, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  persistenceButtonDisabled: { opacity: 0.58 },
   persistenceButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   splash: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 72, height: 72, borderRadius: 24, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },

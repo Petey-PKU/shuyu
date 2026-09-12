@@ -89,6 +89,7 @@ interface AppContextValue {
   pickBackup: () => Promise<BackupPayload | null>;
   restoreBackup: (payload: BackupPayload) => Promise<void>;
   persistenceError: string | null;
+  persistenceRetrying: boolean;
   retryPersistence: () => Promise<void>;
 }
 
@@ -155,8 +156,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
   const ocrCancelRef = useRef<(() => void) | null>(null);
   const persistenceRetryRef = useRef<(() => Promise<void>) | null>(null);
+  const persistenceRetryingRef = useRef(false);
   const persistenceErrorRef = useRef<string | null>(null);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  const [persistenceRetrying, setPersistenceRetrying] = useState(false);
 
   const reportPersistenceFailure = useCallback((area: string, error: unknown, retry: () => Promise<void>) => {
     const detail = error instanceof Error && error.message ? `：${error.message}` : '';
@@ -182,7 +185,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const retryPersistence = useCallback(async () => {
     const retry = persistenceRetryRef.current;
-    if (!retry) return;
+    if (!retry || persistenceRetryingRef.current) return;
+    persistenceRetryingRef.current = true;
+    setPersistenceRetrying(true);
     try {
       await retry();
       persistenceRetryRef.current = null;
@@ -190,6 +195,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPersistenceError(null);
     } catch {
       // The persistence helper keeps the retry action after another failure.
+    } finally {
+      persistenceRetryingRef.current = false;
+      setPersistenceRetrying(false);
     }
   }, []);
 
@@ -554,13 +562,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ready, storageActivity, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
     getBookContent: loadBookContent, updateProgress, addWord, toggleMastered, deferWord,
     removeWord, removeBook, updateBookMetadata, updatePreferences, setReadingProfile, togglePreferredGenre,
-    toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll, persistenceError, retryPersistence,
+    toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll, persistenceError, persistenceRetrying, retryPersistence,
     exportBackup, pickBackup: pickBackupFile, restoreBackup,
   }), [
     ready, storageActivity, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
     addWord, toggleMastered, deferWord, removeWord, removeBook, updateBookMetadata, updatePreferences, addReadingMinutes, resetAll,
     setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
-    exportBackup, restoreBackup, persistenceError, retryPersistence,
+    exportBackup, restoreBackup, persistenceError, persistenceRetrying, retryPersistence,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
