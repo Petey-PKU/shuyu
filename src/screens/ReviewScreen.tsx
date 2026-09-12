@@ -8,7 +8,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { colors, radii, shadows, typography } from '../theme';
 import { speakEnglish } from '../services/speech';
 import { InlineNotice } from '../components/InlineNotice';
-import { isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
+import { escapeRegExp, isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
@@ -60,7 +60,7 @@ export function ReviewScreen({ navigation, route }: Props) {
     }
   };
 
-  const cloze = current.context.replace(new RegExp(`\\b${current.word}\\b`, 'i'), '______');
+  const cloze = current.context.replace(new RegExp(`\\b${escapeRegExp(current.word)}\\b`, 'i'), '______');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }]}>

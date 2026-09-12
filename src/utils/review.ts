@@ -33,3 +33,8 @@ export function reviewDelayLabel(nextReviewAt?: string, now = Date.now()) {
   if (hours < 24) return `${hours} 小时后再来`;
   return `${Math.ceil(hours / 24)} 天后再来`;
 }
+
+/** Escape user/backup-provided text before placing it inside a regular expression. */
+export function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
