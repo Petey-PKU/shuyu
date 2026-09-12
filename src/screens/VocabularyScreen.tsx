@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppState, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -26,6 +26,7 @@ export function VocabularyScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { words, preferences, toggleMastered, removeWord } = useApp();
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
+  const [query, setQuery] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
@@ -37,6 +38,12 @@ export function VocabularyScreen({ navigation }: Props) {
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
   const filtered = useMemo(() => words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered), [words, tab]);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const visibleWords = useMemo(() => {
+    if (!normalizedQuery) return filtered;
+    return filtered.filter((word) => [word.word, word.meaning, word.context, word.bookTitle]
+      .some((value) => value.toLocaleLowerCase().includes(normalizedQuery)));
+  }, [filtered, normalizedQuery]);
   const learningCount = words.filter((word) => !word.mastered).length;
   const masteredCount = words.length - learningCount;
   const active = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).length;
@@ -45,8 +52,8 @@ export function VocabularyScreen({ navigation }: Props) {
   const nextReviewAt = nextReviewTime(words);
   const reviewTitle = active ? `${active} 个词等待重逢` : learningCount ? '先休息一下' : words.length ? '收藏词都已掌握' : '从第一个生词开始';
   const reviewMeta = !active && nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}` : reviewedToday ? `今天已复习 ${reviewedToday} 个` : '从原句开始回忆';
-  const emptyTitle = tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
-  const emptyBody = tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
+  const emptyTitle = normalizedQuery ? '没有匹配的词' : tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
+  const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
     setSpeechError(null);
     void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
@@ -66,17 +73,18 @@ export function VocabularyScreen({ navigation }: Props) {
         </View>
         <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View>
       </Pressable>
+      {words.length ? <View style={styles.searchBox}><Ionicons name="search-outline" size={17} color={colors.inkMuted} /><TextInput accessibilityLabel="搜索生词" placeholder="搜索单词、释义、原句或书名" placeholderTextColor={colors.inkMuted} value={query} onChangeText={setQuery} returnKeyType="search" style={styles.searchInput} /><Pressable accessibilityRole="button" accessibilityLabel="清除生词搜索" disabled={!query} onPress={() => setQuery('')} style={[styles.searchClear, !query && styles.searchClearDisabled]}><Ionicons name="close-circle" size={17} color={colors.inkMuted} /></Pressable></View> : null}
       <View style={styles.tabs}>
         <Pressable accessibilityRole="tab" accessibilityLabel={`学习中，${learningCount} 个`} accessibilityState={{ selected: tab === 'learning' }} onPress={() => setTab('learning')} style={[styles.tab, tab === 'learning' && styles.activeTab]}><Text style={[styles.tabText, tab === 'learning' && styles.activeTabText]}>学习中 {learningCount}</Text></Pressable>
         <Pressable accessibilityRole="tab" accessibilityLabel={`已掌握，${masteredCount} 个`} accessibilityState={{ selected: tab === 'mastered' }} onPress={() => setTab('mastered')} style={[styles.tab, tab === 'mastered' && styles.activeTab]}><Text style={[styles.tabText, tab === 'mastered' && styles.activeTabText]}>已掌握 {masteredCount}</Text></Pressable>
       </View>
       <FlatList
-        data={filtered}
+        data={visibleWords}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={<View style={styles.empty}><Ionicons name="bookmark-outline" size={34} color={colors.inkMuted} /><Text style={styles.emptyTitle}>{emptyTitle}</Text><Text style={styles.emptyBody}>{emptyBody}</Text>{tab === 'learning' ? <Pressable accessibilityRole="button" accessibilityLabel="去今天开始阅读" onPress={() => navigation.navigate('Today')} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{words.length ? '继续阅读' : '去读一本书'}</Text><Ionicons name="arrow-forward" size={15} color="#fff" /></Pressable> : null}</View>}
+        ListEmptyComponent={<View style={styles.empty}><Ionicons name={normalizedQuery ? 'search-outline' : 'bookmark-outline'} size={34} color={colors.inkMuted} /><Text style={styles.emptyTitle}>{emptyTitle}</Text><Text style={styles.emptyBody}>{emptyBody}</Text>{tab === 'learning' && !normalizedQuery ? <Pressable accessibilityRole="button" accessibilityLabel="去今天开始阅读" onPress={() => navigation.navigate('Today')} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{words.length ? '继续阅读' : '去读一本书'}</Text><Ionicons name="arrow-forward" size={15} color="#fff" /></Pressable> : null}</View>}
         renderItem={({ item }) => (
           <View style={styles.wordRow}>
             <View style={styles.wordMain}>
@@ -129,6 +137,10 @@ const styles = StyleSheet.create({
   reviewTitle: { color: colors.surfaceStrong, fontFamily: typography.serif, fontSize: 18, fontWeight: '700' },
   reviewMeta: { color: 'rgba(255,255,255,0.58)', fontSize: 10, marginTop: 5 },
   reviewGo: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  searchBox: { marginHorizontal: 20, marginTop: 16, minHeight: 46, borderRadius: radii.medium, paddingHorizontal: 13, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchInput: { flex: 1, color: colors.ink, fontSize: 12, paddingVertical: 10 },
+  searchClear: { padding: 5 },
+  searchClearDisabled: { opacity: 0.28 },
   tabs: { marginHorizontal: 20, marginTop: 22, padding: 4, backgroundColor: 'rgba(0,0,0,0.055)', borderRadius: radii.pill, flexDirection: 'row' },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: radii.pill },
   activeTab: { backgroundColor: colors.surfaceStrong },
