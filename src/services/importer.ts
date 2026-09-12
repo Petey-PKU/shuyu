@@ -40,7 +40,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   const asset = result.assets[0];
   const decodedUriName = safeDecodeFileName(asset.uri.split(/[\\/]/).pop() || '');
   const fileName = asset.name || decodedUriName || '未命名书籍';
-  const fallbackTitle = cleanFileName(fileName);
+  const fallbackTitle = cleanFileName(fileName) || '未命名书籍';
   const extension = (fileName.split('.').pop() || '').toLowerCase();
   const webFile = Platform.OS === 'web' ? asset.file : undefined;
   pdfOptions.onFileSelected?.(fileName);
