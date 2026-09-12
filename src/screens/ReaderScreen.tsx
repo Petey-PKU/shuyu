@@ -202,6 +202,13 @@ function ReaderSession({ route, navigation }: Props) {
   }, [bookId]);
 
   useEffect(() => {
+    // Persist active reading periodically so today's stats stay current even when
+    // the reader remains open for a long session.
+    const timer = setInterval(flushReadingSession, 60_000);
+    return () => clearInterval(timer);
+  }, [flushReadingSession]);
+
+  useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const active = nextState === 'active';
       if (!active && appIsActive.current) {
