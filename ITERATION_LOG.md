@@ -36,6 +36,12 @@
 - 现在解析器在逐章和分段边界检查取消；取消后释放解析器资源并返回正常取消状态，不创建半成品书籍，也不显示误导性的导入失败。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 统一备份恢复的取消行为
+
+- 部分 Android 文件选择器会把用户取消选择备份表示为异常，恢复入口原先可能显示“无法读取备份”的错误提示。
+- 现在同时兼容取消返回值和取消异常；用户主动退出选择时安静返回，真正的读取或校验失败仍会保留明确错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让词典后台加载不阻断首次进入
 
 - 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。
