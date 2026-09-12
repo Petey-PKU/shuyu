@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 处理文件选择器的空资产返回
+
+- 部分文件提供器可能返回未取消但没有文件资产，导入流程原先会在读取文件名时触发底层属性错误。
+- 现在把这类返回统一转换为可理解的重试提示，真正的格式和读取错误仍沿用原有具体说明。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 过滤失效的想读书目状态
 
 - 旧版本或备份可能保留已从推荐目录移除的书目 ID，发现页原先仍显示想读数量，筛选后却没有对应内容。

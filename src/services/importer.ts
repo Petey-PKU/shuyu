@@ -37,7 +37,8 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   });
 
   if (result.canceled) return null;
-  const asset = result.assets[0];
+  const asset = result.assets?.[0];
+  if (!asset) throw new Error('未选择有效文件，请重试');
   const decodedUriName = safeDecodeFileName(asset.uri.split(/[\\/]/).pop() || '');
   const fileName = asset.name || decodedUriName || '未命名书籍';
   const fallbackTitle = cleanFileName(fileName) || '未命名书籍';
