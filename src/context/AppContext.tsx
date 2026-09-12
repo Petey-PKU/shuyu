@@ -247,7 +247,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
-      await persist('books', '书架', () => saveBooks(next), () => saveBooks(booksRef.current));
+      try {
+        await persist('books', '书架', () => saveBooks(next), () => saveBooks(booksRef.current));
+      } catch {
+        // Keep the imported book available for immediate reading. The
+        // persistence tracker retains the latest index and exposes a retry
+        // banner, so the user does not need to import the same file again.
+      }
       return book;
     } finally {
       importingRef.current = false;
