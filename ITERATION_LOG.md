@@ -18,6 +18,12 @@
 - 现在完成首批页面后根据本次 OCR 的实际速度显示预计剩余时间，并标注估计会随设备速度变化；停止、跳过页和隐私说明保持不变。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 为无效推荐链接补充恢复入口
+
+- 推荐详情遇到过期或无效的书籍 ID 时原先直接返回空节点，用户只能看到空白页面。
+- 现在显示推荐不可用的说明，并提供返回发现页按钮，用户可以继续浏览最新推荐。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让词典后台加载不阻断首次进入
 
 - 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。

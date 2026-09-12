@@ -39,7 +39,23 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
     setRecommendedBookFeedback,
   } = useApp();
 
-  if (!book) return null;
+  if (!book) {
+    return (
+      <View style={[styles.screen, styles.missingScreen, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.topBar}>
+          <Pressable accessibilityRole="button" accessibilityLabel="返回发现页" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={23} color={colors.ink} /></Pressable>
+          <Text style={styles.topTitle}>选书详情</Text>
+          <View style={styles.iconButton} />
+        </View>
+        <View style={styles.missingContent}>
+          <View style={styles.missingIcon}><Ionicons name="book-outline" size={28} color={colors.inkMuted} /></View>
+          <Text accessibilityRole="header" style={styles.missingTitle}>这本推荐已不可用</Text>
+          <Text style={styles.missingBody}>推荐内容可能已经更新。返回发现页后，你仍可以浏览最新的书目。</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="返回发现页" onPress={() => navigation.goBack()} style={styles.importButton}><Text style={styles.importText}>返回发现页</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
+        </View>
+      </View>
+    );
+  }
   const saved = recommendationState.savedBookIds.includes(book.id);
   const feedback = recommendationState.feedback[book.id];
   const targetScore = effectiveReadingScore(recommendationState, readingSignals, books);
@@ -142,6 +158,11 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  missingScreen: { paddingHorizontal: 20 },
+  missingContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
+  missingIcon: { width: 68, height: 68, borderRadius: 24, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
+  missingTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 25, fontWeight: '700', textAlign: 'center' },
+  missingBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 11, maxWidth: 330 },
   content: { paddingHorizontal: 20 },
   topBar: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
