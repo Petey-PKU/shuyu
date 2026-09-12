@@ -34,15 +34,23 @@ export function DictionaryProvider({ children }: { children: React.ReactNode }) 
   const [databaseError, setDatabaseError] = useState(false);
   const [retryNonce, setRetryNonce] = useState(0);
   const errorScheduled = useRef(false);
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialize = useCallback(async (nextDatabase: SQLiteDatabase) => {
     setDatabase(nextDatabase);
   }, []);
   const handleError = useCallback(() => {
     if (errorScheduled.current) return;
     errorScheduled.current = true;
-    setTimeout(() => setDatabaseError(true), 0);
+    errorTimer.current = setTimeout(() => {
+      errorTimer.current = null;
+      setDatabaseError(true);
+    }, 0);
   }, []);
   const retryDictionary = useCallback(() => {
+    if (errorTimer.current) {
+      clearTimeout(errorTimer.current);
+      errorTimer.current = null;
+    }
     errorScheduled.current = false;
     setDatabase(null);
     setDatabaseError(false);
