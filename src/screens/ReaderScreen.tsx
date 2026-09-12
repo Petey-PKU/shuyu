@@ -570,6 +570,9 @@ function ReaderSession({ route, navigation }: Props) {
             <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>
               <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={19} color={isSaved ? '#fff' : colors.ink} />
             </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭查词卡片" onPress={closeSelection} style={styles.sheetCloseButton}>
+              <Ionicons name="close" size={20} color={colors.inkMuted} />
+            </Pressable>
           </View>
           {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
             <View style={styles.lookupLoading}>
@@ -719,6 +722,7 @@ const styles = StyleSheet.create({
   phonetic: { color: colors.inkMuted, fontSize: 12 },
   soundButton: { width: 35, height: 35, borderRadius: 18, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   saveButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
   lookupLoading: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 },
   lookupLoadingText: { color: colors.inkMuted, fontSize: 11 },
