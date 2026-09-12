@@ -54,7 +54,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
                 <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
               </View>
               <Text style={styles.body}>
-                英文 OCR 完全在本机进行。请保持应用在前台，识别完成后会自动整理为连续正文。
+                页面文字在本机识别，不会上传到书语服务器。系统服务可能按其规则发送运行指标；请保持应用在前台。
               </Text>
               {(status?.skippedPages ?? 0) > 0 ? (
                 <Text style={styles.warning}>已有 {status?.skippedPages} 页未能识别，将继续处理后续页面。</Text>
@@ -71,7 +71,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
             </>
           ) : (
             <>
-              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>文件只在本机读取和解析，原文不会上传。当前阶段已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
+              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>文件只在本机读取和解析，原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="取消电子书导入"
