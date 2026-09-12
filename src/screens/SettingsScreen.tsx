@@ -230,6 +230,7 @@ export function SettingsScreen() {
               <Text accessibilityRole="header" style={styles.infoTitle}>隐私说明</Text>
             </View>
             <Text style={styles.infoBody}>书籍正文、阅读进度、生词和学习统计默认只保存在此设备。</Text>
+            <Text style={styles.infoBody}>如果不想新增阅读分钟、连续天数和趋势记录，可以在上方关闭“记录阅读统计”；已有统计不会被删除。</Text>
             <Text style={styles.infoBody}>{Platform.OS === 'web' ? 'Web 预览不加载随包离线词典；关闭在线增强时使用本地兜底，开启后未收录单词才会尝试发送给第三方词典服务。正式安装包优先使用本地词典。' : '正式安装包优先使用离线词典在本地查词。开启在线翻译增强后，未收录的单词才会尝试发送给第三方词典服务。'}</Text>
             <Text style={styles.infoBody}>整句翻译始终需要你在单词卡片中主动点击“获取整句翻译”；点击后，当前句子可能发送给第三方翻译服务。</Text>
             <Text style={styles.infoBody}>关闭在线翻译增强后，书语不会发起这些在线查词或整句翻译请求。</Text>
