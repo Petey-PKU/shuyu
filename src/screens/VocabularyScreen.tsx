@@ -50,7 +50,7 @@ export function VocabularyScreen({ navigation }: Props) {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
-      <Pressable disabled={!active} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
+      <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.reviewEyebrow}>今日复习</Text>
@@ -60,8 +60,8 @@ export function VocabularyScreen({ navigation }: Props) {
         <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View>
       </Pressable>
       <View style={styles.tabs}>
-        <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === 'learning' }} onPress={() => setTab('learning')} style={[styles.tab, tab === 'learning' && styles.activeTab]}><Text style={[styles.tabText, tab === 'learning' && styles.activeTabText]}>学习中 {learningCount}</Text></Pressable>
-        <Pressable accessibilityRole="tab" accessibilityState={{ selected: tab === 'mastered' }} onPress={() => setTab('mastered')} style={[styles.tab, tab === 'mastered' && styles.activeTab]}><Text style={[styles.tabText, tab === 'mastered' && styles.activeTabText]}>已掌握 {masteredCount}</Text></Pressable>
+        <Pressable accessibilityRole="tab" accessibilityLabel={`学习中，${learningCount} 个`} accessibilityState={{ selected: tab === 'learning' }} onPress={() => setTab('learning')} style={[styles.tab, tab === 'learning' && styles.activeTab]}><Text style={[styles.tabText, tab === 'learning' && styles.activeTabText]}>学习中 {learningCount}</Text></Pressable>
+        <Pressable accessibilityRole="tab" accessibilityLabel={`已掌握，${masteredCount} 个`} accessibilityState={{ selected: tab === 'mastered' }} onPress={() => setTab('mastered')} style={[styles.tab, tab === 'mastered' && styles.activeTab]}><Text style={[styles.tabText, tab === 'mastered' && styles.activeTabText]}>已掌握 {masteredCount}</Text></Pressable>
       </View>
       <FlatList
         data={filtered}
