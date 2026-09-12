@@ -448,7 +448,11 @@ function ReaderSession({ route, navigation }: Props) {
   };
 
   if (!book || contentError || !content || !chapter) {
-    const error = !book ? '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。' : contentError;
+    const error = !book
+      ? returnTo === 'Vocabulary'
+        ? '这本书已不在本地书架中。请返回生词本选择其他词，或重新导入原文件。'
+        : '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。'
+      : contentError;
     return (
       <View style={[styles.loading, { backgroundColor: theme.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
