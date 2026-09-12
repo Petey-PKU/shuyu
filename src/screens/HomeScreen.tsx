@@ -149,6 +149,17 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.metricLabel}>待掌握词</Text>
         </Pressable>
       </View>
+      {dueWords > 0 ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`开始复习，${dueWords} 个词今天到期`} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+          <View style={styles.nextActionIcon}><Ionicons name="layers-outline" size={20} color={colors.accent} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nextActionEyebrow}>今天可以先复习</Text>
+            <Text style={styles.nextActionTitle}>{dueWords} 个词等待重逢</Text>
+            <Text style={styles.nextActionBody}>用几分钟回顾原句，再回到书里继续读。</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        </Pressable>
+      ) : null}
 
       <View style={styles.trendCard}>
         <View style={styles.trendHeader}>
@@ -231,6 +242,11 @@ const styles = StyleSheet.create({
   metricWarm: { backgroundColor: colors.accentSoft },
   metricSage: { backgroundColor: colors.sageSoft },
   metricBlue: { backgroundColor: '#DFE7EF' },
+  nextAction: { marginTop: 14, padding: 14, borderRadius: radii.medium, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  nextActionIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,112,67,0.16)', alignItems: 'center', justifyContent: 'center' },
+  nextActionEyebrow: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
+  nextActionTitle: { color: colors.surfaceStrong, fontFamily: typography.serif, fontSize: 17, fontWeight: '700', marginTop: 2 },
+  nextActionBody: { color: 'rgba(255,255,255,0.58)', fontSize: 10, marginTop: 3 },
   metricValue: { color: colors.ink, fontFamily: typography.serif, fontSize: 26, fontWeight: '700' },
   metricLabel: { color: colors.inkMuted, fontSize: 11, fontWeight: '600' },
   trendCard: { marginTop: 14, padding: 17, borderRadius: radii.medium, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
