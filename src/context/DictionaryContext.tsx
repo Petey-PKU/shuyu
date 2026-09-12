@@ -12,8 +12,7 @@ const DictionaryContext = createContext<DictionaryContextValue | null>(null);
 export function DictionaryProvider({ children }: { children: React.ReactNode }) {
   const lookup = useCallback(async (word: string, allowOnline = true) => {
     if (!allowOnline) return fallbackLookup(word);
-    const result = await lookupNetworkWord(word);
-    return result.source === 'fallback' ? fallbackLookup(word) : result;
+    return lookupNetworkWord(word);
   }, []);
   const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 0 }), [lookup]);
   return <DictionaryContext.Provider value={value}>{children}</DictionaryContext.Provider>;

@@ -49,8 +49,7 @@ function DictionaryBridge({ children }: { children: React.ReactNode }) {
       };
     }
     if (!allowOnline) return fallbackLookup(normalized);
-    const online = await lookupNetworkWord(normalized);
-    return online.source === 'fallback' ? fallbackLookup(normalized) : online;
+    return lookupNetworkWord(normalized);
   }, [database]);
   const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 120_000 }), [lookup]);
   return <DictionaryContext.Provider value={value}>{children}</DictionaryContext.Provider>;

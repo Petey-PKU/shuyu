@@ -4,6 +4,8 @@ export interface LookupResult {
   meaning: string;
   phonetic?: string;
   source: 'offline' | 'network' | 'fallback';
+  /** True when online enhancement was requested but no network meaning was available. */
+  networkError?: boolean;
   matchedWord?: string;
   tags?: string[];
 }
@@ -398,7 +400,7 @@ export function fallbackLookup(word: string): LookupResult {
 
 export async function lookupNetworkWord(word: string): Promise<LookupResult> {
   const meaning = await translate(word.toLowerCase(), 4_500, 1);
-  return meaning ? { meaning, source: 'network' } : fallbackLookup(word);
+  return meaning ? { meaning, source: 'network' } : { ...fallbackLookup(word), networkError: true };
 }
 
 export async function translateSentence(sentence: string): Promise<string | undefined> {
