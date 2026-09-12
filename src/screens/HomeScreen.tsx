@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -203,7 +203,7 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
-          <Text style={styles.importBody}>TXT · EPUB · MOBI · AZW3 · PDF</Text>
+          <Text style={styles.importBody}>{Platform.OS === 'web' ? 'TXT · EPUB · MOBI · AZW3' : 'TXT · EPUB · MOBI · AZW3 · PDF'}</Text>
         </Pressable>
       </ScrollView>
 

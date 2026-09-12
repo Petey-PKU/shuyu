@@ -85,7 +85,7 @@ export function LibraryScreen({ navigation }: Props) {
           <View style={styles.empty}>
             <Ionicons name="library-outline" size={34} color={colors.inkMuted} />
             <Text style={styles.emptyTitle}>{query ? '没有匹配的书籍' : '还没有书籍'}</Text>
-            <Text style={styles.emptyBody}>{query ? '试试其他书名或作者关键词。' : '导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。'}</Text>
+            <Text style={styles.emptyBody}>{query ? '试试其他书名或作者关键词。' : Platform.OS === 'web' ? 'Web 预览支持 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8；PDF 与 OCR 请使用正式 Android 安装包。' : '导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。'}</Text>
             {!query ? (
               <Pressable accessibilityRole="button" accessibilityLabel="导入第一本书" onPress={handleImport} style={styles.emptyButton}>
                 <Ionicons name="document-text-outline" size={17} color="#fff" />

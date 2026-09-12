@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -93,7 +93,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
 
       <View style={styles.sourceBoundary}>
         <Ionicons name="shield-checkmark-outline" size={22} color={colors.sage} />
-        <View style={{ flex: 1 }}><Text style={styles.sourceTitle}>获取方式由你决定</Text><Text style={styles.sourceBody}>本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT、无 DRM EPUB/MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF。</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.sourceTitle}>获取方式由你决定</Text><Text style={styles.sourceBody}>{Platform.OS === 'web' ? '本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT、无 DRM EPUB/MOBI/AZW3/KF8；PDF 与 OCR 请使用正式 Android 安装包。' : '本页不提供下载、购买或试读入口。请只导入你有权使用的 TXT、无 DRM EPUB/MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF。'}</Text></View>
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="导入自己的文件开始阅读" onPress={handleImport} style={styles.importButton}><Ionicons name="document-text-outline" size={18} color="#fff" /><Text style={styles.importText}>我已有文件，导入阅读</Text></Pressable>
     </ScrollView>
