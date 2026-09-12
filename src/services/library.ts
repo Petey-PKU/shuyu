@@ -147,12 +147,19 @@ export async function createBook(parsed: ParsedBook): Promise<{ book: Book; cont
     chapterCount: content.chapters.length,
     accent: bookAccents[Math.floor(Math.random() * bookAccents.length)],
   };
-  if (Platform.OS === 'web') {
-    await AsyncStorage.setItem(contentKey(id), JSON.stringify(content));
-  } else {
-    const file = contentFile(id);
-    file.create({ intermediates: true, overwrite: true });
-    file.write(JSON.stringify(content));
+  try {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.setItem(contentKey(id), JSON.stringify(content));
+    } else {
+      const file = contentFile(id);
+      file.create({ intermediates: true, overwrite: true });
+      file.write(JSON.stringify(content));
+    }
+  } catch (error) {
+    // A failed write must not leave an orphaned正文 file behind. The book
+    // index is published only after this block succeeds.
+    try { await removeBookContent(id); } catch { /* Preserve the original write error. */ }
+    throw error;
   }
   return { book, content };
 }
