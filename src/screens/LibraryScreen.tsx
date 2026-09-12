@@ -129,9 +129,9 @@ export function LibraryScreen({ navigation }: Props) {
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={styles.editTitle}>编辑书籍信息</Text>
                 <Text style={styles.editLabel}>书名</Text>
-                <TextInput value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
+                <TextInput accessibilityLabel="编辑书名" value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
                 <Text style={styles.editLabel}>作者</Text>
-                <TextInput value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
+                <TextInput accessibilityLabel="编辑作者，可选" value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
                 <View style={styles.editActions}>
                   <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" onPress={() => setEditingBook(null)} style={styles.editCancel}><Text style={styles.editCancelText}>取消</Text></Pressable>
                   <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" onPress={() => void saveMetadata()} style={styles.editSave}><Text style={styles.editSaveText}>保存</Text></Pressable>
