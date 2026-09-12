@@ -23,6 +23,8 @@ export function SettingsScreen() {
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [resetVisible, setResetVisible] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -55,15 +57,12 @@ export function SettingsScreen() {
     });
   };
 
-  const confirmReset = () => Alert.alert('清除全部本地数据？', '书籍、阅读进度和生词将从设备永久删除。', [
-    { text: '取消', style: 'cancel' },
-    { text: '全部清除', style: 'destructive', onPress: () => { void resetAll(); } },
-  ]);
+  const confirmReset = () => setResetVisible(true);
 
   const handleExportBackup = async () => {
     if (backupBusy) return;
     if (Platform.OS === 'web') {
-      Alert.alert('正式安装包可用', 'Web 预览不支持选择本地备份目录，请在 Android 或 iOS 安装包中使用。');
+      setBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。');
       return;
     }
     setBackupBusy(true);
@@ -81,7 +80,7 @@ export function SettingsScreen() {
   const handleRestoreBackup = async () => {
     if (backupBusy) return;
     if (Platform.OS === 'web') {
-      Alert.alert('正式安装包可用', 'Web 预览不支持恢复本地备份，请在 Android 或 iOS 安装包中使用。');
+      setBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。');
       return;
     }
     setBackupBusy(true);
@@ -187,6 +186,13 @@ export function SettingsScreen() {
             <Ionicons name="cloud-upload-outline" size={17} color={colors.ink} /><Text style={styles.backupSecondaryText}>恢复备份</Text>
           </Pressable>
         </View>
+        {backupMessage ? (
+          <Pressable accessibilityRole="alert" accessibilityLabel="关闭备份提示" onPress={() => setBackupMessage(null)} style={styles.backupMessage}>
+            <Ionicons name="information-circle-outline" size={17} color={colors.accent} />
+            <Text style={styles.backupMessageText}>{backupMessage}</Text>
+            <Ionicons name="close" size={16} color={colors.inkMuted} />
+          </Pressable>
+        ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
       <Text style={styles.footer}>书语 · SHUYU{`\n`}在书里，学会一门语言。</Text>
@@ -203,6 +209,20 @@ export function SettingsScreen() {
             <Text style={styles.infoBody}>整句翻译始终需要你在单词卡片中主动点击“获取整句翻译”；点击后，当前句子可能发送给第三方翻译服务。</Text>
             <Text style={styles.infoBody}>关闭在线翻译增强后，书语不会发起这些在线查词或整句翻译请求。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭隐私说明" onPress={() => setPrivacyVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal visible={resetVisible} transparent animationType="fade" onRequestClose={() => setResetVisible(false)}>
+        <Pressable style={styles.infoBackdrop} onPress={() => setResetVisible(false)}>
+          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.resetIcon}><Ionicons name="warning-outline" size={20} color={colors.danger} /></View>
+              <Text accessibilityRole="header" style={styles.infoTitle}>清除全部本地数据？</Text>
+            </View>
+            <Text style={styles.infoBody}>书籍、阅读进度、生词、统计和偏好都会从这台设备永久删除。</Text>
+            <Text style={styles.infoBody}>如果你还没有备份，请先取消并导出本地备份。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认清除全部本地数据" onPress={() => { setResetVisible(false); void resetAll(); }} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>全部清除</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消清除本地数据" onPress={() => setResetVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -258,4 +278,9 @@ const styles = StyleSheet.create({
   infoBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 20, marginTop: 10 },
   infoClose: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   infoCloseText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  resetIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: 'rgba(217,95,89,0.12)', alignItems: 'center', justifyContent: 'center' },
+  resetConfirm: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  resetConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  backupMessage: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 13, backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backupMessageText: { flex: 1, color: colors.inkMuted, fontSize: 10, lineHeight: 16 },
 });
