@@ -16,6 +16,12 @@ export function resolveReadingPosition(chapters: Chapter[], chapterIndex = 0, pa
   return { chapterIndex: safeChapter, paragraphIndex: paragraphAtOffset(starts, safeOffset), offset: safeOffset };
 }
 
+/** Progress reflects the text the reader has actually reached, including the final page. */
+export function progressAtPage(completedWords: number, chapterWords: number, totalWords: number, pageEnd: number, chapterLength: number) {
+  const share = chapterLength <= 0 || pageEnd >= chapterLength ? 1 : Math.max(0, pageEnd / chapterLength);
+  return Math.min(1, Math.max(0, (completedWords + chapterWords * share) / Math.max(1, totalWords)));
+}
+
 /** Count displayed words once per session, including across chapters and reflow. */
 export class ReadingCoverage {
   private seen = new Map<string, Set<number>>();

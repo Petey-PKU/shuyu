@@ -24,7 +24,7 @@ import type { BookContent } from '../types';
 import { colors, radii, typography } from '../theme';
 import type { LookupResult } from '../services/translation';
 import { sentenceAt, tokenizeParagraph } from '../utils/text';
-import { ReadingCoverage, resolveReadingPosition } from '../utils/reading';
+import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../utils/reading';
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
@@ -261,8 +261,7 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(firstParagraph);
     const completedBefore = content.chapters.slice(0, chapterIndex).reduce((sum, item) => sum + item.wordCount, 0);
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
-    const chapterShare = page.start / Math.max(1, chapterText.length);
-    const progress = Math.min(1, (completedBefore + chapter.wordCount * chapterShare) / Math.max(1, totalWords));
+    const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
     void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => {
       Alert.alert('阅读位置未能保存', '请检查设备存储空间，继续翻页时会再次尝试保存。');
     });

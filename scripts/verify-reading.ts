@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { ReadingCoverage, resolveReadingPosition } from '../src/utils/reading';
+import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../src/utils/reading';
 import { pageAtOffset, type ReaderPage } from '../src/utils/pagination';
 import type { Chapter } from '../src/types';
 
@@ -23,6 +23,9 @@ assert.equal(resolveReadingPosition(chapters, NaN, NaN, NaN).offset, 0);
 assert.throws(() => resolveReadingPosition([]), /没有可阅读/);
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 0), 0, 'Leading whitespace should not reopen the final page');
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 9), 1, 'Whitespace between pages resumes at the following page');
+assert.equal(progressAtPage(0, 10, 10, 10, 10), 1, 'A one-page book reaches 100% after its only page');
+assert.equal(progressAtPage(0, 10, 10, 4, 10), 0.4, 'An intermediate page reports its visible text share');
+assert.equal(progressAtPage(10, 10, 20, 10, 10), 1, 'A final page completes the overall book after earlier chapters');
 
 const coverage = new ReadingCoverage();
 coverage.recordPage('first', pages[0]);
