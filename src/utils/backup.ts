@@ -55,7 +55,7 @@ export function validWord(value: unknown): value is SavedWord {
 export function validStats(value: unknown): value is ReadingStats {
   const history = isRecord(value) ? value.dailyHistory : undefined;
   const validHistory = history === undefined || (isRecord(history) && Object.entries(history).every(([date, entry]) => {
-    return /^\d{4}-\d{2}-\d{2}$/.test(date) && isRecord(entry)
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(`${date}T00:00:00Z`)) && isRecord(entry)
       && isNonNegativeNumber(entry.minutes) && isNonNegativeInteger(entry.words);
   }));
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))

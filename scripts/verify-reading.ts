@@ -42,8 +42,8 @@ assert.equal(coverage.totalWords, 8, 'Reflow only adds words not already display
 const recorded = recordReadingDay(recordReadingDay(undefined, '2026-09-10', 4, 40), '2026-09-10', 3, 20);
 assert.deepEqual(recorded?.['2026-09-10'], { minutes: 7, words: 60 }, 'Daily reading history accumulates the same day');
 const oldHistory = Object.fromEntries(Array.from({ length: 91 }, (_, index) => {
-  const day = String(index + 1).padStart(2, '0');
-  return [`2026-08-${day}`, { minutes: 1, words: 1 }];
+  const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
+  return [date, { minutes: 1, words: 1 }];
 }));
 assert.equal(Object.keys(recordReadingDay(oldHistory, '2026-11-01', 2, 3) ?? {}).length, 90, 'Daily history is capped to the latest 90 days');
 
