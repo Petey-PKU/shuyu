@@ -25,6 +25,7 @@ export function SettingsScreen() {
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [onlinePromptVisible, setOnlinePromptVisible] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
@@ -81,6 +82,19 @@ export function SettingsScreen() {
   };
 
   const confirmReset = () => setResetVisible(true);
+
+  const handleOnlineToggle = (value: boolean) => {
+    if (value) {
+      setOnlinePromptVisible(true);
+      return;
+    }
+    void updatePreferences({ onlineSentenceTranslation: false }).catch(() => undefined);
+  };
+
+  const enableOnlineTranslation = () => {
+    setOnlinePromptVisible(false);
+    void updatePreferences({ onlineSentenceTranslation: true }).catch(() => undefined);
+  };
 
   const handleExportBackup = async () => {
     if (backupBusy) return;
@@ -173,7 +187,7 @@ export function SettingsScreen() {
           <Switch
             accessibilityLabel="在线翻译增强"
             value={preferences.onlineSentenceTranslation}
-            onValueChange={(value) => { void updatePreferences({ onlineSentenceTranslation: value }).catch(() => undefined); }}
+            onValueChange={handleOnlineToggle}
             trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
             thumbColor={preferences.onlineSentenceTranslation ? colors.accent : '#F8F7F3'}
           />
@@ -236,6 +250,21 @@ export function SettingsScreen() {
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
       <Text style={styles.footer}>书语 · SHUYU{`\n`}在书里，学会一门语言。</Text>
+
+      <Modal visible={onlinePromptVisible} transparent animationType="fade" onRequestClose={() => setOnlinePromptVisible(false)}>
+        <Pressable style={styles.infoBackdrop} onPress={() => setOnlinePromptVisible(false)}>
+          <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.infoIcon}><Ionicons name="globe-outline" size={20} color={colors.accent} /></View>
+              <Text accessibilityRole="header" style={styles.infoTitle}>开启在线翻译增强？</Text>
+            </View>
+            <Text style={styles.infoBody}>未被本地词典收录的单词，以及你主动请求的整句翻译，可能会发送给第三方翻译服务。</Text>
+            <Text style={styles.infoBody}>书籍正文、阅读进度和生词仍保存在设备；你可以随时在设置中关闭在线增强。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认开启在线翻译增强" onPress={enableOnlineTranslation} style={styles.onlineConfirm}><Text style={styles.onlineConfirmText}>开启在线增强</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="暂不开启在线翻译增强" onPress={() => setOnlinePromptVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>暂不开启</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={privacyVisible} transparent animationType="fade" onRequestClose={() => setPrivacyVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setPrivacyVisible(false)}>
@@ -353,6 +382,8 @@ const styles = StyleSheet.create({
   infoCloseText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   resetIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: 'rgba(217,95,89,0.12)', alignItems: 'center', justifyContent: 'center' },
   resetConfirm: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  onlineConfirm: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  onlineConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   resetConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   backupMessage: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 13, backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 8 },
   backupMessageText: { flex: 1, color: colors.inkMuted, fontSize: 10, lineHeight: 16 },

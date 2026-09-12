@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 在线翻译开启前明确隐私确认
+
+- 在线翻译增强原先点击开关就会生效，用户可能没有充分注意未收录单词或主动整句翻译会发送给第三方服务。
+- 现在首次开启前先显示范围说明和确认按钮；取消确认保持离线，关闭开关仍立即生效，书籍正文和阅读进度继续留在设备。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 在继续阅读卡片显示章节位置
 
 - 首页主阅读卡片原先只显示百分比，用户在多本书之间切换时无法快速判断上次停留章节。
