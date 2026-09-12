@@ -582,7 +582,7 @@ function ReaderSession({ route, navigation }: Props) {
           <View style={styles.wordHeader}>
             <View style={{ flex: 1 }}>
               <View style={styles.wordTitleRow}>
-                <Text style={styles.wordTitle}>{selection?.word}</Text>
+                <Text accessibilityRole="header" style={styles.wordTitle}>{selection?.word}</Text>
                 {lookup?.phonetic ? <Text style={styles.phonetic}>{lookup.phonetic}</Text> : null}
                 <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) speak(selection.word, 'word'); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
@@ -641,7 +641,7 @@ function ReaderSession({ route, navigation }: Props) {
       <Modal visible={settingsVisible} transparent animationType="fade" onRequestClose={applyReaderSettings}>
         <Pressable style={styles.centerBackdrop} onPress={applyReaderSettings}>
           <Pressable accessibilityViewIsModal style={styles.settingsCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>阅读排版</Text>
+            <Text accessibilityRole="header" style={styles.modalTitle}>阅读排版</Text>
             <View style={[styles.livePreview, { backgroundColor: readerThemes[settingsDraft.theme].background }]}>
               <Text style={[styles.livePreviewLabel, { color: readerThemes[settingsDraft.theme].muted }]}>当前段落预览</Text>
               <Text numberOfLines={3} style={[styles.livePreviewText, {
@@ -671,7 +671,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable style={styles.sheetBackdrop} onPress={() => setChaptersVisible(false)} />
         <View accessibilityViewIsModal style={[styles.chapterSheet, { paddingBottom: insets.bottom + 14 }]}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.modalTitle}>目录</Text>
+          <Text accessibilityRole="header" style={styles.modalTitle}>目录</Text>
           <FlatList
             data={content.chapters}
             keyExtractor={(item) => item.id}

@@ -660,3 +660,9 @@
 - 复习可从首页或生词本进入，但完成页原先固定显示“返回生词本”，首页入口会让用户返回位置产生误解。
 - 记录复习入口并让完成页返回对应页面，同时同步按钮文案和读屏标签。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 阅读弹层标题语义
+
+- 查词卡片、生词目录和阅读排版弹层原先缺少标题语义，读屏用户进入后需要遍历控件才能理解上下文。
+- 为三个弹层的标题补充 `accessibilityRole="header"`，让辅助技术可以直接定位当前内容。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
