@@ -454,11 +454,11 @@ function ReaderSession({ route, navigation }: Props) {
         {book ? <Text numberOfLines={2} style={[styles.contentStateBook, { color: theme.muted }]}>{book.title}</Text> : null}
         {error ? <Text accessibilityRole="alert" style={[styles.contentStateBody, { color: theme.muted }]}>{error}</Text> : null}
         {error && book ? (
-          <Pressable accessibilityRole="button" onPress={() => { setContentError(null); setLoadAttempt((attempt) => attempt + 1); }} style={styles.contentRetry}>
+          <Pressable accessibilityRole="button" accessibilityLabel="重新打开书籍正文" onPress={() => { setContentError(null); setLoadAttempt((attempt) => attempt + 1); }} style={styles.contentRetry}>
             <Text style={styles.contentRetryText}>重新打开</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'} onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
       </View>
     );
   }
@@ -490,7 +490,7 @@ function ReaderSession({ route, navigation }: Props) {
           <View style={styles.paginating}>
             <Text style={[styles.contentStateTitle, { color: theme.text }]}>本章没有正文</Text>
             <Text style={[styles.contentStateBody, { color: theme.muted }]}>可以从目录选择其他章节继续阅读。</Text>
-            <Pressable accessibilityRole="button" onPress={() => setChaptersVisible(true)} style={styles.contentRetry}><Text style={styles.contentRetryText}>选择章节</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="选择其他章节" onPress={() => setChaptersVisible(true)} style={styles.contentRetry}><Text style={styles.contentRetryText}>选择章节</Text></Pressable>
           </View>
         ) : pages.length ? (
           <View style={styles.pageSurface}>
