@@ -8,6 +8,7 @@ import {
   Modal,
   PanResponder,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -592,44 +593,46 @@ function ReaderSession({ route, navigation }: Props) {
             </Pressable>
           </View>
           {saveFeedback !== 'idle' ? <Text accessibilityRole={saveFeedback === 'error' ? 'alert' : undefined} style={[styles.saveFeedback, saveFeedback === 'error' && styles.saveFeedbackError]}>{saveFeedback === 'saving' ? '正在加入生词本…' : saveFeedback === 'error' ? '已加入本次会话，但设备保存失败，请稍后重试保存。' : '已加入生词本'}</Text> : null}
-          {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
-            <View style={styles.lookupLoading}>
-              <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="重新查询这个单词" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
-                <Ionicons name="refresh" size={16} color={colors.accent} />
-                <Text style={styles.translationRetryText}>重新查词</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.meaningLabel}>{lookup?.source === 'offline' ? '词典释义' : '参考释义'}</Text>
-              <Text style={styles.meaning}>{lookup?.meaning}</Text>
-              {lookup?.matchedWord ? <Text style={styles.lemmaNote}>原形 · {lookup.matchedWord}</Text> : null}
-              <View style={styles.contextCard}>
-                <Text style={styles.contextText}>{selection?.sentence}</Text>
-                {contextTranslation ? <Text style={styles.contextTranslation}>{contextTranslation}</Text> : null}
-                {translationLoading ? <View style={styles.translationStatus}><ActivityIndicator size="small" color={colors.accent} /><Text style={styles.translationStatusText}>正在获取整句翻译</Text></View> : null}
-                {!translationLoading && !contextTranslation && preferences.onlineSentenceTranslation ? (
-                  <Pressable accessibilityRole="button" accessibilityLabel={translationFailed ? '重新获取整句翻译' : '获取整句翻译，可能联网'} onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
-                    <Ionicons name={translationFailed ? 'refresh' : 'language-outline'} size={14} color={colors.accent} />
-                    <Text style={styles.translationRetryText}>{translationFailed ? '翻译暂时不可用，点击重试' : '获取整句翻译（按需联网）'}</Text>
+          <ScrollView style={styles.lookupScroll} contentContainerStyle={styles.lookupContent} showsVerticalScrollIndicator>
+            {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
+              <View style={styles.lookupLoading}>
+                <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="重新查询这个单词" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
+                  <Ionicons name="refresh" size={16} color={colors.accent} />
+                  <Text style={styles.translationRetryText}>重新查词</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.meaningLabel}>{lookup?.source === 'offline' ? '词典释义' : '参考释义'}</Text>
+                <Text style={styles.meaning}>{lookup?.meaning}</Text>
+                {lookup?.matchedWord ? <Text style={styles.lemmaNote}>原形 · {lookup.matchedWord}</Text> : null}
+                <View style={styles.contextCard}>
+                  <Text style={styles.contextText}>{selection?.sentence}</Text>
+                  {contextTranslation ? <Text style={styles.contextTranslation}>{contextTranslation}</Text> : null}
+                  {translationLoading ? <View style={styles.translationStatus}><ActivityIndicator size="small" color={colors.accent} /><Text style={styles.translationStatusText}>正在获取整句翻译</Text></View> : null}
+                  {!translationLoading && !contextTranslation && preferences.onlineSentenceTranslation ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={translationFailed ? '重新获取整句翻译' : '获取整句翻译，可能联网'} onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
+                      <Ionicons name={translationFailed ? 'refresh' : 'language-outline'} size={14} color={colors.accent} />
+                      <Text style={styles.translationRetryText}>{translationFailed ? '翻译暂时不可用，点击重试' : '获取整句翻译（按需联网）'}</Text>
+                    </Pressable>
+                  ) : null}
+                  {!translationLoading && !contextTranslation && !preferences.onlineSentenceTranslation ? <Text style={styles.translationStatusText}>整句在线翻译已关闭</Text> : null}
+                </View>
+                <Text style={styles.providerNote}>
+                  {entryCount === 0
+                    ? lookup?.source === 'network' ? 'Web 预览 · 在线补充释义' : 'Web 预览未加载完整离线词典 · 已显示基础兜底'
+                    : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}
+                </Text>
+                {lookup?.networkError ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel="重新获取在线单词释义" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
+                    <Ionicons name="refresh" size={14} color={colors.accent} />
+                    <Text style={styles.translationRetryText}>在线补充释义暂不可用，点击重试</Text>
                   </Pressable>
                 ) : null}
-                {!translationLoading && !contextTranslation && !preferences.onlineSentenceTranslation ? <Text style={styles.translationStatusText}>整句在线翻译已关闭</Text> : null}
-              </View>
-              <Text style={styles.providerNote}>
-                {entryCount === 0
-                  ? lookup?.source === 'network' ? 'Web 预览 · 在线补充释义' : 'Web 预览未加载完整离线词典 · 已显示基础兜底'
-                  : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}
-              </Text>
-              {lookup?.networkError ? (
-                <Pressable accessibilityRole="button" accessibilityLabel="重新获取在线单词释义" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
-                  <Ionicons name="refresh" size={14} color={colors.accent} />
-                  <Text style={styles.translationRetryText}>在线补充释义暂不可用，点击重试</Text>
-                </Pressable>
-              ) : null}
-            </>
-          )}
+              </>
+            )}
+          </ScrollView>
         </View>
       </Modal>
 
@@ -738,7 +741,7 @@ const styles = StyleSheet.create({
   bottomTrack: { height: 3, borderRadius: 3, overflow: 'hidden' },
   bottomFill: { height: 3, borderRadius: 3, backgroundColor: colors.accent },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.34)' },
-  wordSheet: { backgroundColor: '#FCFAF6', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, minHeight: 360 },
+  wordSheet: { backgroundColor: '#FCFAF6', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, minHeight: 360, maxHeight: '84%' },
   sheetHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 20 },
   wordHeader: { flexDirection: 'row', alignItems: 'center' },
   wordTitleRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 9 },
@@ -750,6 +753,8 @@ const styles = StyleSheet.create({
   saveFeedbackError: { color: '#A24B35' },
   sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
+  lookupScroll: { flexShrink: 1 },
+  lookupContent: { paddingBottom: 12 },
   lookupLoading: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 },
   lookupLoadingText: { color: colors.inkMuted, fontSize: 11 },
   meaningLabel: { color: colors.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 24 },

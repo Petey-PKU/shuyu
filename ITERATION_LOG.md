@@ -570,3 +570,9 @@
 - 用户在正文查词卡片收藏生词后，原先没有卡片内结果反馈，保存异常也会被静默吞掉，容易误以为已经可靠写入。
 - 新增保存中、已加入生词本和设备保存失败三种即时状态，并为读屏用户同步更新按钮名称与禁用状态；失败时说明本次会话仍可见，但需要稍后重试设备保存。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 小屏查词卡片可滚动
+
+- 长原句、整句翻译和来源提示可能让查词卡片超过小屏高度，底部的关闭或重试操作因此不可见。
+- 查词卡片正文现在限制最大高度并支持垂直滚动，保留顶部收藏与关闭操作，长内容仍能完整访问。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
