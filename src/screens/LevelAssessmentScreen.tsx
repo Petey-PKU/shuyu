@@ -30,8 +30,13 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       return;
     }
     const profile = scoreAssessment(next);
-    await setReadingProfile(profile);
-    setResult(profile);
+    try {
+      await setReadingProfile(profile);
+    } finally {
+      // The optimistic profile is already available in memory; show the result even
+      // when the persistence layer reports a recoverable write failure.
+      setResult(profile);
+    }
   };
 
   const restart = () => {
