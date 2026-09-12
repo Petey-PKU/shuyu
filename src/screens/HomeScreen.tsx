@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -10,6 +10,7 @@ import { useApp } from '../context/AppContext';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { BookCover } from '../components/BookCover';
 import { PageHeader } from '../components/PageHeader';
+import { InlineNotice } from '../components/InlineNotice';
 import { colors, radii, shadows, typography } from '../theme';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Today'>, NativeStackScreenProps<RootStackParamList>>;
@@ -31,6 +32,7 @@ function localDateKey(date: Date) {
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { books, stats, words, preferences, importBook } = useApp();
+  const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
@@ -53,12 +55,10 @@ export function HomeScreen({ navigation }: Props) {
   const handleImport = async () => {
     try {
       const book = await importBook();
+      setImportError(null);
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试', [
-        { text: '取消', style: 'cancel' },
-        { text: '重试', onPress: () => { void handleImport(); } },
-      ]);
+      setImportError(error instanceof Error ? error.message : '请确认文件格式后重试');
     }
   };
 
@@ -73,6 +73,7 @@ export function HomeScreen({ navigation }: Props) {
           </Pressable>
         }
       />
+      {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
 
       {isSampleOnly ? (
         <View style={styles.welcomeCard}>

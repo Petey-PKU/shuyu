@@ -1,9 +1,10 @@
-import React from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
+import { InlineNotice } from '../components/InlineNotice';
 import { useApp } from '../context/AppContext';
 import { recommendedBookById } from '../data/recommendedBooks';
 import type { RootStackParamList } from '../navigation/types';
@@ -23,6 +24,7 @@ const feedbackOptions: { value: DifficultyFeedback; label: string; icon: keyof t
 export function RecommendedBookScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const book = recommendedBookById.get(route.params.bookId);
+  const [importError, setImportError] = useState<string | null>(null);
   const {
     books,
     recommendationState,
@@ -40,12 +42,10 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
   const handleImport = async () => {
     try {
       const imported = await importBook();
+      setImportError(null);
       if (imported) navigation.replace('Reader', { bookId: imported.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请确认文件格式后重试', [
-        { text: '取消', style: 'cancel' },
-        { text: '重试', onPress: () => { void handleImport(); } },
-      ]);
+      setImportError(error instanceof Error ? error.message : '请确认文件格式后重试');
     }
   };
 
@@ -56,6 +56,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
         <Text style={styles.topTitle}>选书详情</Text>
         <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => { void toggleSavedRecommendedBook(book.id); }} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
+      {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
 
       <View style={styles.hero}>
         <RecommendedBookCover book={book} width={150} />

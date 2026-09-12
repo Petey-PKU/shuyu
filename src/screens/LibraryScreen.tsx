@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { BookCover } from '../components/BookCover';
+import { InlineNotice } from '../components/InlineNotice';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, shadows, typography } from '../theme';
 
@@ -21,6 +22,8 @@ export function LibraryScreen({ navigation }: Props) {
   const [editingBook, setEditingBook] = useState<{ id: string; title: string; author: string } | null>(null);
   const [menuBook, setMenuBook] = useState<{ id: string; title: string; author: string } | null>(null);
   const [deleteBook, setDeleteBook] = useState<{ id: string; title: string } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
@@ -29,12 +32,11 @@ export function LibraryScreen({ navigation }: Props) {
   const handleImport = async () => {
     try {
       const book = await importBook();
+      setErrorMessage(null);
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      Alert.alert('无法导入', error instanceof Error ? error.message : '请稍后再试', [
-        { text: '取消', style: 'cancel' },
-        { text: '重试', onPress: () => { void handleImport(); } },
-      ]);
+      setErrorKind('import');
+      setErrorMessage(error instanceof Error ? error.message : '请稍后再试');
     }
   };
 
@@ -53,7 +55,8 @@ export function LibraryScreen({ navigation }: Props) {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
       setEditingBook(null);
     } catch (error) {
-      Alert.alert('无法保存', error instanceof Error ? error.message : '请检查书名后重试');
+      setErrorKind('save');
+      setErrorMessage(error instanceof Error ? error.message : '请检查书名后重试');
     }
   };
 
@@ -68,6 +71,7 @@ export function LibraryScreen({ navigation }: Props) {
         <TextInput value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
         {query ? <Pressable accessibilityRole="button" accessibilityLabel="清除搜索" onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.inkMuted} /></Pressable> : null}
       </View>
+      {errorMessage ? <InlineNotice message={errorMessage} actionLabel={errorKind === 'import' ? '重试导入' : undefined} onAction={errorKind === 'import' ? () => void handleImport() : undefined} onDismiss={() => setErrorMessage(null)} /> : null}
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
