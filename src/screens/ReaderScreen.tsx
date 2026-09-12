@@ -115,6 +115,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [contextTranslation, setContextTranslation] = useState<string | undefined>();
   const [translationLoading, setTranslationLoading] = useState(false);
   const [translationFailed, setTranslationFailed] = useState(false);
@@ -328,6 +329,7 @@ function ReaderSession({ route, navigation }: Props) {
     const sentence = sentenceAt(chapterText, globalOffset);
     const request = ++lookupRequest.current;
     setSelection({ word, sentence, paragraphIndex: paragraphAtOffset(chapterParagraphStarts, globalOffset) });
+    setSaveFeedback('idle');
     setLookup(null);
     setContextTranslation(undefined);
     setTranslationFailed(false);
@@ -340,6 +342,7 @@ function ReaderSession({ route, navigation }: Props) {
   const closeSelection = () => {
     lookupRequest.current += 1;
     setSelection(null);
+    setSaveFeedback('idle');
     setTranslationLoading(false);
     setTranslationFailed(false);
   };
@@ -355,17 +358,24 @@ function ReaderSession({ route, navigation }: Props) {
 
   const saveSelection = async () => {
     if (!selection || !lookup || !book || isSaved) return;
-    await addWord({
-      word: selection.word,
-      phonetic: lookup.phonetic,
-      meaning: lookup.meaning,
-      context: selection.sentence,
-      contextTranslation,
-      bookId,
-      bookTitle: book.title,
-      chapterIndex,
-      paragraphIndex: selection.paragraphIndex,
-    });
+    const request = lookupRequest.current;
+    setSaveFeedback('saving');
+    try {
+      await addWord({
+        word: selection.word,
+        phonetic: lookup.phonetic,
+        meaning: lookup.meaning,
+        context: selection.sentence,
+        contextTranslation,
+        bookId,
+        bookTitle: book.title,
+        chapterIndex,
+        paragraphIndex: selection.paragraphIndex,
+      });
+      if (request === lookupRequest.current) setSaveFeedback('saved');
+    } catch {
+      if (request === lookupRequest.current) setSaveFeedback('error');
+    }
   };
 
   const openReaderSettings = () => {
@@ -574,13 +584,14 @@ function ReaderSession({ route, navigation }: Props) {
                 <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) speak(selection.word, 'word'); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={saveFeedback === 'saving' ? '正在保存到生词本' : isSaved ? '已收藏到生词本' : saveFeedback === 'error' ? '生词本保存失败' : '收藏到生词本'} accessibilityState={{ disabled: !lookup || isSaved || saveFeedback === 'saving' }} disabled={!lookup || isSaved || saveFeedback === 'saving'} onPress={() => void saveSelection()} style={[styles.saveButton, isSaved && styles.savedButton]}>
               <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={19} color={isSaved ? '#fff' : colors.ink} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭查词卡片" onPress={closeSelection} style={styles.sheetCloseButton}>
               <Ionicons name="close" size={20} color={colors.inkMuted} />
             </Pressable>
           </View>
+          {saveFeedback !== 'idle' ? <Text accessibilityRole={saveFeedback === 'error' ? 'alert' : undefined} style={[styles.saveFeedback, saveFeedback === 'error' && styles.saveFeedbackError]}>{saveFeedback === 'saving' ? '正在加入生词本…' : saveFeedback === 'error' ? '已加入本次会话，但设备保存失败，请稍后重试保存。' : '已加入生词本'}</Text> : null}
           {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
             <View style={styles.lookupLoading}>
               <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
@@ -735,6 +746,8 @@ const styles = StyleSheet.create({
   phonetic: { color: colors.inkMuted, fontSize: 12 },
   soundButton: { width: 35, height: 35, borderRadius: 18, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   saveButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  saveFeedback: { color: colors.accent, fontSize: 10, fontWeight: '700', marginTop: 9 },
+  saveFeedbackError: { color: '#A24B35' },
   sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
   lookupLoading: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 },
