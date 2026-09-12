@@ -26,6 +26,7 @@ export function LibraryScreen({ navigation }: Props) {
   const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
   const [editWarning, setEditWarning] = useState<string | null>(null);
   const [metadataSaving, setMetadataSaving] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
@@ -81,6 +82,20 @@ export function LibraryScreen({ navigation }: Props) {
     }
     setEditingBook(null);
     setEditWarning(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteBook || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await removeBook(deleteBook.id);
+    } catch (error) {
+      setErrorKind('save');
+      setErrorMessage(error instanceof Error ? error.message : '书籍删除未完成，请稍后重试。');
+    } finally {
+      setDeleteBusy(false);
+      setDeleteBook(null);
+    }
   };
 
   return (
@@ -181,16 +196,13 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => setDeleteBook(null)}>
-        <Pressable style={styles.modalBackdropCenter} onPress={() => setDeleteBook(null)}>
+      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => { if (!deleteBusy) setDeleteBook(null); }}>
+        <Pressable style={styles.modalBackdropCenter} onPress={() => { if (!deleteBusy) setDeleteBook(null); }}>
           <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
             <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="确认删除书籍" onPress={() => {
-              if (deleteBook) void removeBook(deleteBook.id).catch(() => undefined);
-              setDeleteBook(null);
-            }} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" onPress={() => setDeleteBook(null)} style={styles.actionCancel}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={deleteBusy ? '正在删除书籍' : '确认删除书籍'} accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => void handleDelete()} style={[styles.actionDanger, deleteBusy && styles.actionDisabled]}><Text style={styles.actionDangerText}>{deleteBusy ? '删除中…' : '删除书籍'}</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => setDeleteBook(null)} style={[styles.actionCancel, deleteBusy && styles.actionDisabled]}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -241,4 +253,5 @@ const styles = StyleSheet.create({
   editSave: { flex: 1, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
   editSaveText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   editDisabled: { opacity: 0.55 },
+  actionDisabled: { opacity: 0.55 },
 });

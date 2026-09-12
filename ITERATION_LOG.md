@@ -642,3 +642,9 @@
 - 发现页和推荐详情的“加入/移出想读”操作原先没有提交锁，快速点击可能在连续保存时反复切换。
 - 增加条目级提交锁、处理中视觉反馈和读屏禁用状态，保持推荐收藏结果稳定。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 删除操作处理中反馈
+
+- 书籍和生词删除确认后原先立即关闭弹层，正文清理或本地写入较慢时无法判断是否仍在处理。
+- 增加删除提交锁、处理中文案、取消锁定和读屏禁用状态，避免重复删除和误操作。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
