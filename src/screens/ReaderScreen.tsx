@@ -24,7 +24,7 @@ import type { BookContent } from '../types';
 import { colors, radii, typography } from '../theme';
 import type { LookupResult } from '../services/translation';
 import { sentenceAt, tokenizeParagraph } from '../utils/text';
-import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../utils/reading';
+import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphIndex } from '../utils/reading';
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
 import { InlineNotice } from '../components/InlineNotice';
 import { speakEnglish, stopSpeech } from '../services/speech';
@@ -408,9 +408,7 @@ function ReaderSession({ route, navigation }: Props) {
 
   const jumpToChapter = useCallback((index: number, paragraph = 0) => {
     const targetChapter = content?.chapters[index];
-    const safeParagraph = targetChapter
-      ? Math.max(0, Math.min(targetChapter.paragraphs.length - 1, paragraph))
-      : 0;
+    const safeParagraph = targetChapter ? safeParagraphIndex(targetChapter.paragraphs.length, paragraph) : 0;
     pageAnchorOffset.current = targetChapter ? paragraphStarts(targetChapter.paragraphs)[safeParagraph] ?? 0 : 0;
     setChapterIndex(index);
     setCurrentParagraph(safeParagraph);

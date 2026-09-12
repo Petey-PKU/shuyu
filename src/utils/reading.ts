@@ -8,12 +8,20 @@ export function resolveReadingPosition(chapters: Chapter[], chapterIndex = 0, pa
   const safeChapter = Number.isFinite(chapterIndex) ? Math.max(0, Math.min(chapters.length - 1, Math.trunc(chapterIndex))) : 0;
   const paragraphs = chapters[safeChapter].paragraphs;
   const starts = paragraphStarts(paragraphs);
-  const safeParagraph = Number.isFinite(paragraphIndex) ? Math.max(0, Math.min(paragraphs.length - 1, Math.trunc(paragraphIndex))) : 0;
+  const safeParagraph = safeParagraphIndex(paragraphs.length, paragraphIndex);
   const lastOffset = Math.max(0, paragraphs.join('\n\n').length - 1);
   const safeOffset = offset !== undefined && Number.isFinite(offset)
     ? Math.max(0, Math.min(lastOffset, Math.trunc(offset)))
     : starts[safeParagraph] ?? 0;
   return { chapterIndex: safeChapter, paragraphIndex: paragraphAtOffset(starts, safeOffset), offset: safeOffset };
+}
+
+/** Keep persisted reader positions valid even when a chapter has no paragraphs. */
+export function safeParagraphIndex(paragraphCount: number, paragraphIndex = 0) {
+  if (paragraphCount <= 0) return 0;
+  return Number.isFinite(paragraphIndex)
+    ? Math.max(0, Math.min(paragraphCount - 1, Math.trunc(paragraphIndex)))
+    : 0;
 }
 
 /** Progress reflects the text the reader has actually reached, including the final page. */
