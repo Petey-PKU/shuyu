@@ -116,7 +116,7 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}>
         <View><Text style={styles.sectionTitle}>{recommendationState.profile ? '正适合你的书' : '从这里开始看看'}</Text><Text style={styles.sectionSub}>难度、兴趣与近期阅读共同排序</Text></View>
-        {recommendationState.savedBookIds.length ? (
+        {showSavedOnly || recommendationState.savedBookIds.length ? (
           <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
             <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${recommendationState.savedBookIds.length} 想读`}</Text>
           </Pressable>
@@ -133,7 +133,7 @@ export function DiscoverScreen({ navigation }: Props) {
             onSave={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }}
           />
         ))}
-        {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>还没有想读的书</Text></View> : null}
+        {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>{showSavedOnly ? '还没有想读的书，点“全部”继续浏览' : '还没有想读的书'}</Text></View> : null}
       </ScrollView>
 
       <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>按等级浏览</Text><Text style={styles.sectionSub}>分级改写版与原版会明确标注</Text></View></View>
