@@ -32,6 +32,7 @@ export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { books, stats, words, preferences, importBook } = useApp();
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
+  const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const activeWords = words.filter((word) => !word.mastered).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
@@ -79,11 +80,11 @@ export function HomeScreen({ navigation }: Props) {
       ) : null}
 
       {current ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`继续上次阅读：${current.title}`} onPress={() => navigation.navigate('Reader', { bookId: current.id })} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => navigation.navigate('Reader', { bookId: current.id })} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
           <LinearGradient colors={['#242520', '#171815']} style={StyleSheet.absoluteFill} />
           <View style={styles.heroCopy}>
             <View>
-              <Text style={styles.heroEyebrow}>继续阅读</Text>
+              <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : '继续阅读'}</Text>
               <Text numberOfLines={3} style={styles.heroTitle}>{current.title}</Text>
               <Text numberOfLines={1} style={styles.heroAuthor}>{current.author}</Text>
             </View>
@@ -92,7 +93,7 @@ export function HomeScreen({ navigation }: Props) {
               <View style={styles.progressMeta}>
                 <Text style={styles.progressText}>{Math.round(current.progress * 100)}%</Text>
                 <View style={styles.continuePill}>
-                  <Text style={styles.continueText}>继续</Text>
+                  <Text style={styles.continueText}>{currentCompleted ? '重读' : '继续'}</Text>
                   <Ionicons name="arrow-forward" size={14} color={colors.ink} />
                 </View>
               </View>
@@ -130,7 +131,7 @@ export function HomeScreen({ navigation }: Props) {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
         {recentBooks.map((book) => (
-          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`继续阅读《${book.title}》`} onPress={() => navigation.navigate('Reader', { bookId: book.id })} style={styles.bookItem}>
+          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》`} onPress={() => navigation.navigate('Reader', { bookId: book.id })} style={styles.bookItem}>
             <BookCover book={book} width={116} compact />
             <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
             <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>

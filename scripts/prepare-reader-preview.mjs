@@ -21,7 +21,7 @@ const fixtureScript = String.raw`
   const now = new Date().toISOString();
   const book = { id, title: content.title, author: '本地测试数据', format: 'txt',
     createdAt: now, lastOpenedAt: now, currentChapter: 0, currentParagraph: 0,
-    progress: 0, totalWords: 10, chapterCount: content.chapters.length, accent: '#826E54' };
+    progress: mode === 'completed' ? 1 : 0, totalWords: 10, chapterCount: content.chapters.length, accent: '#826E54' };
   localStorage.setItem('@shuyu/books', JSON.stringify([book]));
   localStorage.setItem('@shuyu/words', '[]');
   localStorage.setItem('@shuyu/stats', JSON.stringify({ minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 }));
@@ -56,4 +56,4 @@ const fixtureScript = String.raw`
 `;
 writeFileSync(resolve(directory, 'reader-recovery-test.html'), html.replace('<head>', '<head><script>' + fixtureScript + '</script>'));
 console.log('Prepared isolated reader preview: http://127.0.0.1:4174/reader-recovery-test.html?case=retry');
-console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail');
+console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail, completed');
