@@ -30,8 +30,14 @@ function parseJournal(raw: string): RestoreJournal {
     || !value.stagedIds.every(isSafeBookId) || new Set(value.stagedIds).size !== value.stagedIds.length) {
     throw new Error('恢复日志无法读取，原有正文仍保留在设备中');
   }
-  const previousBooks = JSON.parse(value.previous[0][1] ?? '[]') as Book[];
-  if (!Array.isArray(previousBooks) || previousBooks.some((book) => value.stagedIds!.includes(book.id))) {
+  let previousBooks: Book[] = [];
+  try {
+    const parsed = JSON.parse(value.previous[0][1] ?? '[]');
+    if (Array.isArray(parsed)) previousBooks = parsed as Book[];
+  } catch {
+    // A corrupt old index must not prevent restoring a validated backup.
+  }
+  if (previousBooks.some((book) => book && value.stagedIds!.includes(book.id))) {
     throw new Error('恢复日志与原书架不匹配');
   }
   return value as RestoreJournal;
@@ -57,9 +63,12 @@ export async function restoreBackupSnapshot(payload: BackupPayload, storage: Res
   await recoverInterruptedRestore(storage);
   const previous: StorageEntry[] = [];
   for (const key of metadataKeys) previous.push([key, await storage.getItem(key)]);
-  const oldBooks = JSON.parse(previous[0][1] ?? '[]') as Book[];
-  if (!Array.isArray(oldBooks) || oldBooks.some((book) => !book || !isSafeBookId(book.id))) {
-    throw new Error('原书架索引无法读取，恢复尚未开始');
+  let oldBooks: Book[] = [];
+  try {
+    const parsed = JSON.parse(previous[0][1] ?? '[]');
+    if (Array.isArray(parsed) && parsed.every((book) => book && isSafeBookId(book.id))) oldBooks = parsed as Book[];
+  } catch {
+    // The incoming backup is independently validated; a corrupt old index can be replaced.
   }
   const usedIds = new Set([...oldBooks, ...payload.books].map((book) => book.id));
   const ids = new Map<string, string>();

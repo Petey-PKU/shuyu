@@ -57,6 +57,12 @@ async function main() {
   assert.equal(payload.books[0].id, 'book_1', 'Restore must not mutate the caller backup');
   const commitStep = successful.trace.indexOf(`remove:${keys.restoreJournal}`);
 
+  const corruptIndex = memoryStorage();
+  corruptIndex.values.set(keys.books, '{broken local index');
+  const restoredCorruptIndex = await restoreBackupSnapshot(payload, corruptIndex.storage);
+  assert.equal(restoredCorruptIndex.books.length, 1, 'A validated backup can replace a corrupt old index');
+  assert.equal(corruptIndex.values.has(keys.restoreJournal), false);
+
   // Simulate a process stopping at each storage boundary, then reconstruct the startup adapter.
   for (let stopAt = 0; stopAt < successful.trace.length; stopAt++) {
     const test = memoryStorage();
