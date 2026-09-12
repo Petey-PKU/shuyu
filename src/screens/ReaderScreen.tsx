@@ -562,7 +562,7 @@ function ReaderSession({ route, navigation }: Props) {
               <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={19} color={isSaved ? '#fff' : colors.ink} />
             </Pressable>
           </View>
-          {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>正在查找释义…</Text></View> : lookupFailed ? (
+          {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
             <View style={styles.lookupLoading}>
               <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
               <Pressable accessibilityRole="button" accessibilityLabel="重新查询这个单词" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
