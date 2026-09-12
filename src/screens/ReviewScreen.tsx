@@ -67,14 +67,14 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => { void speakEnglish(current.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>
         ) : (
           <Pressable accessibilityRole="button" accessibilityLabel="查看答案" onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.replace('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex })} style={styles.sourceButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.navigate('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
           <Text style={styles.source}>{current.bookTitle} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>

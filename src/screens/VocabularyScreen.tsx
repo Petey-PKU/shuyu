@@ -76,11 +76,14 @@ export function VocabularyScreen({ navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.word}>{item.word}</Text>
                 {item.phonetic ? <Text style={styles.phonetic}>{item.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => void speakEnglish(item.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => { void speakEnglish(item.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>
-              <Text style={styles.source}>{item.bookTitle} · {item.reviewCount ? `已复习 ${item.reviewCount} 次` : '待首次复习'}{!item.mastered && item.nextReviewAt && !isWordDue(item.nextReviewAt, now) ? ` · ${reviewDelayLabel(item.nextReviewAt, now)}` : ''}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={`回到${item.bookTitle}中${item.word}所在原文`} onPress={() => navigation.navigate('Reader', { bookId: item.bookId, chapterIndex: item.chapterIndex, paragraphIndex: item.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
+                <Text style={styles.source}>{item.bookTitle} · {item.reviewCount ? `已复习 ${item.reviewCount} 次` : '待首次复习'}{!item.mastered && item.nextReviewAt && !isWordDue(item.nextReviewAt, now) ? ` · ${reviewDelayLabel(item.nextReviewAt, now)}` : ''}</Text>
+                <Ionicons name="arrow-forward" size={12} color={colors.accent} />
+              </Pressable>
             </View>
             <View style={styles.wordActions}>
               <Pressable accessibilityRole="button" accessibilityLabel={`移除${item.word}`} onPress={() => confirmRemove(item.id, item.word)} style={styles.removeButton}>
@@ -133,7 +136,8 @@ const styles = StyleSheet.create({
   phonetic: { color: colors.inkMuted, fontSize: 11 },
   meaning: { color: colors.ink, fontSize: 13, lineHeight: 19, fontWeight: '600', marginTop: 5 },
   context: { color: colors.inkMuted, fontFamily: typography.serif, fontSize: 12, lineHeight: 18, marginTop: 8 },
-  source: { color: colors.accent, fontSize: 9, fontWeight: '700', marginTop: 8 },
+  source: { color: colors.accent, fontSize: 9, fontWeight: '700' },
+  sourceButton: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8, maxWidth: '100%' },
   check: { width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   wordActions: { alignItems: 'center', gap: 12, marginTop: 4 },
   removeButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

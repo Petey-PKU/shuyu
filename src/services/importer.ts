@@ -27,7 +27,7 @@ function safeDecodeFileName(value: string) {
   }
 }
 
-export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<ParsedBook | null> {
+export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancelled?: () => boolean }): Promise<ParsedBook | null> {
   const result = await DocumentPicker.getDocumentAsync({
     // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
     // and validate the extension plus BOOKMOBI signature inside the app.
@@ -54,6 +54,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<Pa
       throw new Error('TXT 文件超过 25 MB。建议按卷拆分后再导入');
     }
     const text = webFile ? await webFile.text() : await new File(asset.uri).text();
+    if (pdfOptions.isCancelled?.()) return null;
     if (!text.trim()) throw new Error('TXT 文件内容为空');
     if (text.includes('\uFFFD')) {
       throw new Error('TXT 编码无法识别，请将文件转换为 UTF-8 后重试');
@@ -65,11 +66,13 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<Pa
 
   if (extension === 'epub' || (!knownExtension && asset.mimeType === 'application/epub+zip')) {
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
+    if (pdfOptions.isCancelled?.()) return null;
     return parseEpub(data, fallbackTitle);
   }
 
   if (extension === 'azw3' || extension === 'kf8' || extension === 'mobi' || (!knownExtension && kindleMimeTypes.has(asset.mimeType || ''))) {
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
+    if (pdfOptions.isCancelled?.()) return null;
     const inspection = inspectKindleFile(data);
     if (!inspection.isKindle && !['mobi', 'azw3', 'kf8'].includes(extension)) {
       throw new Error('文件扩展名和内容均无法识别。请选择 TXT、EPUB、MOBI、AZW3、KF8 或 PDF 文件');
@@ -81,6 +84,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions): Promise<Pa
   }
 
   if (extension === 'pdf' || (!knownExtension && asset.mimeType === 'application/pdf')) {
+    if (pdfOptions.isCancelled?.()) return null;
     return parsePdf(asset.uri, fallbackTitle, pdfOptions);
   }
 

@@ -59,6 +59,8 @@ interface AddWordInput {
 interface AppContextValue {
   ready: boolean;
   storageActivity: 'export' | 'restore' | null;
+  storageNotice: string | null;
+  dismissStorageNotice: () => void;
   startupError: string | null;
   retryLoad: () => Promise<void>;
   importing: boolean;
@@ -132,6 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importingRef = useRef(false);
   const storageActivityRef = useRef<'export' | 'restore' | null>(null);
   const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | null>(null);
+  const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const booksRef = useRef<Book[]>([]);
@@ -157,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
   const ocrCancelRef = useRef<(() => void) | null>(null);
+  const importCancelRequestedRef = useRef(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [persistenceRetrying, setPersistenceRetrying] = useState(false);
   const [persistence] = useState(() => createPersistenceTracker((state) => {
@@ -169,6 +173,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return;
     await persistence.retryAll();
   }, [persistence]);
+
+  const dismissStorageNotice = useCallback(() => setStorageNotice(null), []);
 
   const hydrate = useCallback(async () => {
     if (hydratingRef.current) return;
@@ -206,10 +212,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importBook = useCallback(async () => {
     if (storageActivityRef.current || resettingRef.current || importingRef.current) return null;
     importingRef.current = true;
+    importCancelRequestedRef.current = false;
     const startedAt = Date.now();
     setImportStatus({ phase: 'parsing', startedAt });
     try {
       const parsed = await pickAndParseBook({
+        isCancelled: () => importCancelRequestedRef.current,
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
@@ -233,8 +241,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ocrCancelRef.current = cancel;
         },
       });
-      if (!parsed) return null;
+      if (!parsed || importCancelRequestedRef.current) return null;
       const { book } = await createBook(parsed);
+      if (importCancelRequestedRef.current) {
+        await deleteBookContent(book.id);
+        return null;
+      }
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
@@ -242,18 +254,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return book;
     } finally {
       importingRef.current = false;
+      importCancelRequestedRef.current = false;
       ocrCancelRef.current = null;
       setImportStatus(null);
     }
   }, [persist]);
 
   const cancelImport = useCallback(() => {
+    if (!importingRef.current) return;
+    importCancelRequestedRef.current = true;
     const cancel = ocrCancelRef.current;
-    if (!cancel) return;
     setImportStatus((current) => current?.phase === 'ocr'
       ? { ...current, cancelling: true }
-      : current);
-    cancel();
+      : current ? { ...current, cancelling: true } : current);
+    if (cancel) cancel();
   }, []);
 
   const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => {
@@ -524,10 +538,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPreferences(restored.preferences);
       setRecommendationState(restored.recommendationState);
       setReadingSignals(restored.readingSignals);
+      setStorageNotice('恢复完成：书架、阅读进度、生词和设置已从备份恢复。');
       setReady(true);
     } catch (error) {
       // Re-read only after the persisted rollback has completed; otherwise stay on recovery screen.
       await hydrate();
+      setStorageNotice(`恢复未完成：${error instanceof Error ? error.message : '原有书架已保留，请检查备份文件后重试。'}`);
       throw error;
     } finally {
       storageActivityRef.current = null;
@@ -536,13 +552,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrate, persistence]);
 
   const value = useMemo(() => ({
-    ready, storageActivity, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
+    ready, storageActivity, storageNotice, dismissStorageNotice, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
     getBookContent: loadBookContent, updateProgress, addWord, toggleMastered, deferWord,
     removeWord, removeBook, updateBookMetadata, updatePreferences, setReadingProfile, togglePreferredGenre,
     toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll, persistenceError, persistenceRetrying, retryPersistence,
     exportBackup, pickBackup: pickBackupFile, restoreBackup,
   }), [
-    ready, storageActivity, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
+    ready, storageActivity, storageNotice, dismissStorageNotice, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
     addWord, toggleMastered, deferWord, removeWord, removeBook, updateBookMetadata, updatePreferences, addReadingMinutes, resetAll,
     setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
     exportBackup, restoreBackup, persistenceError, persistenceRetrying, retryPersistence,

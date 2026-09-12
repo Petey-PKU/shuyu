@@ -96,7 +96,7 @@ export function ReaderScreen({ route, navigation }: Props) {
 }
 
 function ReaderSession({ route, navigation }: Props) {
-  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay } = route.params;
+  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay, returnTo } = route.params;
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext } = useDictionary();
@@ -426,6 +426,7 @@ function ReaderSession({ route, navigation }: Props) {
   }), [turnPage]);
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
+  const returnToSource = () => navigation.popTo('Main', { screen: returnTo === 'Vocabulary' ? 'Vocabulary' : 'Library' });
   const restartBook = () => {
     completionDismissed.current = true;
     setCompletionVisible(false);
@@ -450,7 +451,7 @@ function ReaderSession({ route, navigation }: Props) {
             <Text style={styles.contentRetryText}>重新打开</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" onPress={returnToLibrary} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>返回书架</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
       </View>
     );
   }
@@ -536,7 +537,7 @@ function ReaderSession({ route, navigation }: Props) {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => { void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice).catch(() => undefined); }} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
@@ -555,7 +556,7 @@ function ReaderSession({ route, navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.wordTitle}>{selection?.word}</Text>
                 {lookup?.phonetic ? <Text style={styles.phonetic}>{lookup.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => selection && void speakEnglish(selection.word, 'word', preferences.speechVoice)} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) void speakEnglish(selection.word, 'word', preferences.speechVoice).catch(() => undefined); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>
