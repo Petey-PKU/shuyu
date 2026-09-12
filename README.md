@@ -60,7 +60,7 @@ npm run web
 
 PDF 文本提取、OCR 与内置离线音色使用原生模块，不能在 Expo Go 或 Web 预览中完整测试；请使用正式安装包。Android 支持文本层提取、英文扫描版 OCR 和内置 Amy 音色，iOS 当前只支持文本层提取并回退到系统音色。TXT、EPUB、MOBI 与 AZW3/KF8 不受此限制。
 
-Web 预览用于体验界面和 TXT/EPUB/MOBI 导入，暂不载入随包 SQLite 离线词典，因此查词会依赖在线服务。
+Web 预览用于体验界面和 TXT/EPUB/MOBI 导入，暂不载入随包 SQLite 离线词典；关闭在线增强时仅使用内置基础兜底，开启后未收录词才会请求在线服务。
 
 本地备份需要 Android / iOS 的系统目录选择器；Web 预览不支持选择本地备份目录。
 
