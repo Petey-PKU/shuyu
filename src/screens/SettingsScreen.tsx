@@ -8,6 +8,7 @@ import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
 import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
 import { getTranslationProviderSummary } from '../services/translation';
+import type { BackupPayload } from '../types';
 
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
@@ -26,6 +27,7 @@ export function SettingsScreen() {
   const [aboutVisible, setAboutVisible] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -70,9 +72,9 @@ export function SettingsScreen() {
     try {
       const filename = await exportBackup();
       if (!filename) return;
-      Alert.alert('备份已保存', `${filename}\n请妥善保管这个文件；其中包含你导入的书籍正文。`);
+      setBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
     } catch (error) {
-      Alert.alert('备份未完成', error instanceof Error ? error.message : '请选择一个可写入的目录后重试');
+      setBackupMessage(`备份未完成：${error instanceof Error ? error.message : '请选择一个可写入的目录后重试'}`);
     } finally {
       setBackupBusy(false);
     }
@@ -88,19 +90,23 @@ export function SettingsScreen() {
     try {
       const payload = await pickBackup();
       if (!payload) { setBackupBusy(false); return; }
-      Alert.alert('覆盖当前本地数据？', `备份时间：${new Date(payload.exportedAt).toLocaleString()}\n包含 ${payload.books.length} 本书和 ${payload.words.length} 个生词。当前书架与学习记录会被替换。`, [
-        { text: '取消', style: 'cancel', onPress: () => setBackupBusy(false) },
-        {
-          text: '恢复备份', style: 'destructive', onPress: () => {
-            setBackupBusy(true);
-            void restoreBackup(payload).then(() => Alert.alert('恢复完成', '重新打开书架即可继续阅读。')).catch((error) => Alert.alert('恢复未完成', error instanceof Error ? error.message : '请检查备份文件后重试')).finally(() => setBackupBusy(false));
-          },
-        },
-      ], { cancelable: false });
+      setRestorePayload(payload);
+      setBackupBusy(false);
     } catch (error) {
       setBackupBusy(false);
-      Alert.alert('无法读取备份', error instanceof Error ? error.message : '请选择书语生成的 JSON 备份文件');
+      setBackupMessage(`无法读取备份：${error instanceof Error ? error.message : '请选择书语生成的 JSON 备份文件'}`);
     }
+  };
+
+  const confirmRestoreBackup = () => {
+    const payload = restorePayload;
+    if (!payload || backupBusy) return;
+    setRestorePayload(null);
+    setBackupBusy(true);
+    void restoreBackup(payload)
+      .then(() => setBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
+      .catch((error) => setBackupMessage(`恢复未完成：${error instanceof Error ? error.message : '请检查备份文件后重试'}`))
+      .finally(() => setBackupBusy(false));
   };
 
   return (
@@ -238,6 +244,20 @@ export function SettingsScreen() {
             <Text style={styles.infoBody}>在书里，学会一门语言。</Text>
             <Text style={styles.infoBody}>版本 1.3.1 · GPL-3.0-only</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭关于书语" onPress={() => setAboutVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal visible={restorePayload !== null} transparent animationType="fade" onRequestClose={() => { if (!backupBusy) { setRestorePayload(null); setBackupBusy(false); } }}>
+        <Pressable style={styles.infoBackdrop} onPress={() => { if (!backupBusy) { setRestorePayload(null); setBackupBusy(false); } }}>
+          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.resetIcon}><Ionicons name="cloud-upload-outline" size={20} color={colors.danger} /></View>
+              <Text accessibilityRole="header" style={styles.infoTitle}>覆盖当前本地数据？</Text>
+            </View>
+            {restorePayload ? <Text style={styles.infoBody}>备份时间：{new Date(restorePayload.exportedAt).toLocaleString()}\n包含 {restorePayload.books.length} 本书和 {restorePayload.words.length} 个生词。</Text> : null}
+            <Text style={styles.infoBody}>当前书架与学习记录会被替换。恢复前请确认这份备份来自你信任的设备。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认恢复本地备份" onPress={confirmRestoreBackup} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>恢复备份</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消恢复本地备份" onPress={() => { setRestorePayload(null); setBackupBusy(false); }} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
