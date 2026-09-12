@@ -200,7 +200,7 @@ async function parseKindleBook(
       format,
     };
   } catch (error) {
-    if (error instanceof Error && /DRM|加密|正文过大|没有可读取|文件过小|记录表|内容记录/.test(error.message)) {
+    if (error instanceof Error && /DRM|加密|导入已取消|正文过大|没有可读取|文件过小|记录表|内容记录/.test(error.message)) {
       throw error;
     }
     throw new Error(`无法解析 ${formatLabel(format)} 文件：${error instanceof Error ? error.message : '文件可能损坏或格式不受支持'}。仅支持无 DRM 的可重排文字内容`);

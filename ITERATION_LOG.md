@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 修正 Kindle 导入取消提示
+
+- MOBI/KF8 解析在章节边界收到取消后，内部错误原先会被包装成“无法解析文件：导入已取消”，上层无法识别为用户主动停止，可能显示格式失败提示。
+- 现在保留取消错误原文，让停止导入直接结束，不进入失败提示或错误重试路径。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 防止体验书索引留下坏引用
 
 - 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。
