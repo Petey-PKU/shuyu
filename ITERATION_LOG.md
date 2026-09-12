@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 README 连接 Android 真机验收
+
+- Android 验收清单已创建，但 README 的验证入口原先没有链接，发布流程容易跳过真实设备检查。
+- 现在主验证说明直接链接 [ANDROID_ACCEPTANCE.md](ANDROID_ACCEPTANCE.md)，并明确 Web / bundle 验证不能替代 APK 真机验收。
+- 文档差异检查通过后再推送。
+
 ## 2026-09-13 隐私文档补充 Web 词典边界
 
 - 隐私文档原先将 ECDICT 本地查询写成全平台能力，没有明确 Web 预览不加载随包 SQLite 词典。

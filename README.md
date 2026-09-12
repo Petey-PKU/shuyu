@@ -66,6 +66,8 @@ Web 预览用于体验界面和 TXT/EPUB/MOBI 导入，暂不载入随包 SQLite
 
 ## 验证
 
+正式 Android APK 发布前，请按 [Android 发布前验收清单](./ANDROID_ACCEPTANCE.md) 在真实设备上验证文件导入、离线词典、离线语音、OCR 取消、后台恢复和备份恢复。Web 预览与 Android bundle 导出只能证明打包和界面代码可用，不能替代真机验收。
+
 ```bash
 npm run typecheck
 npm test
