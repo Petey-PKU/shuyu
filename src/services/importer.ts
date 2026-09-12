@@ -43,6 +43,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   const fallbackTitle = cleanFileName(fileName);
   const extension = (fileName.split('.').pop() || '').toLowerCase();
   const webFile = Platform.OS === 'web' ? asset.file : undefined;
+  pdfOptions.onFileSelected?.(fileName);
   const knownExtension = ['txt', 'epub', 'mobi', 'azw3', 'kf8', 'pdf'].includes(extension);
   pdfOptions.onImportStage?.('reading');
 

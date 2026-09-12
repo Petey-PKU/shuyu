@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 让导入过程明确当前文件
+
+- 导入弹层此前只有阶段名称；选择大文件后，用户无法确认当前处理的是哪一本书，等待时容易误判为卡住或重复操作。
+- 现在在读取、解析、保存和 OCR 阶段显示所选文件名，并在 OCR 状态切换时保留该上下文；取消、隐私说明和保存阶段锁定行为保持不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让阅读完成页保留来源上下文
 
 - 从生词本或复习卡片进入阅读并读完时，完成弹窗原先固定返回书架，用户会丢失正在处理的学习上下文。

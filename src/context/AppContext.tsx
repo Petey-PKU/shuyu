@@ -213,13 +213,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const parsed = await pickAndParseBook({
         isCancelled: () => importCancelRequestedRef.current,
+        onFileSelected: (fileName) => setImportStatus((current) => current ? { ...current, fileName } : current),
         onImportStage: (stage) => setImportStatus((current) => current ? { ...current, stage } : current),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
           const confirmed = await confirmScannedPdfOcr(pageCount);
           if (confirmed) {
-            setImportStatus({ phase: 'ocr', startedAt, currentPage: 0, totalPages: pageCount, skippedPages: 0 });
+            setImportStatus((current) => ({ phase: 'ocr', fileName: current?.fileName, startedAt, currentPage: 0, totalPages: pageCount, skippedPages: 0 }));
           }
           return confirmed;
         },

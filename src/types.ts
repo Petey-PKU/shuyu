@@ -5,6 +5,7 @@ export type ReaderTheme = 'paper' | 'white' | 'night';
 export interface ImportStatus {
   phase: 'parsing' | 'ocr';
   stage?: 'selecting' | 'reading' | 'parsing' | 'saving';
+  fileName?: string;
   startedAt?: number;
   currentPage?: number;
   totalPages?: number;

@@ -46,6 +46,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
         <View accessibilityRole="alert" style={styles.card}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.title}>{isOcr ? '正在识别扫描页' : parsingTitle}</Text>
+          {status?.fileName ? <Text numberOfLines={1} ellipsizeMode="middle" style={styles.fileName}>{status.fileName}</Text> : null}
           {isOcr ? (
             <>
               <Text style={styles.pageCount}>
@@ -96,6 +97,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.42)', alignItems: 'center', justifyContent: 'center', padding: 32 },
   card: { width: '100%', maxWidth: 320, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 30, alignItems: 'center', gap: 13 },
   title: { marginTop: 5, fontFamily: typography.serif, fontSize: 22, fontWeight: '700', color: colors.ink },
+  fileName: { maxWidth: '100%', color: colors.ink, fontSize: 12, fontWeight: '700' },
   body: { fontSize: 13, lineHeight: 20, color: colors.inkMuted, textAlign: 'center' },
   pageCount: { color: colors.ink, fontSize: 13, fontWeight: '800' },
   progressTrack: { width: '100%', height: 6, borderRadius: 6, backgroundColor: colors.line, overflow: 'hidden' },
