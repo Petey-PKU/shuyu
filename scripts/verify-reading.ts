@@ -41,6 +41,7 @@ assert.equal(coverage.totalWords, 8, 'Reflow only adds words not already display
 
 const recorded = recordReadingDay(recordReadingDay(undefined, '2026-09-10', 4, 40), '2026-09-10', 3, 20);
 assert.deepEqual(recorded?.['2026-09-10'], { minutes: 7, words: 60 }, 'Daily reading history accumulates the same day');
+assert.deepEqual(recordReadingDay({ '2026-09-10': { minutes: 5, words: 50 } }, '2026-09-10', 2, 10)?.['2026-09-10'], { minutes: 7, words: 60 }, 'Legacy daily totals continue accumulating after migration');
 const oldHistory = Object.fromEntries(Array.from({ length: 91 }, (_, index) => {
   const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
   return [date, { minutes: 1, words: 1 }];

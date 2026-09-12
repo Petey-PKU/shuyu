@@ -52,7 +52,7 @@ export function HomeScreen({ navigation }: Props) {
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() - (6 - index));
     const key = localDateKey(date);
-    return { key, label: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()], minutes: stats.dailyHistory?.[key]?.minutes ?? 0 };
+    return { key, label: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()], minutes: stats.dailyHistory?.[key]?.minutes ?? (key === today ? displayedTodayMinutes : 0) };
   });
   const weekMinutes = weekDays.reduce((total, day) => total + day.minutes, 0);
   const trendMax = Math.max(preferences.dailyGoalMinutes, ...weekDays.map((day) => day.minutes), 1);

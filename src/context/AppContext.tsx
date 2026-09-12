@@ -439,6 +439,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       streak = currentStats.lastReadDate === yesterday ? currentStats.streak + 1 : 1;
     }
     const sameDay = currentStats.todayDate === today;
+    const legacyTodayHistory = !currentStats.dailyHistory && sameDay && (currentStats.todayMinutes > 0 || currentStats.todayWords > 0)
+      ? { [today]: { minutes: currentStats.todayMinutes, words: currentStats.todayWords } }
+      : currentStats.dailyHistory;
     const next = {
       minutes: currentStats.minutes + Math.max(0, minutes),
       words: currentStats.words + Math.max(0, wordsRead),
@@ -447,7 +450,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       todayDate: today,
       streak,
       lastReadDate: today,
-      dailyHistory: recordReadingDay(currentStats.dailyHistory, today, minutes, wordsRead),
+      dailyHistory: recordReadingDay(legacyTodayHistory, today, minutes, wordsRead),
     };
     statsRef.current = next;
     setStats(next);
