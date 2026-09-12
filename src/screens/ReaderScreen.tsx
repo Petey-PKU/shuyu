@@ -76,6 +76,9 @@ const ReaderPageText = React.memo(function ReaderPageText({ color, fontSize, lin
       {cachedTokens(page.text).map((token, tokenIndex) => token.word ? (
         <Text
           key={`${token.start}_${tokenIndex}`}
+          accessibilityRole="button"
+          accessibilityLabel={`查词：${token.value}`}
+          accessibilityHint="双击查看释义和原句"
           onPress={() => onSelect(token.value, page.start + token.start)}
           suppressHighlighting={false}
           style={styles.wordToken}
