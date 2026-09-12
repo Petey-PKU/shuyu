@@ -143,13 +143,13 @@ export function HomeScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <View style={styles.trendCard}>
+      <View accessible accessibilityLabel={`本周阅读，近 7 天共 ${weekMinutes} 分钟`} style={styles.trendCard}>
         <View style={styles.trendHeader}>
           <View><Text style={styles.trendTitle}>本周阅读</Text><Text style={styles.trendCaption}>{weekMinutes ? `近 7 天共 ${weekMinutes} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
           <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
         </View>
         <View style={styles.trendBars}>
-          {weekDays.map((day) => <View key={day.key} style={styles.trendDay}><View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: Math.max(day.minutes ? 8 : 3, day.minutes / trendMax * 72) }]} /></View><Text style={styles.trendDayLabel}>{day.label}</Text></View>)}
+          {weekDays.map((day) => <View key={day.key} accessible accessibilityLabel={`${day.key}，${day.minutes} 分钟`} style={styles.trendDay}><View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: Math.max(day.minutes ? 8 : 3, day.minutes / trendMax * 72) }]} /></View><Text style={styles.trendDayLabel}>{day.label}</Text></View>)}
         </View>
       </View>
 
