@@ -612,3 +612,9 @@
 - 设置页的开源项目入口直接调用系统浏览器，无法打开时没有任何页面内反馈。
 - 增加打开失败提示和关闭入口，用户能知道链接未能打开并稍后重试。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 生词掌握操作防连点
+
+- 生词本中的“标记已掌握/学习中”按钮原先没有提交锁，快速连点可能在串行保存队列中反复切换同一词条。
+- 增加单条词的提交锁、处理中标签和读屏禁用状态，完成后再允许下一次切换。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。

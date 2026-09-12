@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -30,6 +30,8 @@ export function VocabularyScreen({ navigation }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [updatingWordId, setUpdatingWordId] = useState<string | null>(null);
+  const updatingWordRef = useRef<string | null>(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     const subscription = AppState.addEventListener('change', (state) => {
@@ -59,6 +61,19 @@ export function VocabularyScreen({ navigation }: Props) {
     void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   };
   const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
+  const handleToggleMastered = async (wordId: string) => {
+    if (updatingWordRef.current) return;
+    updatingWordRef.current = wordId;
+    setUpdatingWordId(wordId);
+    try {
+      await toggleMastered(wordId);
+    } catch {
+      // AppShell exposes the persistence retry banner while keeping the local state usable.
+    } finally {
+      updatingWordRef.current = null;
+      setUpdatingWordId(null);
+    }
+  };
 
   return (
       <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
@@ -104,7 +119,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <Pressable accessibilityRole="button" accessibilityLabel={`移除${item.word}`} onPress={() => confirmRemove(item.id, item.word)} style={styles.removeButton}>
                 <Ionicons name="trash-outline" size={16} color={colors.inkMuted} />
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} accessibilityState={{ checked: item.mastered }} onPress={() => { void toggleMastered(item.id).catch(() => undefined); }} style={[styles.check, item.mastered && styles.checked]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={updatingWordId === item.id ? `正在更新${item.word}` : item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} accessibilityState={{ checked: item.mastered, disabled: updatingWordId === item.id }} disabled={updatingWordId === item.id} onPress={() => void handleToggleMastered(item.id)} style={[styles.check, item.mastered && styles.checked, updatingWordId === item.id && styles.actionDisabled]}>
                 <Ionicons name={item.mastered ? 'checkmark' : 'checkmark-outline'} size={17} color={item.mastered ? '#fff' : colors.inkMuted} />
               </Pressable>
             </View>
@@ -161,6 +176,7 @@ const styles = StyleSheet.create({
   wordActions: { alignItems: 'center', gap: 12, marginTop: 4 },
   removeButton: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   checked: { backgroundColor: colors.sage, borderColor: colors.sage },
+  actionDisabled: { opacity: 0.55 },
   empty: { alignItems: 'center', paddingTop: 76, paddingHorizontal: 34 },
   emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '700', marginTop: 14 },
   emptyBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
