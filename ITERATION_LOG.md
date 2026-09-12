@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 避免英语音色试听交叠
+
+- 设置页快速点击多个英语音色时，试听请求可能交叠，用户无法判断当前播放和最终选择。
+- 现在试听期间显示“试听中”、暂时锁定音色列表，并在读屏标签中报告处理中状态；试听结束或失败后自动恢复操作。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让导入过程明确当前文件
 
 - 导入弹层此前只有阶段名称；选择大文件后，用户无法确认当前处理的是哪一本书，等待时容易误判为卡住或重复操作。

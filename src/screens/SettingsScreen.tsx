@@ -30,6 +30,7 @@ export function SettingsScreen() {
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,13 +59,21 @@ export function SettingsScreen() {
     setAboutVisible(true);
   };
 
-  const chooseVoice = (voice: string) => {
+  const chooseVoice = async (voice: string) => {
+    if (voicePreviewing) return;
+    setVoicePreviewing(voice);
+    setVoiceMessage(null);
     void updatePreferences({ speechVoice: voice }).catch(() => undefined);
-    void speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice).then((provider) => {
+    try {
+      const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
       if (voice === OFFLINE_VOICE_ID && provider === 'system') {
         setVoiceMessage('离线音色暂不可用，试听已自动使用系统发音。请在正式 Android APK 中测试。');
       }
-    }).catch(() => setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。'));
+    } catch {
+      setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。');
+    } finally {
+      setVoicePreviewing(null);
+    }
   };
 
   const confirmReset = () => setResetVisible(true);
@@ -181,9 +190,9 @@ export function SettingsScreen() {
       <Text style={styles.sectionLabel}>英语发音音色</Text>
       <View style={styles.settingCard}>
         {voices.map((voice) => (
-          <Pressable key={voice.identifier} accessibilityRole="button" accessibilityLabel={`选择${voice.name}`} accessibilityState={{ selected: activeVoice === voice.identifier }} onPress={() => chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow]}>
+          <Pressable key={voice.identifier} accessibilityRole="button" accessibilityLabel={voicePreviewing === voice.identifier ? `正在试听${voice.name}` : `选择${voice.name}`} accessibilityState={{ selected: activeVoice === voice.identifier, disabled: !!voicePreviewing }} disabled={!!voicePreviewing} onPress={() => void chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow, voicePreviewing && styles.voiceDisabled]}>
             <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.settingTitle}>{voice.name}</Text><Text style={styles.settingCaption}>{voice.description}</Text></View>
-            {activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
+            {voicePreviewing === voice.identifier ? <Text style={styles.voicePreviewLabel}>试听中…</Text> : activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
           </Pressable>
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
@@ -300,6 +309,8 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: colors.line, marginLeft: 18 },
   voiceRow: { minHeight: 64, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
   selectedVoiceRow: { backgroundColor: colors.accentSoft },
+  voiceDisabled: { opacity: 0.58 },
+  voicePreviewLabel: { color: colors.accent, fontSize: 10, fontWeight: '800' },
   voiceEmpty: { paddingHorizontal: 18, paddingVertical: 18 },
   stepper: { flexDirection: 'row', gap: 8 },
   step: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
