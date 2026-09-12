@@ -651,9 +651,9 @@ function ReaderSession({ route, navigation }: Props) {
               }]}>{chapter.paragraphs[currentParagraph] || 'Stories let us travel without leaving the quiet of a room.'}</Text>
             </View>
             <View style={styles.fontActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="减小正文字号" onPress={() => changeDraftFont(-1)} style={styles.fontButton}><Ionicons name="remove" size={20} color={colors.ink} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="减小正文字号" accessibilityState={{ disabled: settingsDraft.fontSize <= 16 }} disabled={settingsDraft.fontSize <= 16} onPress={() => changeDraftFont(-1)} style={[styles.fontButton, settingsDraft.fontSize <= 16 && styles.fontButtonDisabled]}><Ionicons name="remove" size={20} color={colors.ink} /></Pressable>
               <Text style={styles.fontValue}>{settingsDraft.fontSize}px</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="增大正文字号" onPress={() => changeDraftFont(1)} style={styles.fontButton}><Ionicons name="add" size={20} color={colors.ink} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="增大正文字号" accessibilityState={{ disabled: settingsDraft.fontSize >= 25 }} disabled={settingsDraft.fontSize >= 25} onPress={() => changeDraftFont(1)} style={[styles.fontButton, settingsDraft.fontSize >= 25 && styles.fontButtonDisabled]}><Ionicons name="add" size={20} color={colors.ink} /></Pressable>
             </View>
             <View style={styles.themeRow}>
               {(['paper', 'white', 'night'] as const).map((item) => (
@@ -778,6 +778,7 @@ const styles = StyleSheet.create({
   livePreviewText: { fontFamily: typography.serif, letterSpacing: 0.12 },
   fontActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   fontButton: { width: 46, height: 42, borderRadius: 16, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  fontButtonDisabled: { opacity: 0.42 },
   fontValue: { color: colors.inkMuted, fontSize: 11, fontWeight: '700' },
   themeRow: { flexDirection: 'row', gap: 12, marginTop: 24 },
   themeChoice: { flex: 1, height: 54, borderRadius: 17, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },

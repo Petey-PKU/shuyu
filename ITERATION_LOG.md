@@ -630,3 +630,9 @@
 - 字号调节达到 16px 或 25px 边界时，原先仍可点击但不会改变；阅读目标、主题和英语音色的选择仅有视觉高亮。
 - 为字号步进补充边界禁用状态和视觉反馈，为目标、主题、音色补充读屏选中状态，减少无效点击和当前值不确定。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 阅读器字号边界反馈
+
+- 阅读器排版弹层的字号按钮原先在 16px 或 25px 边界仍可点击，但不会产生变化。
+- 补充边界禁用、半透明视觉反馈和读屏状态，保持阅读器与设置页的交互规则一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
