@@ -624,3 +624,9 @@
 - 为书架编辑、管理、删除以及生词移除确认弹层补充 `accessibilityViewIsModal`，避免读屏焦点穿透到背景列表。
 - 目标：让删除、编辑等高影响操作的确认范围清晰，降低误操作风险。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 设置选项状态反馈
+
+- 字号调节达到 16px 或 25px 边界时，原先仍可点击但不会改变；阅读目标、主题和英语音色的选择仅有视觉高亮。
+- 为字号步进补充边界禁用状态和视觉反馈，为目标、主题、音色补充读屏选中状态，减少无效点击和当前值不确定。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
