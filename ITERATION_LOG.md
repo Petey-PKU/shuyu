@@ -6,6 +6,12 @@
 - 现在设置页的词典状态行可直接重试；重试期间书架、阅读和基础查词保持可用，成功后恢复完整本地词典。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 让水平测试草稿有明确的继续入口
+
+- 水平测试已支持把未完成答案保存在本机，但发现页原先始终显示“开始水平测试”，用户返回后看不出已有进度。
+- 现在发现页重新获得焦点时检查本地草稿；存在未完成答案时显示“继续水平测试”，同时说明答案不会上传，进入测试后继续原来的题目。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让词典后台加载不阻断首次进入
 
 - 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -23,6 +24,8 @@ import {
 import { colors, radii, typography } from '../theme';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Discover'>, NativeStackScreenProps<RootStackParamList>>;
+
+const assessmentDraftKey = '@shuyu/assessment-draft';
 
 function BookTile({ book, saved, targetScore, onPress, onSave, saveDisabled }: {
   book: RecommendedBook;
@@ -59,7 +62,27 @@ export function DiscoverScreen({ navigation }: Props) {
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [savingBookId, setSavingBookId] = useState<string | null>(null);
+  const [assessmentDraftExists, setAssessmentDraftExists] = useState(false);
   const savingBookRef = useRef<string | null>(null);
+
+  const refreshAssessmentDraft = useCallback(() => {
+    void AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
+      try {
+        const parsed = raw ? JSON.parse(raw) as Record<string, unknown> : null;
+        setAssessmentDraftExists(!!parsed && Object.keys(parsed).length > 0);
+      } catch {
+        setAssessmentDraftExists(false);
+      }
+    }).catch(() => {
+      setAssessmentDraftExists(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', refreshAssessmentDraft);
+    refreshAssessmentDraft();
+    return unsubscribe;
+  }, [navigation, refreshAssessmentDraft]);
 
   useEffect(() => {
     if (recommendationState.profile) setBrowseLevel(recommendationState.profile.level);
@@ -109,8 +132,8 @@ export function DiscoverScreen({ navigation }: Props) {
           <View style={styles.assessmentIcon}><Ionicons name="sparkles" size={23} color={colors.accent} /></View>
           <Text style={styles.assessmentEyebrow}>先找到舒适起点</Text>
           <Text style={styles.assessmentTitle}>不知道该从哪一本开始？</Text>
-          <Text style={styles.assessmentBody}>完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="开始水平测试" onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>开始水平测试</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
+          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={assessmentDraftExists ? '继续水平测试' : '开始水平测试'} onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>{assessmentDraftExists ? '继续水平测试' : '开始水平测试'}</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
         </View>
       ) : (
         <View style={styles.profileCard}>
