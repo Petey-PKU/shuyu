@@ -43,6 +43,12 @@ export function HomeScreen({ navigation }: Props) {
   const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
     : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
+  const openBook = (book: typeof current) => {
+    if (!book) return;
+    navigation.navigate('Reader', book.progress >= 1
+      ? { bookId: book.id, chapterIndex: 0, paragraphIndex: 0, replay: true }
+      : { bookId: book.id });
+  };
 
   const handleImport = async () => {
     try {
@@ -80,7 +86,7 @@ export function HomeScreen({ navigation }: Props) {
       ) : null}
 
       {current ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => navigation.navigate('Reader', { bookId: current.id })} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
           <LinearGradient colors={['#242520', '#171815']} style={StyleSheet.absoluteFill} />
           <View style={styles.heroCopy}>
             <View>
@@ -131,7 +137,7 @@ export function HomeScreen({ navigation }: Props) {
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
         {recentBooks.map((book) => (
-          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》`} onPress={() => navigation.navigate('Reader', { bookId: book.id })} style={styles.bookItem}>
+          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》`} onPress={() => openBook(book)} style={styles.bookItem}>
             <BookCover book={book} width={116} compact />
             <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
             <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>

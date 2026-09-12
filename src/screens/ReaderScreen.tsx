@@ -93,11 +93,11 @@ const readerThemes = {
 
 export function ReaderScreen({ route, navigation }: Props) {
   // A new book or source jump starts a separate reading session, even when navigation reuses this route.
-  return <ReaderSession key={`${route.params.bookId}:${route.params.chapterIndex ?? ''}:${route.params.paragraphIndex ?? ''}`} route={route} navigation={navigation} />;
+  return <ReaderSession key={`${route.params.bookId}:${route.params.chapterIndex ?? ''}:${route.params.paragraphIndex ?? ''}:${route.params.replay ? 'replay' : 'resume'}`} route={route} navigation={navigation} />;
 }
 
 function ReaderSession({ route, navigation }: Props) {
-  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph } = route.params;
+  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay } = route.params;
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext } = useDictionary();
@@ -129,6 +129,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [currentPage, setCurrentPage] = useState(0);
   const completionShown = useRef(false);
   const completionDismissed = useRef(false);
+  const replayStarted = useRef(!replay);
   const readingCoverage = useRef(new ReadingCoverage());
   const hasVisiblePage = useRef(false);
   const lookupRequest = useRef(0);
@@ -265,6 +266,7 @@ function ReaderSession({ route, navigation }: Props) {
     const completedBefore = content.chapters.slice(0, chapterIndex).reduce((sum, item) => sum + item.wordCount, 0);
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
     const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
+    if (replay && (chapterIndex > 0 || currentPage > 0)) replayStarted.current = true;
     void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => {
       Alert.alert('阅读位置未能保存', '请检查设备存储空间，继续翻页时会再次尝试保存。');
     });
@@ -274,11 +276,11 @@ function ReaderSession({ route, navigation }: Props) {
     const reachedEnd = !!content && !!chapter && pages.length > 0
       && chapterIndex === content.chapters.length - 1
       && currentPage === pages.length - 1;
-    if (reachedEnd && !completionShown.current && !completionDismissed.current) {
+    if (reachedEnd && replayStarted.current && !completionShown.current && !completionDismissed.current) {
       completionShown.current = true;
       setCompletionVisible(true);
     }
-  }, [chapter, chapterIndex, content, currentPage, pages.length]);
+  }, [chapter, chapterIndex, content, currentPage, pages.length, replayStarted]);
 
   const requestSentenceTranslation = useCallback(async (sentence: string, request: number) => {
     setTranslationLoading(true);

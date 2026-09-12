@@ -10,7 +10,7 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;
-  Reader: { bookId: string; chapterIndex?: number; paragraphIndex?: number };
+  Reader: { bookId: string; chapterIndex?: number; paragraphIndex?: number; replay?: boolean };
   LevelAssessment: undefined;
   RecommendedBook: { bookId: string };
   Review: undefined;
