@@ -49,7 +49,7 @@
     "test": "tsx scripts/verify-all.ts",
     "test:in-process": "node scripts/run-verifier.mjs",
     "test:translation": "tsx scripts/verify-translation.ts",
-    "test:translation-proxy": "node --test translation-proxy/test/gateway.test.mjs",
+    "test:translation-proxy": "node --test-isolation=none --test translation-proxy/test/gateway.test.mjs",
     "test:dictionary": "python scripts/verify_dictionary.py",
     "prepare:tts-model": "node scripts/prepare-tts-model.mjs",
     "configure:android-signing": "node scripts/configure-android-signing.mjs",

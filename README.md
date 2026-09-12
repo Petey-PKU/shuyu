@@ -82,7 +82,7 @@ npm run export:android
 
 若 Windows 环境在 Hermes 字节码步骤报 `spawn EPERM`，可用 `npx expo export --platform android --no-bytecode --output-dir dist` 验证 Android JavaScript bundle；这只适合受限环境排查，关闭字节码会降低启动性能，不能替代正式 APK 和真机验收。
 
-若受限环境无法启动 esbuild 子进程，可在 Node.js 24 中运行 `npm run test:in-process`，以同一进程执行相同的解析、分页和阅读恢复测试。翻译测试可运行 `npm run test:in-process -- scripts/verify-translation.ts`。此方式不会替代类型检查或原生构建验证。
+若受限环境无法启动 esbuild 或 Node 测试隔离子进程，可在 Node.js 24 中运行 `npm run test:in-process`，以同一进程执行相同的解析、分页和阅读恢复测试；根项目的 `npm run test:translation-proxy` 已使用无隔离模式运行网关测试。翻译测试可运行 `npm run test:in-process -- scripts/verify-translation.ts`。此方式不会替代类型检查或原生构建验证。
 
 同进程测试还覆盖备份结构校验及恢复中断后的回滚。恢复会先将正文写入独立副本，再更新书架；未提交的恢复由启动流程还原原索引。真实设备的文件权限、空间不足和进程退出场景仍需安装包验收。
 
