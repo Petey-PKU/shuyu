@@ -74,6 +74,20 @@ async function main() {
   assert.equal(seeded, false, 'Do not mark initialization complete until the sample is indexed');
   assert.equal(removedSamples, 1, 'Failed sample indexing must clean up the created content');
   assert.deepEqual(persistedBooks, [userBook]);
+  let partialIndexAttempt = 0;
+  const partialStorage = {
+    ...sampleStorage,
+    saveBooks: async (books: Book[]) => {
+      partialIndexAttempt += 1;
+      if (partialIndexAttempt === 1) {
+        persistedBooks = books;
+        throw new Error('index acknowledgement failure');
+      }
+      persistedBooks = books;
+    },
+  };
+  await assert.rejects(() => seedSampleOnce([userBook], partialStorage), /index acknowledgement failure/);
+  assert.deepEqual(persistedBooks, [userBook], 'A partially acknowledged sample index must roll back to the old shelf');
   failIndex = false;
   failMarker = true;
   await assert.rejects(() => seedSampleOnce(persistedBooks, sampleStorage), /marker write failure/);

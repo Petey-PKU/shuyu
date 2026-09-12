@@ -64,6 +64,9 @@ export async function seedSampleOnce(books: Book[], storage: SampleStorage): Pro
     await storage.saveBooks(next);
   } catch (error) {
     try { await storage.remove?.(book); } catch { /* Preserve the original index error. */ }
+    // Some storage providers may report an error after partially writing the
+    // index. Best-effort restoration prevents it from referencing deleted content.
+    try { await storage.saveBooks(books); } catch { /* Preserve the original index error. */ }
     throw error;
   }
   await storage.markSeeded();
