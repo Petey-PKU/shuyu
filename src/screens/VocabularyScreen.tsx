@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, AppState, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -26,6 +26,7 @@ export function VocabularyScreen({ navigation }: Props) {
   const { words, preferences, toggleMastered, removeWord } = useApp();
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
   const [now, setNow] = useState(() => Date.now());
+  const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     const subscription = AppState.addEventListener('change', (state) => {
@@ -44,10 +45,7 @@ export function VocabularyScreen({ navigation }: Props) {
   const reviewMeta = !active && nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}` : reviewedToday ? `今天已复习 ${reviewedToday} 个` : '从原句开始回忆';
   const emptyTitle = tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
   const emptyBody = tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
-  const confirmRemove = (id: string, word: string) => Alert.alert('移除这个词？', `“${word}”会从生词本中删除。`, [
-    { text: '取消', style: 'cancel' },
-    { text: '移除', style: 'destructive', onPress: () => void removeWord(id) },
-  ]);
+  const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
@@ -95,6 +93,19 @@ export function VocabularyScreen({ navigation }: Props) {
           </View>
         )}
       />
+      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => setRemoveTarget(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setRemoveTarget(null)}>
+          <Pressable style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.confirmTitle}>移除这个词？</Text>
+            <Text style={styles.confirmBody}>“{removeTarget?.word}”会从生词本中删除，但不会影响原书内容。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认移除生词" onPress={() => {
+              if (removeTarget) void removeWord(removeTarget.id);
+              setRemoveTarget(null);
+            }} style={styles.confirmDanger}><Text style={styles.confirmDangerText}>移除</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" onPress={() => setRemoveTarget(null)} style={styles.confirmCancel}><Text style={styles.confirmCancelText}>取消</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -130,4 +141,12 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 76, paddingHorizontal: 34 },
   emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '700', marginTop: 14 },
   emptyBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  confirmCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  confirmTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
+  confirmBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  confirmDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  confirmDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  confirmCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  confirmCancelText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
 });
