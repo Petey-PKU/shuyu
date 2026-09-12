@@ -10,6 +10,7 @@ interface Props {
 
 export function ImportOverlay({ status, onCancel }: Props) {
   const isOcr = status?.phase === 'ocr';
+  const isSaving = status?.stage === 'saving';
   const currentPage = status?.currentPage ?? 0;
   const totalPages = status?.totalPages ?? 0;
   const progress = totalPages > 0 ? Math.min(1, currentPage / totalPages) : 0;
@@ -62,7 +63,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="停止 PDF 文字识别"
-                disabled={status?.cancelling}
+                disabled={status?.cancelling || isSaving}
                 onPress={onCancel}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, status?.cancelling && styles.disabled]}
               >
@@ -75,11 +76,11 @@ export function ImportOverlay({ status, onCancel }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="取消电子书导入"
-                disabled={status?.cancelling}
+                disabled={status?.cancelling || isSaving}
                 onPress={onCancel}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, status?.cancelling && styles.disabled]}
               >
-                <Text style={styles.cancelText}>{status?.cancelling ? '正在取消' : '取消导入'}</Text>
+                <Text style={styles.cancelText}>{status?.cancelling ? '正在取消' : isSaving ? '正在保存…' : '取消导入'}</Text>
               </Pressable>
             </>
           )}

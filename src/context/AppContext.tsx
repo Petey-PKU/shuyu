@@ -257,14 +257,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const cancelImport = useCallback(() => {
-    if (!importingRef.current) return;
+    if (!importingRef.current || importStatus?.stage === 'saving') return;
     importCancelRequestedRef.current = true;
     const cancel = ocrCancelRef.current;
     setImportStatus((current) => current?.phase === 'ocr'
       ? { ...current, cancelling: true }
       : current ? { ...current, cancelling: true } : current);
     if (cancel) cancel();
-  }, []);
+  }, [importStatus?.stage]);
 
   const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => {
     if (storageActivityRef.current || resettingRef.current) return;
