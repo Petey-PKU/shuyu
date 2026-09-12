@@ -6,6 +6,12 @@
 - 现在保留取消错误原文，让停止导入直接结束，不进入失败提示或错误重试路径。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 保留 OCR 确认后的文件上下文
+
+- 扫描版 PDF 在系统 OCR 确认框前会暂时关闭导入弹层；确认后重新显示进度时，原先文件名没有恢复，长时间识别期间用户难以确认处理对象。
+- 现在在本次导入流程中保留已选文件名，OCR 进度弹层重新打开后继续显示同一文件名。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 防止体验书索引留下坏引用
 
 - 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。
