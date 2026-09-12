@@ -143,7 +143,7 @@ export function HomeScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
-      <View accessible accessibilityLabel={`本周阅读，近 7 天共 ${weekMinutes} 分钟`} style={styles.trendCard}>
+      <View style={styles.trendCard}>
         <View style={styles.trendHeader}>
           <View><Text style={styles.trendTitle}>本周阅读</Text><Text style={styles.trendCaption}>{weekMinutes ? `近 7 天共 ${weekMinutes} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
           <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
