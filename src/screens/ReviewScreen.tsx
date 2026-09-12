@@ -38,9 +38,13 @@ export function ReviewScreen({ navigation }: Props) {
     try {
       if (mastered) await toggleMastered(current.id);
       else await deferWord(current.id);
-      setReviewedIds((ids) => [...ids, current.id]);
-      setRevealed(false);
+    } catch {
+      // AppContext keeps the optimistic in-memory update and exposes a retry
+      // banner when persistence fails, so do not make the user review this
+      // same card twice while the local write is recoverable.
     } finally {
+      setReviewedIds((ids) => ids.includes(current.id) ? ids : [...ids, current.id]);
+      setRevealed(false);
       setSubmitting(false);
     }
   };
