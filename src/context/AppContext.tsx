@@ -41,6 +41,7 @@ import { deferReview } from '../utils/review';
 import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
+import { persistBookRemoval } from '../utils/bookRemoval';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -320,9 +321,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wordsRef.current = nextWords;
     setBooks(nextBooks);
     setWords(nextWords);
-    await persist(`delete-book:${bookId}`, '书籍删除', () => Promise.all([saveBooks(nextBooks), saveWords(nextWords), saveReadingSignals(nextSignals), deleteBookContent(bookId)]).then(() => undefined), async () => {
-      await Promise.all([saveBooks(booksRef.current), saveWords(wordsRef.current), saveReadingSignals(readingSignalsRef.current), deleteBookContent(bookId)]);
-    });
+    const writeRemoval = () => persistBookRemoval(bookId, {
+      books: booksRef.current,
+      words: wordsRef.current,
+      readingSignals: readingSignalsRef.current,
+    }, { saveBooks, saveWords, saveReadingSignals, deleteBookContent });
+    await persist(`delete-book:${bookId}`, '书籍删除', writeRemoval, writeRemoval);
   }, [persist]);
 
   const updateBookMetadata = useCallback(async (bookId: string, title: string, author: string) => {

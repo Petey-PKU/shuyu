@@ -7,3 +7,4 @@ import './verify-bootstrap';
 import './verify-backup';
 import './verify-restore';
 import './verify-persistence';
+import './verify-book-removal';
