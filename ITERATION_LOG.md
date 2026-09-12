@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 在继续阅读卡片显示章节位置
+
+- 首页主阅读卡片原先只显示百分比，用户在多本书之间切换时无法快速判断上次停留章节。
+- 现在显示“第 x/y 章”并保留百分比；文本在窄屏上单行收缩，继续阅读按钮和实际恢复位置不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让推荐难度反馈有明确结果
 
 - 推荐详情页的“偏简单/正合适/有点难”原先只有选中样式，快速点击可能重复提交，保存失败也没有就地反馈。

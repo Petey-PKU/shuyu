@@ -126,7 +126,7 @@ export function HomeScreen({ navigation }: Props) {
             <View>
               <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(3, current.progress * 100)}%` }]} /></View>
               <View style={styles.progressMeta}>
-                <Text style={styles.progressText}>{Math.round(current.progress * 100)}%</Text>
+                <Text numberOfLines={1} style={styles.progressText}>{Math.round(current.progress * 100)}% · 第 {Math.min(current.currentChapter + 1, Math.max(1, current.chapterCount))}/{Math.max(1, current.chapterCount)} 章</Text>
                 <View style={styles.continuePill}>
                   <Text style={styles.continueText}>{currentCompleted ? '重读' : '继续'}</Text>
                   <Ionicons name="arrow-forward" size={14} color={colors.ink} />
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   progressTrack: { width: '100%', height: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 4, backgroundColor: colors.accent },
   progressMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 13 },
-  progressText: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
+  progressText: { flex: 1, marginRight: 8, color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
   continuePill: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#F8F4EA', borderRadius: radii.pill, paddingHorizontal: 13, paddingVertical: 8 },
   continueText: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   sectionHeader: { marginTop: 30, marginBottom: 14, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
