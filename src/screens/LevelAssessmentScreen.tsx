@@ -32,6 +32,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     const profile = scoreAssessment(next);
     try {
       await setReadingProfile(profile);
+    } catch {
+      // The optimistic profile is still usable; AppShell exposes the retry action.
     } finally {
       // The optimistic profile is already available in memory; show the result even
       // when the persistence layer reports a recoverable write failure.
