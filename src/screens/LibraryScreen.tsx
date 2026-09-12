@@ -146,7 +146,7 @@ export function LibraryScreen({ navigation }: Props) {
       <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={closeEditing}>
         <Pressable style={styles.modalBackdrop} onPress={closeEditing}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
-            <Pressable style={styles.editCard} onPress={(event) => event.stopPropagation()}>
+            <Pressable accessibilityViewIsModal style={styles.editCard} onPress={(event) => event.stopPropagation()}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={styles.editTitle}>编辑书籍信息</Text>
                 {editWarning ? <Text accessibilityRole="alert" style={styles.editWarning}>{editWarning}</Text> : null}
@@ -165,7 +165,7 @@ export function LibraryScreen({ navigation }: Props) {
       </Modal>
       <Modal visible={!!menuBook} transparent animationType="fade" onRequestClose={() => setMenuBook(null)}>
         <Pressable style={styles.modalBackdropCenter} onPress={() => setMenuBook(null)}>
-          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>管理{menuBook ? `《${menuBook.title}》` : '书籍'}</Text>
             <Text style={styles.actionBody}>可以编辑书籍信息，或从本地书架删除它。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="编辑书籍信息" onPress={() => {
@@ -183,7 +183,7 @@ export function LibraryScreen({ navigation }: Props) {
       </Modal>
       <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => setDeleteBook(null)}>
         <Pressable style={styles.modalBackdropCenter} onPress={() => setDeleteBook(null)}>
-          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
             <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认删除书籍" onPress={() => {

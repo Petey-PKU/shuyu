@@ -128,7 +128,7 @@ export function VocabularyScreen({ navigation }: Props) {
       />
       <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => setRemoveTarget(null)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setRemoveTarget(null)}>
-          <Pressable style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.confirmTitle}>移除这个词？</Text>
             <Text style={styles.confirmBody}>“{removeTarget?.word}”会从生词本中删除，但不会影响原书内容。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认移除生词" onPress={() => {

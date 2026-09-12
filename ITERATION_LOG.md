@@ -618,3 +618,9 @@
 - 生词本中的“标记已掌握/学习中”按钮原先没有提交锁，快速连点可能在串行保存队列中反复切换同一词条。
 - 增加单条词的提交锁、处理中标签和读屏禁用状态，完成后再允许下一次切换。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 书架确认弹层读屏隔离
+
+- 为书架编辑、管理、删除以及生词移除确认弹层补充 `accessibilityViewIsModal`，避免读屏焦点穿透到背景列表。
+- 目标：让删除、编辑等高影响操作的确认范围清晰，降低误操作风险。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
