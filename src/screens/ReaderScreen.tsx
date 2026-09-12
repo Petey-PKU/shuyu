@@ -548,7 +548,7 @@ function ReaderSession({ route, navigation }: Props) {
 
       <Modal visible={!!selection} transparent animationType="slide" onRequestClose={closeSelection}>
         <Pressable style={styles.sheetBackdrop} onPress={closeSelection} />
-        <View style={[styles.wordSheet, { paddingBottom: insets.bottom + 18 }]}>
+        <View accessibilityViewIsModal style={[styles.wordSheet, { paddingBottom: insets.bottom + 18 }]}>
           <View style={styles.sheetHandle} />
           <View style={styles.wordHeader}>
             <View style={{ flex: 1 }}>
@@ -580,7 +580,7 @@ function ReaderSession({ route, navigation }: Props) {
                 {contextTranslation ? <Text style={styles.contextTranslation}>{contextTranslation}</Text> : null}
                 {translationLoading ? <View style={styles.translationStatus}><ActivityIndicator size="small" color={colors.accent} /><Text style={styles.translationStatusText}>正在获取整句翻译</Text></View> : null}
                 {!translationLoading && !contextTranslation && preferences.onlineSentenceTranslation ? (
-                  <Pressable onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={translationFailed ? '重新获取整句翻译' : '获取整句翻译，可能联网'} onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
                     <Ionicons name={translationFailed ? 'refresh' : 'language-outline'} size={14} color={colors.accent} />
                     <Text style={styles.translationRetryText}>{translationFailed ? '翻译暂时不可用，点击重试' : '获取整句翻译（按需联网）'}</Text>
                   </Pressable>
@@ -597,7 +597,7 @@ function ReaderSession({ route, navigation }: Props) {
 
       <Modal visible={settingsVisible} transparent animationType="fade" onRequestClose={applyReaderSettings}>
         <Pressable style={styles.centerBackdrop} onPress={applyReaderSettings}>
-          <Pressable style={styles.settingsCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.settingsCard} onPress={(event) => event.stopPropagation()}>
             <Text style={styles.modalTitle}>阅读排版</Text>
             <View style={[styles.livePreview, { backgroundColor: readerThemes[settingsDraft.theme].background }]}>
               <Text style={[styles.livePreviewLabel, { color: readerThemes[settingsDraft.theme].muted }]}>当前段落预览</Text>
@@ -614,7 +614,7 @@ function ReaderSession({ route, navigation }: Props) {
             </View>
             <View style={styles.themeRow}>
               {(['paper', 'white', 'night'] as const).map((item) => (
-                <Pressable key={item} onPress={() => setSettingsDraft((current) => ({ ...current, theme: item }))} style={[styles.themeChoice, { backgroundColor: readerThemes[item].background }, settingsDraft.theme === item && styles.themeSelected]}>
+                <Pressable key={item} accessibilityRole="button" accessibilityLabel={item === 'paper' ? '纸张主题' : item === 'white' ? '明亮主题' : '夜间主题'} accessibilityState={{ selected: settingsDraft.theme === item }} onPress={() => setSettingsDraft((current) => ({ ...current, theme: item }))} style={[styles.themeChoice, { backgroundColor: readerThemes[item].background }, settingsDraft.theme === item && styles.themeSelected]}>
                   {settingsDraft.theme === item ? <Ionicons name="checkmark" size={17} color={readerThemes[item].text} /> : null}
                 </Pressable>
               ))}
@@ -626,7 +626,7 @@ function ReaderSession({ route, navigation }: Props) {
 
       <Modal visible={chaptersVisible} transparent animationType="slide" onRequestClose={() => setChaptersVisible(false)}>
         <Pressable style={styles.sheetBackdrop} onPress={() => setChaptersVisible(false)} />
-        <View style={[styles.chapterSheet, { paddingBottom: insets.bottom + 14 }]}>
+        <View accessibilityViewIsModal style={[styles.chapterSheet, { paddingBottom: insets.bottom + 14 }]}>
           <View style={styles.sheetHandle} />
           <Text style={styles.modalTitle}>目录</Text>
           <FlatList
@@ -634,7 +634,7 @@ function ReaderSession({ route, navigation }: Props) {
             keyExtractor={(item) => item.id}
             style={{ maxHeight: 430 }}
             renderItem={({ item, index }) => (
-              <Pressable onPress={() => jumpToChapter(index)} style={[styles.chapterRow, index === chapterIndex && styles.activeChapterRow]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={index === chapterIndex ? `第 ${index + 1} 章，当前章节` : `第 ${index + 1} 章，${item.title}`} accessibilityState={{ selected: index === chapterIndex }} onPress={() => jumpToChapter(index)} style={[styles.chapterRow, index === chapterIndex && styles.activeChapterRow]}>
                 <Text style={[styles.chapterRowNumber, index === chapterIndex && { color: colors.accent }]}>{String(index + 1).padStart(2, '0')}</Text>
                 <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.chapterRowTitle}>{item.title}</Text><Text style={styles.chapterRowMeta}>{item.wordCount.toLocaleString()} 词</Text></View>
                 {index === chapterIndex ? <Ionicons name="volume-low" size={18} color={colors.accent} /> : null}
@@ -646,7 +646,7 @@ function ReaderSession({ route, navigation }: Props) {
 
       <Modal visible={completionVisible} transparent animationType="fade" onRequestClose={() => setCompletionVisible(false)}>
         <Pressable style={styles.completionBackdrop} onPress={() => setCompletionVisible(false)}>
-          <Pressable style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
             <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
             <Text style={styles.completionBody}>你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。</Text>
