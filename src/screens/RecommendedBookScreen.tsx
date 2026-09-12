@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -26,6 +26,8 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
   const book = recommendedBookById.get(route.params.bookId);
   const [importError, setImportError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
   const {
     books,
     recommendationState,
@@ -51,13 +53,19 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
   };
 
   const handleToggleSaved = async () => {
+    if (savingRef.current) return;
     const wasSaved = recommendationState.savedBookIds.includes(book.id);
+    savingRef.current = true;
+    setSaving(true);
     setSaveNotice(null);
     try {
       await toggleSavedRecommendedBook(book.id);
       setSaveNotice({ tone: 'success', message: wasSaved ? '已从想读移除' : '已加入想读' });
     } catch {
       setSaveNotice({ tone: 'error', message: wasSaved ? '本次会话已移除，但设备保存失败，请稍后重试保存。' : '本次会话已加入，但设备保存失败，请稍后重试保存。' });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
   };
 
@@ -66,7 +74,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={23} color={colors.ink} /></Pressable>
         <Text style={styles.topTitle}>选书详情</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={() => void handleToggleSaved()} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={saving ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: saving }} disabled={saving} onPress={() => void handleToggleSaved()} style={[styles.iconButton, saved && styles.savedIconButton, saving && styles.saveDisabled]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
       {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
       {saveNotice ? <InlineNotice tone={saveNotice.tone} message={saveNotice.message} onDismiss={() => setSaveNotice(null)} /> : null}
@@ -119,6 +127,7 @@ const styles = StyleSheet.create({
   topBar: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   savedIconButton: { backgroundColor: colors.accent },
+  saveDisabled: { opacity: 0.48 },
   topTitle: { color: colors.inkMuted, fontSize: 11, fontWeight: '800', letterSpacing: 1 },
   hero: { marginTop: 22, flexDirection: 'row', alignItems: 'center', gap: 21 },
   heroCopy: { flex: 1 },

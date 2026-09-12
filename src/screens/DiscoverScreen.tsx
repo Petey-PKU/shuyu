@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -24,18 +24,19 @@ import { colors, radii, typography } from '../theme';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Discover'>, NativeStackScreenProps<RootStackParamList>>;
 
-function BookTile({ book, saved, targetScore, onPress, onSave }: {
+function BookTile({ book, saved, targetScore, onPress, onSave, saveDisabled }: {
   book: RecommendedBook;
   saved: boolean;
   targetScore: number;
   onPress: () => void;
   onSave: () => void;
+  saveDisabled: boolean;
 }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
       <View>
         <RecommendedBookCover book={book} width={132} />
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saveDisabled ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: saveDisabled }} disabled={saveDisabled} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton, saveDisabled && styles.saveDisabled]}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? '#fff' : colors.ink} />
         </Pressable>
       </View>
@@ -57,6 +58,8 @@ export function DiscoverScreen({ navigation }: Props) {
   } = useApp();
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [savingBookId, setSavingBookId] = useState<string | null>(null);
+  const savingBookRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (recommendationState.profile) setBrowseLevel(recommendationState.profile.level);
@@ -73,6 +76,20 @@ export function DiscoverScreen({ navigation }: Props) {
     ? levelBooks.filter((book) => book.genres.some((genre) => recommendationState.preferredGenres.includes(genre)))
     : levelBooks;
   const shelf = filteredLevelBooks.length ? filteredLevelBooks : levelBooks;
+  const handleToggleSaved = async (bookId: string) => {
+    if (savingBookRef.current) return;
+    savingBookRef.current = bookId;
+    setSavingBookId(bookId);
+    try {
+      await toggleSavedRecommendedBook(bookId);
+    } catch {
+      // The app shell exposes the persistence retry banner while keeping the
+      // optimistic recommendation state usable.
+    } finally {
+      savingBookRef.current = null;
+      setSavingBookId(null);
+    }
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
@@ -130,7 +147,8 @@ export function DiscoverScreen({ navigation }: Props) {
             saved={recommendationState.savedBookIds.includes(book.id)}
             targetScore={targetScore}
             onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })}
-            onSave={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }}
+            onSave={() => { void handleToggleSaved(book.id); }}
+            saveDisabled={savingBookId === book.id}
           />
         ))}
         {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>{showSavedOnly ? '还没有想读的书，点“全部”继续浏览' : '还没有想读的书'}</Text></View> : null}
@@ -148,7 +166,7 @@ export function DiscoverScreen({ navigation }: Props) {
             <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
-                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
+                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={savingBookId === book.id ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: savingBookId === book.id }} disabled={savingBookId === book.id} onPress={(event) => { event.stopPropagation(); void handleToggleSaved(book.id); }} style={savingBookId === book.id && styles.saveDisabled} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
                 <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>
@@ -195,6 +213,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.76 },
   saveButton: { position: 'absolute', right: 8, bottom: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
+  saveDisabled: { opacity: 0.48 },
   bookTitle: { color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: '800', marginTop: 9 },
   bookAuthor: { color: colors.inkMuted, fontSize: 9, marginTop: 4 },
   match: { fontSize: 9, fontWeight: '800', marginTop: 6 },

@@ -636,3 +636,9 @@
 - 阅读器排版弹层的字号按钮原先在 16px 或 25px 边界仍可点击，但不会产生变化。
 - 补充边界禁用、半透明视觉反馈和读屏状态，保持阅读器与设置页的交互规则一致。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 想读保存防连点
+
+- 发现页和推荐详情的“加入/移出想读”操作原先没有提交锁，快速点击可能在连续保存时反复切换。
+- 增加条目级提交锁、处理中视觉反馈和读屏禁用状态，保持推荐收藏结果稳定。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
