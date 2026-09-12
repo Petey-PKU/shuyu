@@ -23,6 +23,7 @@ export function SettingsScreen() {
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [aboutVisible, setAboutVisible] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
 
@@ -45,7 +46,7 @@ export function SettingsScreen() {
       void Linking.openURL('https://github.com/Petey-PKU/shuyu');
       return;
     }
-    Alert.alert('关于书语', '书语是一款本地优先的英语语境阅读器。\n\n在书里，学会一门语言。\n版本 1.3.1');
+    setAboutVisible(true);
   };
 
   const chooseVoice = (voice: string) => {
@@ -223,6 +224,20 @@ export function SettingsScreen() {
             <Text style={styles.infoBody}>如果你还没有备份，请先取消并导出本地备份。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认清除全部本地数据" onPress={() => { setResetVisible(false); void resetAll(); }} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>全部清除</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消清除本地数据" onPress={() => setResetVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal visible={aboutVisible} transparent animationType="fade" onRequestClose={() => setAboutVisible(false)}>
+        <Pressable style={styles.infoBackdrop} onPress={() => setAboutVisible(false)}>
+          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.infoIcon}><Ionicons name="book-outline" size={20} color={colors.accent} /></View>
+              <Text accessibilityRole="header" style={styles.infoTitle}>关于书语</Text>
+            </View>
+            <Text style={styles.infoBody}>书语是一款本地优先的英语语境阅读器。</Text>
+            <Text style={styles.infoBody}>在书里，学会一门语言。</Text>
+            <Text style={styles.infoBody}>版本 1.3.1 · GPL-3.0-only</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭关于书语" onPress={() => setAboutVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
