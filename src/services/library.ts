@@ -24,7 +24,7 @@ const defaultPreferences: ReadingPreferences = {
   lineHeight: 32,
   dailyGoalMinutes: 15,
   theme: 'paper',
-  onlineSentenceTranslation: true,
+  onlineSentenceTranslation: false,
   speechVoice: undefined,
 };
 

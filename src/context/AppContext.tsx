@@ -141,7 +141,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lineHeight: 32,
     dailyGoalMinutes: 15,
     theme: 'paper',
-    onlineSentenceTranslation: true,
+    onlineSentenceTranslation: false,
     speechVoice: undefined,
   });
   const preferencesRef = useRef<ReadingPreferences>(preferences);
@@ -481,7 +481,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const emptyStats = { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 };
       statsRef.current = emptyStats;
       setStats(emptyStats);
-      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: true, speechVoice: undefined };
+      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: false, speechVoice: undefined };
       const emptyRecommendations = { preferredGenres: [], savedBookIds: [], feedback: {} };
       preferencesRef.current = emptyPreferences;
       recommendationStateRef.current = emptyRecommendations;
