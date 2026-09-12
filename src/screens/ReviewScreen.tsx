@@ -36,7 +36,7 @@ export function ReviewScreen({ navigation }: Props) {
   };
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneButton}><Text style={styles.doneButtonText}>返回生词本</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>返回生词本</Text></Pressable></View>;
   }
 
   const next = async (mastered: boolean) => {
@@ -128,4 +128,6 @@ const styles = StyleSheet.create({
   doneBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 10 },
   doneButton: { backgroundColor: colors.ink, borderRadius: radii.pill, paddingHorizontal: 22, paddingVertical: 13, marginTop: 26 },
   doneButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  doneSecondary: { paddingHorizontal: 22, paddingVertical: 12, marginTop: 3 },
+  doneSecondaryText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
 });
