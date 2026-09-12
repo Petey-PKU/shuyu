@@ -71,12 +71,16 @@ function utf8ByteLength(text: string): number {
 function splitByUtf8Bytes(text: string, maxBytes: number): string[] {
   const chunks: string[] = [];
   let current = '';
+  let currentBytes = 0;
   for (const character of text) {
-    if (current && utf8ByteLength(`${current}${character}`) > maxBytes) {
+    const characterBytes = utf8ByteLength(character);
+    if (current && currentBytes + characterBytes > maxBytes) {
       chunks.push(current);
       current = '';
+      currentBytes = 0;
     }
     current += character;
+    currentBytes += characterBytes;
   }
   if (current) chunks.push(current);
   return chunks;
