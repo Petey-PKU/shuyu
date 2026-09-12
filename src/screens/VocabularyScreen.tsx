@@ -76,7 +76,7 @@ export function VocabularyScreen({ navigation }: Props) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={<View style={styles.empty}><Ionicons name="bookmark-outline" size={34} color={colors.inkMuted} /><Text style={styles.emptyTitle}>{emptyTitle}</Text><Text style={styles.emptyBody}>{emptyBody}</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><Ionicons name="bookmark-outline" size={34} color={colors.inkMuted} /><Text style={styles.emptyTitle}>{emptyTitle}</Text><Text style={styles.emptyBody}>{emptyBody}</Text>{tab === 'learning' ? <Pressable accessibilityRole="button" accessibilityLabel="去今天开始阅读" onPress={() => navigation.navigate('Today')} style={styles.emptyButton}><Text style={styles.emptyButtonText}>{words.length ? '继续阅读' : '去读一本书'}</Text><Ionicons name="arrow-forward" size={15} color="#fff" /></Pressable> : null}</View>}
         renderItem={({ item }) => (
           <View style={styles.wordRow}>
             <View style={styles.wordMain}>
@@ -152,6 +152,8 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 76, paddingHorizontal: 34 },
   emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '700', marginTop: 14 },
   emptyBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, textAlign: 'center', marginTop: 7 },
+  emptyButton: { marginTop: 20, minHeight: 44, borderRadius: radii.pill, paddingHorizontal: 18, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  emptyButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
   confirmCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
   confirmTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
