@@ -24,6 +24,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
   const [answering, setAnswering] = useState(false);
   const [draftLoading, setDraftLoading] = useState(true);
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
   const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
   const allowExitRef = useRef(false);
@@ -44,7 +45,10 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         setDraftLoading(false);
       }
     }).catch(() => {
-      if (active) setDraftLoading(false);
+      if (active) {
+        setDraftSaveError('本机暂时无法读取测试草稿；当前作答仍可继续，但退出后可能无法恢复。');
+        setDraftLoading(false);
+      }
     });
     return () => { active = false; };
   }, []);
@@ -84,7 +88,12 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       const next = { ...answers, [question.id]: optionIndex };
       setAnswers(next);
       if (questionIndex < assessmentQuestions.length - 1) {
-        void AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next)).catch(() => undefined);
+        try {
+          await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+          setDraftSaveError(null);
+        } catch {
+          setDraftSaveError('本机暂时无法保存测试进度；当前作答仍可继续，但退出后可能无法恢复。');
+        }
         setQuestionIndex(questionIndex + 1);
         return;
       }
@@ -158,6 +167,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
+        {draftSaveError ? <Text accessibilityRole="alert" style={styles.draftWarning}>{draftSaveError}</Text> : null}
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
       <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
@@ -178,6 +188,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   loading: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: colors.inkMuted, fontSize: 12 },
+  draftWarning: { color: colors.accent, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 20 },
   topBar: { height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 5, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
