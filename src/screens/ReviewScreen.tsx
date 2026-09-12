@@ -67,7 +67,7 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => { void speakEnglish(current.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>

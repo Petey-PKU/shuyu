@@ -76,7 +76,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.word}>{item.word}</Text>
                 {item.phonetic ? <Text style={styles.phonetic}>{item.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => void speakEnglish(item.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => { void speakEnglish(item.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>
