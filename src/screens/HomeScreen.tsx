@@ -12,6 +12,7 @@ import { BookCover } from '../components/BookCover';
 import { PageHeader } from '../components/PageHeader';
 import { InlineNotice } from '../components/InlineNotice';
 import { colors, radii, shadows, typography } from '../theme';
+import { isWordDue } from '../utils/review';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Today'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -37,6 +38,7 @@ export function HomeScreen({ navigation }: Props) {
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const activeWords = words.filter((word) => !word.mastered).length;
+  const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, Date.now())).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
   const today = localDateKey(new Date());
   const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
@@ -125,11 +127,11 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.metricValue}>{displayedTodayMinutes}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
-        <View style={[styles.metricCard, styles.metricBlue]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`打开生词本，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
           <Ionicons name="sparkles-outline" size={21} color={colors.blue} />
           <Text style={styles.metricValue}>{activeWords}</Text>
           <Text style={styles.metricLabel}>待掌握词</Text>
-        </View>
+        </Pressable>
       </View>
 
       <View style={styles.sectionHeader}>
