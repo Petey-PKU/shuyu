@@ -49,10 +49,16 @@ export function HomeScreen({ navigation }: Props) {
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
   const today = localDateKey(new Date(clock));
   const yesterday = shiftDateKey(today, -1);
-  const displayedStreak = stats.lastReadDate === today || stats.lastReadDate === yesterday ? stats.streak : 0;
-  const weekDays = getRecentReadingDays(stats, new Date(clock));
-  const displayedTodayMinutes = weekDays[6].minutes;
-  const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
+  const statsEnabled = preferences.readingStatsEnabled !== false;
+  const recordedWeekDays = getRecentReadingDays(stats, new Date(clock));
+  const weekDays = statsEnabled ? recordedWeekDays : recordedWeekDays.map((day) => ({ ...day, recorded: false, minutes: 0, words: 0 }));
+  const displayedStreak = statsEnabled && (stats.lastReadDate === today || stats.lastReadDate === yesterday) ? stats.streak : 0;
+  const displayedTodayMinutes = statsEnabled ? weekDays[6].minutes : 0;
+  const displayedStreakLabel = statsEnabled ? String(displayedStreak) : '—';
+  const displayedTodayMinutesLabel = statsEnabled ? formatMinutes(displayedTodayMinutes) : '—';
+  const goalCaption = !statsEnabled
+    ? '阅读统计已关闭'
+    : displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
     : `${formatMinutes(displayedTodayMinutes)}/${preferences.dailyGoalMinutes} 分钟目标`;
   const weekMinutes = weekDays.reduce((total, day) => total + day.minutes, 0);
@@ -129,12 +135,12 @@ export function HomeScreen({ navigation }: Props) {
       <View style={styles.metrics}>
         <View style={[styles.metricCard, styles.metricWarm]}>
           <Ionicons name="flame-outline" size={21} color={colors.accent} />
-          <Text style={styles.metricValue}>{displayedStreak}</Text>
+          <Text style={styles.metricValue}>{displayedStreakLabel}</Text>
           <Text style={styles.metricLabel}>连续天数</Text>
         </View>
         <View style={[styles.metricCard, styles.metricSage]}>
           <Ionicons name="time-outline" size={21} color={colors.sage} />
-          <Text style={styles.metricValue}>{formatMinutes(displayedTodayMinutes)}</Text>
+          <Text style={styles.metricValue}>{displayedTodayMinutesLabel}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review') : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
@@ -146,7 +152,7 @@ export function HomeScreen({ navigation }: Props) {
 
       <View style={styles.trendCard}>
         <View style={styles.trendHeader}>
-          <View><Text style={styles.trendTitle}>近 7 天阅读</Text><Text style={styles.trendCaption}>{weekDays.some((day) => day.recorded) ? `已记录 ${formatMinutes(weekMinutes)} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
+          <View><Text style={styles.trendTitle}>近 7 天阅读</Text><Text style={styles.trendCaption}>{!statsEnabled ? '可在设置中重新开启' : weekDays.some((day) => day.recorded) ? `已记录 ${formatMinutes(weekMinutes)} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
           <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
         </View>
         <View style={styles.trendBars}>
@@ -158,7 +164,7 @@ export function HomeScreen({ navigation }: Props) {
             </View>
           ))}
         </View>
-        {weekDays.some((day) => !day.recorded) ? <Text style={styles.trendCaption}>— 表示无记录</Text> : null}
+        {statsEnabled && weekDays.some((day) => !day.recorded) ? <Text style={styles.trendCaption}>— 表示无记录</Text> : !statsEnabled ? <Text style={styles.trendCaption}>阅读进度仍会正常保存</Text> : null}
       </View>
 
       <View style={styles.sectionHeader}>

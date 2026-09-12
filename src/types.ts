@@ -134,6 +134,8 @@ export interface ReadingPreferences {
   dailyGoalMinutes: number;
   theme: ReaderTheme;
   onlineSentenceTranslation: boolean;
+  /** Optional for backwards-compatible snapshots; omitted means enabled. */
+  readingStatsEnabled?: boolean;
   speechVoice?: string;
 }
 

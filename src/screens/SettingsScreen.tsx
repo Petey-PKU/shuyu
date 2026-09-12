@@ -164,6 +164,17 @@ export function SettingsScreen() {
             thumbColor={preferences.onlineSentenceTranslation ? colors.accent : '#F8F7F3'}
           />
         </View>
+        <View style={styles.divider} />
+        <View style={styles.settingRow}>
+          <View style={{ flex: 1, paddingRight: 18 }}><Text style={styles.settingTitle}>记录阅读统计</Text><Text style={styles.settingCaption}>{preferences.readingStatsEnabled === false ? '已关闭：不新增阅读分钟、连续天数和趋势；已有记录仍保留' : '记录阅读分钟、连续天数和趋势；关闭不影响阅读进度'}</Text></View>
+          <Switch
+            accessibilityLabel="记录阅读统计"
+            value={preferences.readingStatsEnabled !== false}
+            onValueChange={(value) => { void updatePreferences({ readingStatsEnabled: value }).catch(() => undefined); }}
+            trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
+            thumbColor={preferences.readingStatsEnabled !== false ? colors.accent : '#F8F7F3'}
+          />
+        </View>
       </View>
 
       <Text style={styles.sectionLabel}>英语发音音色</Text>

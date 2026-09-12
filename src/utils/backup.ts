@@ -72,6 +72,7 @@ export function validPreferences(value: unknown): value is ReadingPreferences {
     && isFiniteNumber(lineHeight) && lineHeight >= 16 && lineHeight <= 64
     && isNonNegativeInteger(dailyGoalMinutes) && dailyGoalMinutes > 0 && dailyGoalMinutes <= 180
     && (value.theme === 'paper' || value.theme === 'white' || value.theme === 'night') && typeof value.onlineSentenceTranslation === 'boolean'
+    && (value.readingStatsEnabled === undefined || typeof value.readingStatsEnabled === 'boolean')
     && (value.speechVoice === undefined || typeof value.speechVoice === 'string');
 }
 export function validRecommendationState(value: unknown): value is RecommendationState {

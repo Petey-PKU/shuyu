@@ -142,6 +142,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dailyGoalMinutes: 15,
     theme: 'paper',
     onlineSentenceTranslation: false,
+    readingStatsEnabled: true,
     speechVoice: undefined,
   });
   const preferencesRef = useRef<ReadingPreferences>(preferences);
@@ -423,6 +424,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
+    if (preferencesRef.current.readingStatsEnabled === false) return;
     const currentStats = statsRef.current;
     const next = accumulateReadingStats(currentStats, minutes, wordsRead);
     if (next === currentStats) return;
@@ -460,7 +462,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const emptyStats = { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 };
       statsRef.current = emptyStats;
       setStats(emptyStats);
-      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: false, speechVoice: undefined };
+      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: false, readingStatsEnabled: true, speechVoice: undefined };
       const emptyRecommendations = { preferredGenres: [], savedBookIds: [], feedback: {} };
       preferencesRef.current = emptyPreferences;
       recommendationStateRef.current = emptyRecommendations;

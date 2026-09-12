@@ -16,6 +16,7 @@ assert.deepEqual(parsed, payload, 'A written backup should round-trip without ch
 const datedStats: ReadingStats = { ...stats, todayDate: '2026-09-09', lastReadDate: '2026-09-09', dailyHistory: { '2024-02-29': { minutes: 0.5, words: 5 }, '2026-09-09': { minutes: 1, words: 2 } } };
 const historyBackup = createBackupPayload({ ...payload, stats: datedStats });
 assert.deepEqual(parseBackupPayload(JSON.stringify(historyBackup)).stats, datedStats, 'Daily history, including fractional minutes and leap dates, survives export/import');
+assert.equal(parseBackupPayload(JSON.stringify({ ...payload, preferences: { ...preferences, readingStatsEnabled: false } })).preferences.readingStatsEnabled, false, 'The reading-stat opt-out survives backup round-trip');
 for (const dailyHistory of [null, [], { '2026-02-29': { minutes: 1, words: 2 } }, { '2026-09-09': { minutes: -1, words: 2 } }, { '2026-09-09': { minutes: 1, words: 0.5 } }, { '2026-09-09': null }, { '2026-09-09': { minutes: null, words: 2 } }]) {
   assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, dailyHistory } })), /有效的书语备份/, 'Reject malformed daily records before restoring');
 }

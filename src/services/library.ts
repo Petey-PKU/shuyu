@@ -25,6 +25,7 @@ const defaultPreferences: ReadingPreferences = {
   dailyGoalMinutes: 15,
   theme: 'paper',
   onlineSentenceTranslation: false,
+  readingStatsEnabled: true,
   speechVoice: undefined,
 };
 
