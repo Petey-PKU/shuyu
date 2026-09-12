@@ -3,7 +3,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ActivityIndicator,
   AppState,
-  Alert,
   FlatList,
   type LayoutChangeEvent,
   Modal,
@@ -274,9 +273,7 @@ function ReaderSession({ route, navigation }: Props) {
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
     const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
     if (replay && (chapterIndex > 0 || currentPage > 0)) replayStarted.current = true;
-    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => {
-      Alert.alert('阅读位置未能保存', '请检查设备存储空间，继续翻页时会再次尝试保存。');
-    });
+    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => undefined);
   }, [bookId, chapter, chapterIndex, chapterParagraphStarts, chapterText.length, content, currentPage, pages, updateProgress]);
 
   useEffect(() => {
