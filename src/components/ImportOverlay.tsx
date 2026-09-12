@@ -26,6 +26,13 @@ export function ImportOverlay({ status, onCancel }: Props) {
   const elapsedLabel = elapsedSeconds >= 60
     ? `${Math.floor(elapsedSeconds / 60)} 分 ${elapsedSeconds % 60} 秒`
     : `${elapsedSeconds} 秒`;
+  const parsingTitle = status?.stage === 'selecting'
+    ? '准备导入文件'
+    : status?.stage === 'reading'
+      ? '正在读取文件'
+      : status?.stage === 'saving'
+        ? '正在保存书籍'
+        : '正在解析章节';
 
   return (
     <Modal
@@ -37,7 +44,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
       <View style={styles.backdrop} accessibilityViewIsModal>
         <View accessibilityRole="alert" style={styles.card}>
           <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.title}>{isOcr ? '正在识别扫描页' : '正在整理书页'}</Text>
+          <Text style={styles.title}>{isOcr ? '正在识别扫描页' : parsingTitle}</Text>
           {isOcr ? (
             <>
               <Text style={styles.pageCount}>
@@ -64,7 +71,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
             </>
           ) : (
             <>
-              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>本地解析章节与文字，书籍原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
+              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>文件只在本机读取和解析，原文不会上传。当前阶段已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="取消电子书导入"

@@ -214,10 +214,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     importingRef.current = true;
     importCancelRequestedRef.current = false;
     const startedAt = Date.now();
-    setImportStatus({ phase: 'parsing', startedAt });
+    setImportStatus({ phase: 'parsing', stage: 'selecting', startedAt });
     try {
       const parsed = await pickAndParseBook({
         isCancelled: () => importCancelRequestedRef.current,
+        onImportStage: (stage) => setImportStatus((current) => current ? { ...current, stage } : current),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
@@ -242,6 +243,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       });
       if (!parsed || importCancelRequestedRef.current) return null;
+      setImportStatus((current) => current ? { ...current, stage: 'saving' } : current);
       const { book } = await createBook(parsed);
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
