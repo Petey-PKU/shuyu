@@ -32,7 +32,7 @@ function BookTile({ book, saved, targetScore, onPress, onSave }: {
   onSave: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
       <View>
         <RecommendedBookCover book={book} width={132} />
         <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
@@ -80,7 +80,7 @@ export function DiscoverScreen({ navigation }: Props) {
         eyebrow="DISCOVER · 72 本精选"
         title="为你选书"
         right={recommendationState.profile ? (
-          <Pressable onPress={() => navigation.navigate('LevelAssessment')} style={styles.levelBadge}>
+          <Pressable accessibilityRole="button" accessibilityLabel="重新测试阅读等级" onPress={() => navigation.navigate('LevelAssessment')} style={styles.levelBadge}>
             <Text style={styles.levelBadgeValue}>{recommendationState.profile.level}</Text>
             <Text style={styles.levelBadgeText}>重测</Text>
           </Pressable>
@@ -93,7 +93,7 @@ export function DiscoverScreen({ navigation }: Props) {
           <Text style={styles.assessmentEyebrow}>先找到舒适起点</Text>
           <Text style={styles.assessmentTitle}>不知道该从哪一本开始？</Text>
           <Text style={styles.assessmentBody}>完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。</Text>
-          <Pressable onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>开始水平测试</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="开始水平测试" onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>开始水平测试</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
         </View>
       ) : (
         <View style={styles.profileCard}>
@@ -110,7 +110,7 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} onPress={() => togglePreferredGenre(genre)} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} onPress={() => togglePreferredGenre(genre)} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
@@ -138,14 +138,14 @@ export function DiscoverScreen({ navigation }: Props) {
 
       <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>按等级浏览</Text><Text style={styles.sectionSub}>分级改写版与原版会明确标注</Text></View></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelRow}>
-        {levelOrder.map((level) => <Pressable key={level} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
+        {levelOrder.map((level) => <Pressable key={level} accessibilityRole="button" accessibilityLabel={`浏览${level}级别：${levelLabels[level]}`} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
       </ScrollView>
 
       <View style={styles.catalogList}>
         {shelf.map((book) => {
           const saved = recommendationState.savedBookIds.includes(book.id);
           return (
-            <Pressable key={book.id} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
+            <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
                 <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
