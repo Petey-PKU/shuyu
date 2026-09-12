@@ -42,6 +42,7 @@ import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
 import { persistBookRemoval } from '../utils/bookRemoval';
+import { recordReadingDay } from '../utils/readingStats';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -446,6 +447,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       todayDate: today,
       streak,
       lastReadDate: today,
+      dailyHistory: recordReadingDay(currentStats.dailyHistory, today, minutes, wordsRead),
     };
     statsRef.current = next;
     setStats(next);

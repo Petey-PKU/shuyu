@@ -125,6 +125,7 @@ export interface ReadingStats {
   todayDate?: string;
   streak: number;
   lastReadDate?: string;
+  dailyHistory?: Record<string, { minutes: number; words: number }>;
 }
 
 export interface ReadingPreferences {

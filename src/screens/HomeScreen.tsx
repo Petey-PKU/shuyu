@@ -47,6 +47,15 @@ export function HomeScreen({ navigation }: Props) {
   const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
     : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const key = localDateKey(date);
+    return { key, label: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()], minutes: stats.dailyHistory?.[key]?.minutes ?? 0 };
+  });
+  const weekMinutes = weekDays.reduce((total, day) => total + day.minutes, 0);
+  const trendMax = Math.max(preferences.dailyGoalMinutes, ...weekDays.map((day) => day.minutes), 1);
   const openBook = (book: typeof current) => {
     if (!book) return;
     navigation.navigate('Reader', book.progress >= 1
@@ -134,6 +143,16 @@ export function HomeScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
+      <View style={styles.trendCard}>
+        <View style={styles.trendHeader}>
+          <View><Text style={styles.trendTitle}>本周阅读</Text><Text style={styles.trendCaption}>{weekMinutes ? `近 7 天共 ${weekMinutes} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
+          <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
+        </View>
+        <View style={styles.trendBars}>
+          {weekDays.map((day) => <View key={day.key} style={styles.trendDay}><View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: Math.max(day.minutes ? 8 : 3, day.minutes / trendMax * 72) }]} /></View><Text style={styles.trendDayLabel}>{day.label}</Text></View>)}
+        </View>
+      </View>
+
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>最近书页</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="查看全部书籍" onPress={() => navigation.navigate('Library')}><Text style={styles.link}>查看全部</Text></Pressable>
@@ -200,6 +219,15 @@ const styles = StyleSheet.create({
   metricBlue: { backgroundColor: '#DFE7EF' },
   metricValue: { color: colors.ink, fontFamily: typography.serif, fontSize: 26, fontWeight: '700' },
   metricLabel: { color: colors.inkMuted, fontSize: 11, fontWeight: '600' },
+  trendCard: { marginTop: 14, padding: 17, borderRadius: radii.medium, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
+  trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trendTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 18, fontWeight: '700' },
+  trendCaption: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
+  trendBars: { height: 98, marginTop: 13, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
+  trendDay: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
+  trendBarTrack: { height: 72, width: '100%', borderRadius: 5, backgroundColor: colors.canvas, justifyContent: 'flex-end', overflow: 'hidden' },
+  trendBar: { width: '100%', borderRadius: 5, backgroundColor: colors.sage },
+  trendDayLabel: { color: colors.inkMuted, fontSize: 9, fontWeight: '700' },
   bookRow: { gap: 15, paddingBottom: 8, paddingRight: 10 },
   bookItem: { width: 116, gap: 7 },
   bookTitle: { color: colors.ink, fontSize: 13, fontWeight: '700', lineHeight: 17 },

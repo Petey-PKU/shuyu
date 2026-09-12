@@ -53,10 +53,16 @@ export function validWord(value: unknown): value is SavedWord {
     && (value.lastReviewedAt === undefined || isIsoDate(value.lastReviewedAt));
 }
 export function validStats(value: unknown): value is ReadingStats {
+  const history = isRecord(value) ? value.dailyHistory : undefined;
+  const validHistory = history === undefined || (isRecord(history) && Object.entries(history).every(([date, entry]) => {
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) && isRecord(entry)
+      && isNonNegativeNumber(entry.minutes) && isNonNegativeInteger(entry.words);
+  }));
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))
     && isNonNegativeNumber(value.minutes) && isNonNegativeNumber(value.todayMinutes)
     && (value.todayDate === undefined || typeof value.todayDate === 'string')
-    && (value.lastReadDate === undefined || typeof value.lastReadDate === 'string');
+    && (value.lastReadDate === undefined || typeof value.lastReadDate === 'string')
+    && validHistory;
 }
 export function validPreferences(value: unknown): value is ReadingPreferences {
   if (!isRecord(value)) return false;
