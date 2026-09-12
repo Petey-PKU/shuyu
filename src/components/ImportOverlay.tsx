@@ -15,6 +15,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
   const totalPages = status?.totalPages ?? 0;
   const progress = totalPages > 0 ? Math.min(1, currentPage / totalPages) : 0;
   const [now, setNow] = useState(() => Date.now());
+  const [ocrStartedAt, setOcrStartedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (!status) return;
@@ -23,10 +24,21 @@ export function ImportOverlay({ status, onCancel }: Props) {
     return () => clearInterval(timer);
   }, [status?.startedAt]);
 
+  useEffect(() => {
+    setOcrStartedAt(isOcr ? Date.now() : null);
+  }, [isOcr]);
+
   const elapsedSeconds = status?.startedAt ? Math.max(0, Math.floor((now - status.startedAt) / 1000)) : 0;
   const elapsedLabel = elapsedSeconds >= 60
     ? `${Math.floor(elapsedSeconds / 60)} 分 ${elapsedSeconds % 60} 秒`
     : `${elapsedSeconds} 秒`;
+  const ocrElapsedSeconds = ocrStartedAt ? Math.max(0, Math.floor((now - ocrStartedAt) / 1000)) : 0;
+  const remainingSeconds = isOcr && currentPage > 0 && currentPage < totalPages && ocrElapsedSeconds > 0
+    ? Math.max(1, Math.ceil((ocrElapsedSeconds / currentPage) * (totalPages - currentPage)))
+    : 0;
+  const remainingLabel = remainingSeconds >= 60
+    ? `约 ${Math.ceil(remainingSeconds / 60)} 分钟`
+    : `约 ${remainingSeconds} 秒`;
   const parsingTitle = status?.stage === 'selecting'
     ? '准备导入文件'
     : status?.stage === 'reading'
@@ -52,6 +64,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
               <Text style={styles.pageCount}>
                 {status?.cancelling ? '正在停止…' : currentPage > 0 ? `第 ${currentPage} / ${totalPages} 页` : `准备识别 ${totalPages} 页`}
               </Text>
+              {remainingSeconds > 0 ? <Text style={styles.estimate}>预计还需 {remainingLabel} · 会随设备速度变化</Text> : null}
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
               </View>
@@ -100,6 +113,7 @@ const styles = StyleSheet.create({
   fileName: { maxWidth: '100%', color: colors.ink, fontSize: 12, fontWeight: '700' },
   body: { fontSize: 13, lineHeight: 20, color: colors.inkMuted, textAlign: 'center' },
   pageCount: { color: colors.ink, fontSize: 13, fontWeight: '800' },
+  estimate: { color: colors.inkMuted, fontSize: 10, textAlign: 'center', marginTop: -5 },
   progressTrack: { width: '100%', height: 6, borderRadius: 6, backgroundColor: colors.line, overflow: 'hidden' },
   progressFill: { height: 6, borderRadius: 6, backgroundColor: colors.accent },
   warning: { color: '#A15235', fontSize: 11, lineHeight: 17, textAlign: 'center' },

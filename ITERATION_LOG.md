@@ -12,6 +12,12 @@
 - 现在发现页重新获得焦点时检查本地草稿；存在未完成答案时显示“继续水平测试”，同时说明答案不会上传，进入测试后继续原来的题目。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 为 OCR 导入提供剩余时间估计
+
+- 扫描版 PDF 导入原先只有页码进度和已用时，长时间识别时用户难以判断还要等待多久。
+- 现在完成首批页面后根据本次 OCR 的实际速度显示预计剩余时间，并标注估计会随设备速度变化；停止、跳过页和隐私说明保持不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让词典后台加载不阻断首次进入
 
 - 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。
