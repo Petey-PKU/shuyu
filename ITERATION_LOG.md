@@ -600,3 +600,9 @@
 - 排版尚未完成时的翻页/朗读按钮，以及复习写入期间的两个提交按钮，原先只有视觉或原生禁用状态，读屏用户无法确认原因。
 - 为这些关键动作补充 `accessibilityState.disabled`，让辅助技术与实际交互状态保持一致。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 其他状态无障碍语义
+
+- 导入取消、生词掌握切换和设置页不可操作项此前缺少对应的读屏禁用/勾选状态。
+- 为这些控件补充 `accessibilityState`，让辅助技术可以判断操作是否仍在进行，以及词条是否已掌握。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。

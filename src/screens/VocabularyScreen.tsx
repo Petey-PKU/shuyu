@@ -104,7 +104,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <Pressable accessibilityRole="button" accessibilityLabel={`移除${item.word}`} onPress={() => confirmRemove(item.id, item.word)} style={styles.removeButton}>
                 <Ionicons name="trash-outline" size={16} color={colors.inkMuted} />
               </Pressable>
-              <Pressable accessibilityRole="button" accessibilityLabel={item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} onPress={() => { void toggleMastered(item.id).catch(() => undefined); }} style={[styles.check, item.mastered && styles.checked]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={item.mastered ? `标记${item.word}为学习中` : `标记${item.word}为已掌握`} accessibilityState={{ checked: item.mastered }} onPress={() => { void toggleMastered(item.id).catch(() => undefined); }} style={[styles.check, item.mastered && styles.checked]}>
                 <Ionicons name={item.mastered ? 'checkmark' : 'checkmark-outline'} size={17} color={item.mastered ? '#fff' : colors.inkMuted} />
               </Pressable>
             </View>

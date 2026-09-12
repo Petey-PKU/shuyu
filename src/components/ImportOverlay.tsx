@@ -63,6 +63,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="停止 PDF 文字识别"
+                accessibilityState={{ disabled: !!status?.cancelling || isSaving }}
                 disabled={status?.cancelling || isSaving}
                 onPress={onCancel}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, status?.cancelling && styles.disabled]}
@@ -76,6 +77,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="取消电子书导入"
+                accessibilityState={{ disabled: !!status?.cancelling || isSaving }}
                 disabled={status?.cancelling || isSaving}
                 onPress={onCancel}
                 style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, status?.cancelling && styles.disabled]}
