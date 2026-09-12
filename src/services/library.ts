@@ -16,7 +16,7 @@ import { bookAccents } from '../theme';
 import { seedSampleOnce } from '../utils/bootstrap';
 import { libraryKeys as KEYS } from '../utils/storageKeys';
 import { recoverInterruptedRestore, restoreBackupSnapshot, type RestoreStorage } from '../utils/backupRestore';
-import { isSafeBookId } from '../utils/backup';
+import { isSafeBookId, parseBookContent } from '../utils/bookContent';
 
 const booksDirectory = Platform.OS === 'web' ? null : new Directory(Paths.document, 'shuyu-books');
 const defaultPreferences: ReadingPreferences = {
@@ -168,14 +168,15 @@ async function writeNewBookContent(bookId: string, content: BookContent) {
 }
 
 export async function loadBookContent(bookId: string): Promise<BookContent> {
+  if (!isSafeBookId(bookId)) throw new Error('书籍文件标识无效，请返回书架后重试');
   if (Platform.OS === 'web') {
     const raw = await AsyncStorage.getItem(contentKey(bookId));
     if (!raw) throw new Error('本地书籍文件不存在，请重新导入');
-    return JSON.parse(raw);
+    return parseBookContent(raw, bookId);
   }
   const file = contentFile(bookId);
   if (!file.exists) throw new Error('本地书籍文件不存在，请重新导入');
-  return file.json();
+  return parseBookContent(await file.text(), bookId);
 }
 
 export async function restoreBackupData(payload: BackupPayload) {

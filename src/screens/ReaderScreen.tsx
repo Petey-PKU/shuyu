@@ -92,12 +92,20 @@ const readerThemes = {
 };
 
 export function ReaderScreen({ route, navigation }: Props) {
+  // A new book or source jump starts a separate reading session, even when navigation reuses this route.
+  return <ReaderSession key={`${route.params.bookId}:${route.params.chapterIndex ?? ''}:${route.params.paragraphIndex ?? ''}`} route={route} navigation={navigation} />;
+}
+
+function ReaderSession({ route, navigation }: Props) {
   const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph } = route.params;
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext } = useDictionary();
   const book = books.find((item) => item.id === bookId);
+  const bookExists = !!book;
   const [content, setContent] = useState<BookContent | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [chapterIndex, setChapterIndex] = useState(requestedChapter ?? book?.currentChapter ?? 0);
   const [currentParagraph, setCurrentParagraph] = useState(requestedParagraph ?? book?.currentParagraph ?? 0);
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -147,6 +155,9 @@ export function ReaderScreen({ route, navigation }: Props) {
 
   useEffect(() => {
     let active = true;
+    setContent(null);
+    setContentError(null);
+    if (!bookExists) return;
     getBookContent(bookId).then((loaded) => {
       if (!active) return;
       const initial = initialPosition.current;
@@ -156,10 +167,10 @@ export function ReaderScreen({ route, navigation }: Props) {
       setCurrentParagraph(position.paragraphIndex);
       setContent(loaded);
     }).catch((error) => {
-      if (active) Alert.alert('无法打开书籍', error instanceof Error ? error.message : '请返回书架后重试', [{ text: '返回', onPress: () => navigation.goBack() }]);
+      if (active) setContentError(error instanceof Error ? error.message : '本地正文暂时无法读取，请重试。若仍无法打开，可从原文件重新导入或在设置中恢复备份。');
     });
     return () => { active = false; };
-  }, [bookId, getBookContent, navigation]);
+  }, [bookId, bookExists, getBookContent, loadAttempt]);
 
   useEffect(() => {
     addReadingMinutesRef.current = addReadingMinutes;
@@ -370,7 +381,7 @@ export function ReaderScreen({ route, navigation }: Props) {
   }, [book, bookId, content, updateProgress]);
 
   const turnPage = useCallback((direction: -1 | 1) => {
-    if (!pages.length) return;
+    if (!pages.length && chapterText.trim()) return;
     if (tapHintVisible) {
       setTapHintVisible(false);
       void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined);
@@ -386,7 +397,7 @@ export function ReaderScreen({ route, navigation }: Props) {
       const previous = content.chapters[chapterIndex - 1];
       jumpToChapter(chapterIndex - 1, Math.max(0, previous.paragraphs.length - 1));
     }
-  }, [chapterIndex, content, currentPage, jumpToChapter, pages.length, tapHintVisible]);
+  }, [chapterIndex, chapterText, content, currentPage, jumpToChapter, pages.length, tapHintVisible]);
 
   const pagePanResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.5,
@@ -396,9 +407,28 @@ export function ReaderScreen({ route, navigation }: Props) {
     },
   }), [turnPage]);
 
-  if (!book || !content || !chapter) {
-    return <View style={[styles.loading, { backgroundColor: theme.background }]}><ActivityIndicator color={colors.accent} /><Text style={[styles.loadingText, { color: theme.muted }]}>正在打开书页</Text></View>;
+  const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
+
+  if (!book || contentError || !content || !chapter) {
+    const error = !book ? '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。' : contentError;
+    return (
+      <View style={[styles.loading, { backgroundColor: theme.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
+        <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
+        {error ? <Ionicons name="book-outline" size={36} color={theme.muted} /> : <ActivityIndicator color={colors.accent} />}
+        <Text accessibilityRole="header" style={[styles.contentStateTitle, { color: theme.text }]}>{error ? '无法打开书籍' : '正在打开书页'}</Text>
+        {book ? <Text numberOfLines={2} style={[styles.contentStateBook, { color: theme.muted }]}>{book.title}</Text> : null}
+        {error ? <Text accessibilityRole="alert" style={[styles.contentStateBody, { color: theme.muted }]}>{error}</Text> : null}
+        {error && book ? (
+          <Pressable accessibilityRole="button" onPress={() => { setContentError(null); setLoadAttempt((attempt) => attempt + 1); }} style={styles.contentRetry}>
+            <Text style={styles.contentRetryText}>重新打开</Text>
+          </Pressable>
+        ) : null}
+        <Pressable accessibilityRole="button" onPress={returnToLibrary} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>返回书架</Text></Pressable>
+      </View>
+    );
   }
+
+  const emptyChapter = !chapterText.trim();
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -413,14 +443,20 @@ export function ReaderScreen({ route, navigation }: Props) {
       </View>
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
-        {tapHintVisible && currentPage === 0 && !selection ? (
+        {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
           <Pressable accessibilityRole="button" accessibilityLabel="关闭阅读操作提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
             <Ionicons name="hand-left-outline" size={16} color={colors.accent} />
             <Text style={styles.tapHintText}>点按单词查看释义，左右滑动翻页</Text>
             <Ionicons name="close" size={15} color={colors.inkMuted} />
           </Pressable>
         ) : null}
-        {pages.length ? (
+        {emptyChapter ? (
+          <View style={styles.paginating}>
+            <Text style={[styles.contentStateTitle, { color: theme.text }]}>本章没有正文</Text>
+            <Text style={[styles.contentStateBody, { color: theme.muted }]}>可以从目录选择其他章节继续阅读。</Text>
+            <Pressable accessibilityRole="button" onPress={() => setChaptersVisible(true)} style={styles.contentRetry}><Text style={styles.contentRetryText}>选择章节</Text></Pressable>
+          </View>
+        ) : pages.length ? (
           <View style={styles.pageSurface}>
             {currentPage === 0 ? (
               <View style={styles.pageChapterHeader}>
@@ -443,7 +479,7 @@ export function ReaderScreen({ route, navigation }: Props) {
           <View style={styles.paginating}><ActivityIndicator color={colors.accent} /><Text style={[styles.loadingText, { color: theme.muted }]}>正在按屏幕排版…</Text></View>
         )}
 
-        {paginationKey && !pages.length ? (
+        {paginationKey && !emptyChapter && !pages.length ? (
           <ChapterTextMeasure
             key={paginationKey}
             onLines={onChapterTextLayout}
@@ -459,25 +495,25 @@ export function ReaderScreen({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="上一页"
-          disabled={!pages.length || (currentPage === 0 && chapterIndex === 0)}
+          disabled={(!emptyChapter && !pages.length) || (currentPage === 0 && chapterIndex === 0)}
           onPress={() => turnPage(-1)}
           style={[styles.pageEdge, styles.pageEdgeLeft]}
         ><Ionicons name="chevron-back" size={17} color={theme.muted} /></Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={currentPage === pages.length - 1 ? '下一章' : '下一页'}
-          disabled={!pages.length || (currentPage === pages.length - 1 && chapterIndex === content.chapters.length - 1)}
+          accessibilityLabel={emptyChapter || currentPage === pages.length - 1 ? '下一章' : '下一页'}
+          disabled={(!emptyChapter && !pages.length) || ((emptyChapter || currentPage === pages.length - 1) && chapterIndex === content.chapters.length - 1)}
           onPress={() => turnPage(1)}
           style={[styles.pageEdge, styles.pageEdgeRight]}
         ><Ionicons name="chevron-forward" size={17} color={theme.muted} /></Pressable>
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" onPress={() => void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice)} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
-          <View style={styles.bottomMeta}><Text style={[styles.bottomText, { color: theme.muted }]}>第 {chapterIndex + 1}/{content.chapters.length} 章 · {pages.length ? `${currentPage + 1}/${pages.length} 页` : '排版中'}</Text><Text style={[styles.bottomText, { color: theme.muted }]}>{Math.round(book.progress * 100)}%</Text></View>
+          <View style={styles.bottomMeta}><Text style={[styles.bottomText, { color: theme.muted }]}>第 {chapterIndex + 1}/{content.chapters.length} 章 · {emptyChapter ? '无正文' : pages.length ? `${currentPage + 1}/${pages.length} 页` : '排版中'}</Text><Text style={[styles.bottomText, { color: theme.muted }]}>{Math.round(book.progress * 100)}%</Text></View>
           <View style={[styles.bottomTrack, { backgroundColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}><View style={[styles.bottomFill, { width: `${Math.max(2, book.progress * 100)}%` }]} /></View>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.audioButton}><Ionicons name="list-outline" size={20} color={theme.text} /></Pressable>
@@ -586,8 +622,15 @@ export function ReaderScreen({ route, navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 28 },
   loadingText: { fontSize: 12 },
+  contentStateTitle: { fontSize: 21, fontWeight: '700', textAlign: 'center' },
+  contentStateBook: { fontSize: 13, textAlign: 'center', maxWidth: 340 },
+  contentStateBody: { fontSize: 14, lineHeight: 23, textAlign: 'center', maxWidth: 340, paddingHorizontal: 12 },
+  contentRetry: { minHeight: 46, paddingHorizontal: 28, paddingVertical: 12, borderRadius: radii.pill, backgroundColor: colors.accent, justifyContent: 'center', marginTop: 10 },
+  contentRetryText: { color: '#fff', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  contentBack: { minHeight: 46, paddingHorizontal: 28, justifyContent: 'center' },
+  contentBackText: { fontSize: 14, fontWeight: '600' },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, zIndex: 5 },
   iconButton: { width: 44, height: 42, alignItems: 'center', justifyContent: 'center' },
   topTitleWrap: { flex: 1, alignItems: 'center' },

@@ -1,4 +1,6 @@
-import type { BackupPayload, Book, BookContent, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../types';
+import type { BackupPayload, Book, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../types';
+import { isBookContent, isSafeBookId } from './bookContent';
+export { isSafeBookId } from './bookContent';
 
 export function createBackupPayload(data: Omit<BackupPayload, 'app' | 'schemaVersion' | 'exportedAt'>, exportedAt = new Date().toISOString()): BackupPayload {
   if (data.books.some((book) => !data.contents[book.id] || data.contents[book.id].id !== book.id)) {
@@ -18,9 +20,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isFiniteNumber(value: unknown): value is number { return typeof value === 'number' && Number.isFinite(value); }
-export function isSafeBookId(value: unknown): value is string {
-  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(value);
-}
 function isIsoDate(value: unknown) {
   return typeof value === 'string' && Number.isFinite(Date.parse(value));
 }
@@ -40,11 +39,6 @@ function validBook(value: unknown): value is Book {
     && ['currentChapter', 'currentParagraph', 'totalWords', 'chapterCount'].every((key) => isNonNegativeInteger(value[key]))
     && isFiniteNumber(progress) && progress >= 0 && progress <= 1
     && (value.currentOffset === undefined || isNonNegativeInteger(value.currentOffset));
-}
-function validContent(value: unknown): value is BookContent {
-  if (!isRecord(value) || !isSafeBookId(value.id) || typeof value.title !== 'string'
-    || (value.author !== undefined && typeof value.author !== 'string') || !Array.isArray(value.chapters) || value.chapters.length === 0) return false;
-  return value.chapters.every((chapter) => isRecord(chapter) && isSafeBookId(chapter.id) && typeof chapter.title === 'string' && Array.isArray(chapter.paragraphs) && chapter.paragraphs.every((text) => typeof text === 'string') && isNonNegativeInteger(chapter.wordCount));
 }
 function validWord(value: unknown): value is SavedWord {
   if (!isRecord(value)) return false;
@@ -98,7 +92,7 @@ export function parseBackupPayload(raw: string): BackupPayload {
 export function validateBackupPayload(value: unknown): BackupPayload {
   if (!isRecord(value) || value.app !== 'shuyu' || value.schemaVersion !== 1 || !isIsoDate(value.exportedAt)
     || !Array.isArray(value.books) || !value.books.every(validBook) || !isRecord(value.contents)
-    || !Object.values(value.contents).every(validContent) || !Array.isArray(value.words) || !value.words.every(validWord)
+    || !Object.values(value.contents).every(isBookContent) || !Array.isArray(value.words) || !value.words.every(validWord)
     || !validStats(value.stats) || !validPreferences(value.preferences) || !validRecommendationState(value.recommendationState)
     || !Array.isArray(value.readingSignals) || !value.readingSignals.every(validSignal)) throw new Error('这不是有效的书语备份文件');
   const parsed = value as unknown as BackupPayload;
