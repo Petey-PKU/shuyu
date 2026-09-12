@@ -30,6 +30,7 @@ export function SettingsScreen() {
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +52,7 @@ export function SettingsScreen() {
       return;
     }
     if (title === '开源项目') {
-      void Linking.openURL('https://github.com/Petey-PKU/shuyu');
+      void Linking.openURL('https://github.com/Petey-PKU/shuyu').catch(() => setLinkMessage('暂时无法打开开源项目页面，请稍后重试。'));
       return;
     }
     setAboutVisible(true);
@@ -198,6 +199,7 @@ export function SettingsScreen() {
             {'status' in row ? <Text style={styles.readyBadge}>{entryCount ? row.status : 'Web'}</Text> : <Ionicons name="chevron-forward" size={17} color={colors.inkMuted} />}
           </Pressable>
         ))}
+        {linkMessage ? <InlineNotice message={linkMessage} onDismiss={() => setLinkMessage(null)} /> : null}
       </View>
       <Text style={styles.sectionLabel}>本地备份</Text>
       <View style={styles.backupCard}>

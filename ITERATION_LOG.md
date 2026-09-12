@@ -606,3 +606,9 @@
 - 导入取消、生词掌握切换和设置页不可操作项此前缺少对应的读屏禁用/勾选状态。
 - 为这些控件补充 `accessibilityState`，让辅助技术可以判断操作是否仍在进行，以及词条是否已掌握。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 开源入口失败反馈
+
+- 设置页的开源项目入口直接调用系统浏览器，无法打开时没有任何页面内反馈。
+- 增加打开失败提示和关闭入口，用户能知道链接未能打开并稍后重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
