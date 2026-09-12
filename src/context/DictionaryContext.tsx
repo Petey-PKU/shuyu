@@ -7,6 +7,7 @@ interface DictionaryContextValue {
   entryCount: number;
   dictionaryLoading: boolean;
   dictionaryUnavailable: boolean;
+  retryDictionary: () => void;
 }
 
 const DictionaryContext = createContext<DictionaryContextValue | null>(null);
@@ -16,7 +17,7 @@ export function DictionaryProvider({ children }: { children: React.ReactNode }) 
     if (!allowOnline) return fallbackLookup(word);
     return lookupNetworkWord(word);
   }, []);
-  const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 0, dictionaryLoading: false, dictionaryUnavailable: false }), [lookup]);
+  const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 0, dictionaryLoading: false, dictionaryUnavailable: false, retryDictionary: () => undefined }), [lookup]);
   return <DictionaryContext.Provider value={value}>{children}</DictionaryContext.Provider>;
 }
 

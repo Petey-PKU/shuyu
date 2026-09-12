@@ -625,7 +625,7 @@ function ReaderSession({ route, navigation }: Props) {
                   {dictionaryLoading
                     ? '离线词典加载中 · 已显示基础兜底'
                     : dictionaryUnavailable
-                    ? '离线词典暂不可用 · 已显示基础兜底'
+                    ? '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
                     : entryCount === 0
                     ? lookup?.source === 'network' ? 'Web 预览 · 在线补充释义' : 'Web 预览未加载完整离线词典 · 已显示基础兜底'
                     : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}

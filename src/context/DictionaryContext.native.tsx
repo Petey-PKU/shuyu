@@ -15,6 +15,7 @@ interface DictionaryContextValue {
   entryCount: number;
   dictionaryLoading: boolean;
   dictionaryUnavailable: boolean;
+  retryDictionary: () => void;
 }
 
 const DictionaryContext = createContext<DictionaryContextValue | null>(null);
@@ -31,6 +32,7 @@ function cleanMeaning(translation: string) {
 export function DictionaryProvider({ children }: { children: React.ReactNode }) {
   const [database, setDatabase] = useState<SQLiteDatabase | null>(null);
   const [databaseError, setDatabaseError] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   const errorScheduled = useRef(false);
   const initialize = useCallback(async (nextDatabase: SQLiteDatabase) => {
     setDatabase(nextDatabase);
@@ -39,6 +41,12 @@ export function DictionaryProvider({ children }: { children: React.ReactNode }) 
     if (errorScheduled.current) return;
     errorScheduled.current = true;
     setTimeout(() => setDatabaseError(true), 0);
+  }, []);
+  const retryDictionary = useCallback(() => {
+    errorScheduled.current = false;
+    setDatabase(null);
+    setDatabaseError(false);
+    setRetryNonce((current) => current + 1);
   }, []);
   const lookup = useCallback(async (word: string, allowOnline = true): Promise<LookupResult> => {
     const normalized = word.toLowerCase();
@@ -70,9 +78,11 @@ export function DictionaryProvider({ children }: { children: React.ReactNode }) 
     entryCount: database ? 120_000 : 0,
     dictionaryLoading: !database && !databaseError,
     dictionaryUnavailable: databaseError,
-  }), [database, databaseError, lookup]);
+    retryDictionary,
+  }), [database, databaseError, lookup, retryDictionary]);
   const loader = databaseError ? null : (
     <SQLiteProvider
+      key={retryNonce}
       databaseName="shuyu-ecdict-v1.db"
       assetSource={{ assetId: require('../../assets/dictionary/ecdict-core.db') }}
       onInit={initialize}

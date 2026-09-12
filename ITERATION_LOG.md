@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 增加离线词典重试入口
+
+- 离线词典初始化失败后，用户原先只能重启应用才能再次尝试加载。
+- 现在设置页的词典状态行可直接重试；重试期间书架、阅读和基础查词保持可用，成功后恢复完整本地词典。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 让词典后台加载不阻断首次进入
 
 - 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。
