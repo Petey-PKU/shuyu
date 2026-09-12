@@ -41,5 +41,10 @@ assert.equal(unbrokenChunks.join(''), unbroken);
 
 const fallbackChunks = splitTranslationText(Array.from({ length: 180 }, () => 'reader').join(' '));
 assert.ok(fallbackChunks.length > 1);
+const longToken = '读'.repeat(300);
+const longTokenChunks = splitTranslationText(longToken);
+assert.ok(longTokenChunks.length > 1);
+assert.ok(longTokenChunks.every((chunk) => new TextEncoder().encode(chunk).length <= 450));
+assert.equal(longTokenChunks.join(''), longToken, 'Unbroken translation tokens must be split without losing text');
 
 console.log('Translation helpers verified: Bing credentials, response validation, and safe chunking.');

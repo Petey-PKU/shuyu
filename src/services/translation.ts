@@ -68,6 +68,20 @@ function utf8ByteLength(text: string): number {
   return length;
 }
 
+function splitByUtf8Bytes(text: string, maxBytes: number): string[] {
+  const chunks: string[] = [];
+  let current = '';
+  for (const character of text) {
+    if (current && utf8ByteLength(`${current}${character}`) > maxBytes) {
+      chunks.push(current);
+      current = '';
+    }
+    current += character;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 export function splitTranslationText(text: string): string[] {
   if (utf8ByteLength(text) <= MAX_QUERY_BYTES) return [text];
   const units = text.match(/[^,;:—.!?。！？]+[,;:—.!?。！？]+["'”’)]*|[^,;:—.!?。！？]+$/g) ?? [text];
@@ -93,7 +107,11 @@ export function splitTranslationText(text: string): string[] {
         wordChunk = combinedWords;
       } else {
         if (wordChunk) chunks.push(wordChunk);
-        wordChunk = word;
+        if (utf8ByteLength(word) <= MAX_QUERY_BYTES) wordChunk = word;
+        else {
+          chunks.push(...splitByUtf8Bytes(word, MAX_QUERY_BYTES));
+          wordChunk = '';
+        }
       }
     }
     current = wordChunk;
