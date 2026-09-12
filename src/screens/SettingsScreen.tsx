@@ -143,7 +143,7 @@ export function SettingsScreen() {
         </View>
         <View style={styles.divider} />
         <View style={styles.settingRow}>
-          <View style={{ flex: 1, paddingRight: 18 }}><Text style={styles.settingTitle}>在线翻译增强</Text><Text style={styles.settingCaption}>当前：{getTranslationProviderSummary()}；查询未收录单词或主动获取整句翻译时可能联网</Text></View>
+          <View style={{ flex: 1, paddingRight: 18 }}><Text style={styles.settingTitle}>在线翻译增强</Text><Text style={styles.settingCaption}>{preferences.onlineSentenceTranslation ? `已开启：${getTranslationProviderSummary()}；未收录单词或主动获取整句翻译时可能联网` : '已关闭：点词只使用本地结果，整句翻译不会联网'}</Text></View>
           <Switch
             accessibilityLabel="在线翻译增强"
             value={preferences.onlineSentenceTranslation}
