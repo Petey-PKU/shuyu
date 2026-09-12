@@ -27,7 +27,9 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [feedbackSaving, setFeedbackSaving] = useState<DifficultyFeedback | null>(null);
   const savingRef = useRef(false);
+  const feedbackSavingRef = useRef(false);
   const {
     books,
     recommendationState,
@@ -66,6 +68,22 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
     } finally {
       savingRef.current = false;
       setSaving(false);
+    }
+  };
+
+  const handleFeedback = async (value: DifficultyFeedback) => {
+    if (feedbackSavingRef.current) return;
+    feedbackSavingRef.current = true;
+    setFeedbackSaving(value);
+    setSaveNotice(null);
+    try {
+      await setRecommendedBookFeedback(book.id, value);
+      setSaveNotice({ tone: 'success', message: '已记录反馈，后续推荐会参考你的判断。' });
+    } catch {
+      setSaveNotice({ tone: 'error', message: '本次反馈已生效，但设备保存失败，请稍后重试保存。' });
+    } finally {
+      feedbackSavingRef.current = false;
+      setFeedbackSaving(null);
     }
   };
 
@@ -108,7 +126,8 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       <View style={styles.feedbackRow}>
         {feedbackOptions.map((option) => {
           const selected = feedback === option.value;
-          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={`反馈：${option.label}`} accessibilityState={{ selected }} onPress={() => { void setRecommendedBookFeedback(book.id, option.value).catch(() => undefined); }} style={[styles.feedbackButton, selected && styles.feedbackSelected]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{option.label}</Text></Pressable>;
+          const savingFeedback = feedbackSaving === option.value;
+          return <Pressable key={option.value} accessibilityRole="button" accessibilityLabel={savingFeedback ? `正在记录反馈：${option.label}` : `反馈：${option.label}`} accessibilityState={{ selected, disabled: !!feedbackSaving }} disabled={!!feedbackSaving} onPress={() => void handleFeedback(option.value)} style={[styles.feedbackButton, selected && styles.feedbackSelected, feedbackSaving && styles.feedbackDisabled]}><Ionicons name={option.icon} size={18} color={selected ? '#fff' : colors.inkMuted} /><Text style={[styles.feedbackText, selected && styles.feedbackTextSelected]}>{savingFeedback ? '记录中…' : option.label}</Text></Pressable>;
         })}
       </View>
 
@@ -154,6 +173,7 @@ const styles = StyleSheet.create({
   feedbackSelected: { backgroundColor: colors.ink, borderColor: colors.ink },
   feedbackText: { color: colors.inkMuted, fontSize: 9, fontWeight: '800' },
   feedbackTextSelected: { color: '#fff' },
+  feedbackDisabled: { opacity: 0.58 },
   sourceBoundary: { marginTop: 28, padding: 17, borderRadius: radii.medium, backgroundColor: colors.sageSoft, flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   sourceTitle: { color: colors.ink, fontSize: 12, fontWeight: '800' },
   sourceBody: { color: colors.inkMuted, fontSize: 10, lineHeight: 16, marginTop: 5 },
