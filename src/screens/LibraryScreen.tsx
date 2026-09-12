@@ -19,6 +19,8 @@ export function LibraryScreen({ navigation }: Props) {
   const { books, importBook, removeBook, updateBookMetadata } = useApp();
   const [query, setQuery] = useState('');
   const [editingBook, setEditingBook] = useState<{ id: string; title: string; author: string } | null>(null);
+  const [menuBook, setMenuBook] = useState<{ id: string; title: string; author: string } | null>(null);
+  const [deleteBook, setDeleteBook] = useState<{ id: string; title: string } | null>(null);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
@@ -37,18 +39,12 @@ export function LibraryScreen({ navigation }: Props) {
   };
 
   const confirmDelete = (bookId: string, title: string) => {
-    Alert.alert('删除本地书籍？', `“${title}”的阅读进度和相关生词也会删除。`, [
-      { text: '取消', style: 'cancel' },
-      { text: '删除', style: 'destructive', onPress: () => { void removeBook(bookId); } },
-    ]);
+    setMenuBook(null);
+    setDeleteBook({ id: bookId, title });
   };
 
   const openBookMenu = (bookId: string, title: string, author: string) => {
-    Alert.alert(`管理《${title}》`, '你可以编辑书籍信息，或从本地书架删除它。', [
-      { text: '取消', style: 'cancel' },
-      { text: '编辑信息', onPress: () => { setEditingBook({ id: bookId, title, author }); setDraftTitle(title); setDraftAuthor(author); } },
-      { text: '删除书籍', style: 'destructive', onPress: () => confirmDelete(bookId, title) },
-    ]);
+    setMenuBook({ id: bookId, title, author });
   };
 
   const saveMetadata = async () => {
@@ -139,6 +135,36 @@ export function LibraryScreen({ navigation }: Props) {
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
+      <Modal visible={!!menuBook} transparent animationType="fade" onRequestClose={() => setMenuBook(null)}>
+        <Pressable style={styles.modalBackdropCenter} onPress={() => setMenuBook(null)}>
+          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.actionTitle}>管理{menuBook ? `《${menuBook.title}》` : '书籍'}</Text>
+            <Text style={styles.actionBody}>可以编辑书籍信息，或从本地书架删除它。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="编辑书籍信息" onPress={() => {
+              if (!menuBook) return;
+              setEditingBook(menuBook);
+              setDraftTitle(menuBook.title);
+              setDraftAuthor(menuBook.author);
+              setMenuBook(null);
+            }} style={styles.actionPrimary}><Text style={styles.actionPrimaryText}>编辑信息</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="删除书籍" onPress={() => menuBook && confirmDelete(menuBook.id, menuBook.title)} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消管理" onPress={() => setMenuBook(null)} style={styles.actionCancel}><Text style={styles.actionCancelText}>取消</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => setDeleteBook(null)}>
+        <Pressable style={styles.modalBackdropCenter} onPress={() => setDeleteBook(null)}>
+          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
+            <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="确认删除书籍" onPress={() => {
+              if (deleteBook) void removeBook(deleteBook.id);
+              setDeleteBook(null);
+            }} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" onPress={() => setDeleteBook(null)} style={styles.actionCancel}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -164,6 +190,16 @@ const styles = StyleSheet.create({
   emptyButton: { marginTop: 20, height: 48, borderRadius: radii.medium, paddingHorizontal: 18, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 8 },
   emptyButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.42)', justifyContent: 'flex-end' },
+  modalBackdropCenter: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  actionCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  actionTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
+  actionBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  actionPrimary: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  actionPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  actionDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
+  actionDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  actionCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  actionCancelText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
   keyboardAvoiding: { width: '100%' },
   editCard: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 34 },
   editTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 22, fontWeight: '700', marginBottom: 20 },
