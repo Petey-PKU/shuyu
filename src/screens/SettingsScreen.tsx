@@ -224,7 +224,7 @@ export function SettingsScreen() {
 
       <Modal visible={privacyVisible} transparent animationType="fade" onRequestClose={() => setPrivacyVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setPrivacyVisible(false)}>
-          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.infoCardHeader}>
               <View style={styles.infoIcon}><Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>隐私说明</Text>
@@ -241,7 +241,7 @@ export function SettingsScreen() {
       </Modal>
       <Modal visible={resetVisible} transparent animationType="fade" onRequestClose={() => setResetVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setResetVisible(false)}>
-          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.infoCardHeader}>
               <View style={styles.resetIcon}><Ionicons name="warning-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>清除全部本地数据？</Text>
@@ -255,7 +255,7 @@ export function SettingsScreen() {
       </Modal>
       <Modal visible={aboutVisible} transparent animationType="fade" onRequestClose={() => setAboutVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setAboutVisible(false)}>
-          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.infoCardHeader}>
               <View style={styles.infoIcon}><Ionicons name="book-outline" size={20} color={colors.accent} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>关于书语</Text>
@@ -269,7 +269,7 @@ export function SettingsScreen() {
       </Modal>
       <Modal visible={restorePayload !== null} transparent animationType="fade" onRequestClose={() => { if (!backupBusy) { setRestorePayload(null); setBackupBusy(false); } }}>
         <Pressable style={styles.infoBackdrop} onPress={() => { if (!backupBusy) { setRestorePayload(null); setBackupBusy(false); } }}>
-          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.infoCardHeader}>
               <View style={styles.resetIcon}><Ionicons name="cloud-upload-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>覆盖当前本地数据？</Text>

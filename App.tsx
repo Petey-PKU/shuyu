@@ -66,7 +66,7 @@ function RecoveryResetModal({ visible, onClose, onConfirm }: { visible: boolean;
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.recoveryModalBackdrop} onPress={onClose}>
-        <Pressable style={styles.recoveryModalCard} onPress={(event) => event.stopPropagation()}>
+        <Pressable accessibilityViewIsModal style={styles.recoveryModalCard} onPress={(event) => event.stopPropagation()}>
           <Text accessibilityRole="header" style={styles.recoveryModalTitle}>清除本地数据？</Text>
           <Text style={styles.recoveryModalBody}>这会删除书籍、阅读进度、生词、统计和偏好。无法读取当前数据时，先尝试从备份恢复。</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="确认清除并重新开始" onPress={onConfirm} style={styles.recoveryConfirm}><Text style={styles.recoveryConfirmText}>清除并重新开始</Text></Pressable>
