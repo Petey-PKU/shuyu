@@ -147,7 +147,7 @@ export function SettingsScreen() {
           <Switch
             accessibilityLabel="在线翻译增强"
             value={preferences.onlineSentenceTranslation}
-            onValueChange={(value) => updatePreferences({ onlineSentenceTranslation: value })}
+            onValueChange={(value) => { void updatePreferences({ onlineSentenceTranslation: value }).catch(() => undefined); }}
             trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
             thumbColor={preferences.onlineSentenceTranslation ? colors.accent : '#F8F7F3'}
           />

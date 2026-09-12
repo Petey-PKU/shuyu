@@ -318,7 +318,7 @@ function ReaderSession({ route, navigation }: Props) {
   const selectWord = useCallback(async (word: string, globalOffset: number) => {
     if (tapHintVisible) {
       setTapHintVisible(false);
-      void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true');
+      void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined);
     }
     const sentence = sentenceAt(chapterText, globalOffset);
     const request = ++lookupRequest.current;
