@@ -51,27 +51,36 @@ export function DictionaryProvider({ children }: { children: React.ReactNode }) 
   const lookup = useCallback(async (word: string, allowOnline = true): Promise<LookupResult> => {
     const normalized = word.toLowerCase();
     if (!database) return allowOnline ? lookupNetworkWord(normalized) : fallbackLookup(normalized);
-    const row = await database.getFirstAsync<DictionaryRow>(`
-      SELECT word, phonetic, translation, tags FROM entries WHERE word = $word
-      UNION ALL
-      SELECT entry.word, entry.phonetic, entry.translation, entry.tags
-      FROM aliases AS alias
-      JOIN entries AS entry ON entry.word = alias.lemma
-      WHERE alias.alias = $word
-      LIMIT 1
-    `, { $word: normalized });
-    if (row) {
-      return {
-        meaning: cleanMeaning(row.translation),
-        phonetic: row.phonetic || undefined,
-        source: 'offline',
-        matchedWord: row.word === normalized ? undefined : row.word,
-        tags: row.tags ? row.tags.split(/\s+/).filter(Boolean) : undefined,
-      };
+    try {
+      const row = await database.getFirstAsync<DictionaryRow>(`
+        SELECT word, phonetic, translation, tags FROM entries WHERE word = $word
+        UNION ALL
+        SELECT entry.word, entry.phonetic, entry.translation, entry.tags
+        FROM aliases AS alias
+        JOIN entries AS entry ON entry.word = alias.lemma
+        WHERE alias.alias = $word
+        LIMIT 1
+      `, { $word: normalized });
+      if (row) {
+        return {
+          meaning: cleanMeaning(row.translation),
+          phonetic: row.phonetic || undefined,
+          source: 'offline',
+          matchedWord: row.word === normalized ? undefined : row.word,
+          tags: row.tags ? row.tags.split(/\s+/).filter(Boolean) : undefined,
+        };
+      }
+    } catch {
+      // A runtime query failure (for example a closed or damaged database)
+      // should enter the same recoverable state as initialization failure.
+      handleError();
+      if (!allowOnline) return fallbackLookup(normalized);
+      try { return await lookupNetworkWord(normalized); }
+      catch { return { ...fallbackLookup(normalized), networkError: true }; }
     }
     if (!allowOnline) return fallbackLookup(normalized);
     return lookupNetworkWord(normalized);
-  }, [database]);
+  }, [database, handleError]);
   const value = useMemo(() => ({
     lookup,
     translateContext: translateSentence,
