@@ -243,6 +243,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       if (!parsed || importCancelRequestedRef.current) return null;
       const { book } = await createBook(parsed);
+      if (importCancelRequestedRef.current) {
+        await deleteBookContent(book.id);
+        return null;
+      }
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
