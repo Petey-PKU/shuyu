@@ -34,8 +34,8 @@ export function ImportOverlay({ status, onCancel }: Props) {
       animationType="fade"
       onRequestClose={isOcr ? onCancel : undefined}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
+      <View style={styles.backdrop} accessibilityViewIsModal>
+        <View accessibilityRole="alert" style={styles.card}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.title}>{isOcr ? '正在识别扫描页' : '正在整理书页'}</Text>
           {isOcr ? (

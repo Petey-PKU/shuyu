@@ -69,10 +69,10 @@ function AppShell() {
         <View style={styles.logo}><Text style={styles.logoText}>语</Text></View>
         <Text style={styles.brand}>书语</Text>
         {startupError ? (
-          <View style={styles.recovery}>
+          <View accessibilityViewIsModal style={styles.recovery}>
             <Text accessibilityRole="alert" style={styles.recoveryTitle}>本地数据未能读取</Text>
             <Text style={styles.recoveryBody}>{startupError}</Text>
-            <Pressable accessibilityRole="button" onPress={() => void retryLoad()} style={styles.retryButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={() => void retryLoad()} style={styles.retryButton}>
               <Text style={styles.retryText}>重新读取</Text>
             </Pressable>
           </View>
