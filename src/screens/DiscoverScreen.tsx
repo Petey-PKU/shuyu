@@ -110,7 +110,7 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} onPress={() => togglePreferredGenre(genre)} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
@@ -130,7 +130,7 @@ export function DiscoverScreen({ navigation }: Props) {
             saved={recommendationState.savedBookIds.includes(book.id)}
             targetScore={targetScore}
             onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })}
-            onSave={() => toggleSavedRecommendedBook(book.id)}
+            onSave={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }}
           />
         ))}
         {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>还没有想读的书</Text></View> : null}
