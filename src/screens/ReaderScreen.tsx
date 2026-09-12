@@ -676,8 +676,8 @@ function ReaderSession({ route, navigation }: Props) {
           <Pressable accessibilityViewIsModal style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
             <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
-            <Text style={styles.completionBody}>你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="返回书架" onPress={returnToLibrary} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>返回书架</Text></Pressable>
+            <Text style={styles.completionBody}>{returnTo === 'Vocabulary' ? '你已经读到最后一页。可以返回生词本继续复习，或从头再读一遍。' : '你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'} onPress={returnToSource} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="从头再读一遍" onPress={restartBook} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>从头再读一遍</Text></Pressable>
           </Pressable>
         </Pressable>
