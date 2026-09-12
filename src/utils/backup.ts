@@ -29,6 +29,12 @@ function isNonNegativeInteger(value: unknown): value is number {
 function isNonNegativeNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0;
 }
+function isDateKey(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
 export function validBook(value: unknown): value is Book {
   if (!isRecord(value)) return false;
   const progress = value.progress;
@@ -55,7 +61,7 @@ export function validWord(value: unknown): value is SavedWord {
 export function validStats(value: unknown): value is ReadingStats {
   const history = isRecord(value) ? value.dailyHistory : undefined;
   const validHistory = history === undefined || (isRecord(history) && Object.entries(history).every(([date, entry]) => {
-    return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(`${date}T00:00:00Z`)) && isRecord(entry)
+    return isDateKey(date) && isRecord(entry)
       && isNonNegativeNumber(entry.minutes) && isNonNegativeInteger(entry.words);
   }));
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))

@@ -26,6 +26,7 @@ assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [book
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [word, word] })), /书籍与学习记录不匹配/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, recommendationState: { ...recommendationState, profile: { level: 'unknown' } } })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, preferences: { ...preferences, speechVoice: {} } })), /有效的书语备份/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, dailyHistory: { '2026-02-30': { minutes: 1, words: 2 } } } })), /有效的书语备份/);
 const withDeletedBookSignal = createBackupPayload({ ...payload, readingSignals: [...readingSignals, { bookId: 'deleted_book', lookups: 3, wordsRead: 8, minutes: 2 }] });
 assert.deepEqual(withDeletedBookSignal.readingSignals, readingSignals, 'Legacy deleted-book signals must not make a newly exported backup unrestorable');
 assert.deepEqual(parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, minutes: 1.5 }, readingSignals: [{ ...readingSignals[0], minutes: 0.5 }] })).stats.minutes, 1.5);
