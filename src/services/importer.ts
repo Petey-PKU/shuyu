@@ -88,6 +88,9 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   }
 
   if (extension === 'pdf' || (!knownExtension && asset.mimeType === 'application/pdf')) {
+    if (Platform.OS === 'web') {
+      throw new Error('Web 预览暂不支持 PDF 提取或 OCR，请使用正式 Android 安装包');
+    }
     if (pdfOptions.isCancelled?.()) return null;
     pdfOptions.onImportStage?.('parsing');
     return parsePdf(asset.uri, fallbackTitle, pdfOptions);

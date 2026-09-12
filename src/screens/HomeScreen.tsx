@@ -203,7 +203,7 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
-          <Text style={styles.importBody}>{Platform.OS === 'web' ? 'TXT · EPUB · MOBI · AZW3' : 'TXT · EPUB · MOBI · AZW3 · PDF'}</Text>
+          <Text style={styles.importBody}>{Platform.OS === 'web' ? 'TXT · EPUB · MOBI · AZW3 · KF8' : 'TXT · EPUB · MOBI · AZW3 · PDF'}</Text>
         </Pressable>
       </ScrollView>
 
