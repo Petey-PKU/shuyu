@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -33,22 +33,27 @@ function localDateKey(date: Date) {
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { books, stats, words, preferences, importBook } = useApp();
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setClock(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const activeWords = words.filter((word) => !word.mastered).length;
-  const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, Date.now())).length;
+  const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, clock)).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
-  const today = localDateKey(new Date());
-  const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
+  const today = localDateKey(new Date(clock));
+  const yesterday = localDateKey(new Date(clock - 86_400_000));
   const displayedStreak = stats.lastReadDate === today || stats.lastReadDate === yesterday ? stats.streak : 0;
   const displayedTodayMinutes = stats.todayDate === today ? stats.todayMinutes : 0;
   const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
     : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
   const weekDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
+    const date = new Date(clock);
     date.setHours(12, 0, 0, 0);
     date.setDate(date.getDate() - (6 - index));
     const key = localDateKey(date);
