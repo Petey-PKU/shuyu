@@ -127,7 +127,7 @@ export function HomeScreen({ navigation }: Props) {
           <Text style={styles.metricValue}>{displayedTodayMinutes}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`打开生词本，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review') : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
           <Ionicons name="sparkles-outline" size={21} color={colors.blue} />
           <Text style={styles.metricValue}>{activeWords}</Text>
           <Text style={styles.metricLabel}>待掌握词</Text>
