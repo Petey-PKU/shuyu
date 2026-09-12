@@ -104,7 +104,7 @@ function ReaderSession({ route, navigation }: Props) {
   const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay, returnTo } = route.params;
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
-  const { lookup: lookupDictionary, translateContext, entryCount, dictionaryUnavailable } = useDictionary();
+  const { lookup: lookupDictionary, translateContext, entryCount, dictionaryLoading, dictionaryUnavailable } = useDictionary();
   const book = books.find((item) => item.id === bookId);
   const bookExists = !!book;
   const [content, setContent] = useState<BookContent | null>(null);
@@ -622,7 +622,9 @@ function ReaderSession({ route, navigation }: Props) {
                   {!translationLoading && !contextTranslation && !preferences.onlineSentenceTranslation ? <Text style={styles.translationStatusText}>整句在线翻译已关闭</Text> : null}
                 </View>
                 <Text style={styles.providerNote}>
-                  {dictionaryUnavailable
+                  {dictionaryLoading
+                    ? '离线词典加载中 · 已显示基础兜底'
+                    : dictionaryUnavailable
                     ? '离线词典暂不可用 · 已显示基础兜底'
                     : entryCount === 0
                     ? lookup?.source === 'network' ? 'Web 预览 · 在线补充释义' : 'Web 预览未加载完整离线词典 · 已显示基础兜底'

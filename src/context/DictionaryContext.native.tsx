@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
-import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
+import { SQLiteProvider, type SQLiteDatabase } from 'expo-sqlite';
 import { fallbackLookup, lookupNetworkWord, translateSentence, type LookupResult } from '../services/translation';
 
 interface DictionaryRow {
@@ -13,6 +13,7 @@ interface DictionaryContextValue {
   lookup: (word: string, allowOnline?: boolean) => Promise<LookupResult>;
   translateContext: (sentence: string) => Promise<string | undefined>;
   entryCount: number;
+  dictionaryLoading: boolean;
   dictionaryUnavailable: boolean;
 }
 
@@ -27,10 +28,21 @@ function cleanMeaning(translation: string) {
     .join('\n');
 }
 
-function DictionaryBridge({ children }: { children: React.ReactNode }) {
-  const database = useSQLiteContext();
+export function DictionaryProvider({ children }: { children: React.ReactNode }) {
+  const [database, setDatabase] = useState<SQLiteDatabase | null>(null);
+  const [databaseError, setDatabaseError] = useState(false);
+  const errorScheduled = useRef(false);
+  const initialize = useCallback(async (nextDatabase: SQLiteDatabase) => {
+    setDatabase(nextDatabase);
+  }, []);
+  const handleError = useCallback(() => {
+    if (errorScheduled.current) return;
+    errorScheduled.current = true;
+    setTimeout(() => setDatabaseError(true), 0);
+  }, []);
   const lookup = useCallback(async (word: string, allowOnline = true): Promise<LookupResult> => {
     const normalized = word.toLowerCase();
+    if (!database) return allowOnline ? lookupNetworkWord(normalized) : fallbackLookup(normalized);
     const row = await database.getFirstAsync<DictionaryRow>(`
       SELECT word, phonetic, translation, tags FROM entries WHERE word = $word
       UNION ALL
@@ -52,36 +64,22 @@ function DictionaryBridge({ children }: { children: React.ReactNode }) {
     if (!allowOnline) return fallbackLookup(normalized);
     return lookupNetworkWord(normalized);
   }, [database]);
-  const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 120_000, dictionaryUnavailable: false }), [lookup]);
-  return <DictionaryContext.Provider value={value}>{children}</DictionaryContext.Provider>;
-}
-
-function FallbackDictionaryProvider({ children }: { children: React.ReactNode }) {
-  const lookup = useCallback(async (word: string, allowOnline = true) => {
-    if (!allowOnline) return fallbackLookup(word);
-    return lookupNetworkWord(word);
-  }, []);
-  const value = useMemo(() => ({ lookup, translateContext: translateSentence, entryCount: 0, dictionaryUnavailable: true }), [lookup]);
-  return <DictionaryContext.Provider value={value}>{children}</DictionaryContext.Provider>;
-}
-
-export function DictionaryProvider({ children }: { children: React.ReactNode }) {
-  const [databaseError, setDatabaseError] = useState(false);
-  const errorScheduled = useRef(false);
-  if (databaseError) return <FallbackDictionaryProvider>{children}</FallbackDictionaryProvider>;
-  return (
+  const value = useMemo(() => ({
+    lookup,
+    translateContext: translateSentence,
+    entryCount: database ? 120_000 : 0,
+    dictionaryLoading: !database && !databaseError,
+    dictionaryUnavailable: databaseError,
+  }), [database, databaseError, lookup]);
+  const loader = databaseError ? null : (
     <SQLiteProvider
       databaseName="shuyu-ecdict-v1.db"
       assetSource={{ assetId: require('../../assets/dictionary/ecdict-core.db') }}
-      onError={() => {
-        if (errorScheduled.current) return;
-        errorScheduled.current = true;
-        setTimeout(() => setDatabaseError(true), 0);
-      }}
-    >
-      <DictionaryBridge>{children}</DictionaryBridge>
-    </SQLiteProvider>
+      onInit={initialize}
+      onError={handleError}
+    >{null}</SQLiteProvider>
   );
+  return <DictionaryContext.Provider value={value}>{loader}{children}</DictionaryContext.Provider>;
 }
 
 export function useDictionary() {

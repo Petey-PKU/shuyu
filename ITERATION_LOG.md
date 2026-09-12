@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 让词典后台加载不阻断首次进入
+
+- 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。
+- 现在书架、阅读和复习可先进入；加载期间查词使用基础兜底，词典成功后自动切换到完整本地释义，失败则沿用明确的降级提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 离线词典故障时保留核心阅读
 
 - 随包 SQLite 词典初始化失败时，Expo 默认行为会重新抛出错误，可能阻断整个 App，即使用户只想继续阅读。
