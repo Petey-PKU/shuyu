@@ -29,7 +29,7 @@ export function ReviewScreen({ navigation }: Props) {
   const nextReviewAt = nextReviewTime(words);
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" onPress={() => navigation.goBack()} style={styles.doneButton}><Text style={styles.doneButtonText}>返回生词本</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneButton}><Text style={styles.doneButtonText}>返回生词本</Text></Pressable></View>;
   }
 
   const next = async (mastered: boolean) => {
@@ -50,7 +50,7 @@ export function ReviewScreen({ navigation }: Props) {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} style={styles.close}><Ionicons name="close" size={24} color={colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="退出复习" onPress={() => navigation.goBack()} style={styles.close}><Ionicons name="close" size={24} color={colors.ink} /></Pressable>
         <Text style={styles.counter}>{Math.min(reviewedIds.length + 1, total)} / {total}</Text>
         <View style={styles.close} />
       </View>
@@ -60,14 +60,14 @@ export function ReviewScreen({ navigation }: Props) {
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => void speakEnglish(current.word, 'word', preferences.speechVoice)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>
         ) : (
-          <Pressable onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="查看答案" onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
         )}
-        <Pressable onPress={() => navigation.replace('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex })} style={styles.sourceButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.replace('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex })} style={styles.sourceButton}>
           <Text style={styles.source}>{current.bookTitle} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>
