@@ -27,7 +27,9 @@ export function LibraryScreen({ navigation }: Props) {
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
-  const filtered = useMemo(() => books.filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
+  const filtered = useMemo(() => [...books]
+    .sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))
+    .filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
 
   const handleImport = async () => {
     try {
