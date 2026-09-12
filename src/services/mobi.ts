@@ -12,6 +12,7 @@ import { countWords } from '../utils/text';
 import { htmlToParagraphs } from './markup';
 
 const MAX_EXTRACTED_CHARACTERS = 25_000_000;
+const IMPORT_CANCELLED_MESSAGE = '导入已取消';
 type KindleFormat = Extract<BookFormat, 'mobi' | 'azw3' | 'kf8'>;
 type KindleTocItem = MobiTocItem | Kf8TocItem;
 
@@ -148,10 +149,15 @@ async function parseKindleBook(
   fallbackTitle: string,
   format: KindleFormat,
   initialize: (input: Uint8Array) => Promise<KindleTextParser>,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
   let parser: KindleTextParser | undefined;
   const restoreObjectUrl = installObjectUrlFallback();
   try {
+    throwIfCancelled();
     assertDrmFreeKindleFile(data, format);
     parser = await initialize(new Uint8Array(data));
     const metadata = parser.getMetadata();
@@ -161,6 +167,7 @@ async function parseKindleBook(
     const chapters: ParsedBook['chapters'] = [];
     let extractedCharacters = 0;
     for (const spineItem of parser.getSpine()) {
+      throwIfCancelled();
       const source = loadChapterSource(parser, spineItem, format);
       if (!source.trim()) continue;
       extractedCharacters += source.length;
@@ -169,6 +176,7 @@ async function parseKindleBook(
       }
       const sections = source.split(/<mbp:pagebreak\b[^>]*\/?\s*>/gi).filter((section) => section.trim());
       for (const [sectionIndex, section] of sections.entries()) {
+        throwIfCancelled();
         const parsed = htmlToParagraphs(section);
         const wordCount = countWords(parsed.paragraphs.join(' '));
         if (wordCount < 3) continue;
@@ -206,39 +214,43 @@ async function parseKindleBook(
   }
 }
 
-export function parseMobi(data: ArrayBuffer, fallbackTitle: string): Promise<ParsedBook> {
-  return parseKindleBook(data, fallbackTitle, 'mobi', (input) => initMobiFile(input) as Promise<Mobi>);
+export function parseMobi(data: ArrayBuffer, fallbackTitle: string, isCancelled?: () => boolean): Promise<ParsedBook> {
+  return parseKindleBook(data, fallbackTitle, 'mobi', (input) => initMobiFile(input) as Promise<Mobi>, isCancelled);
 }
 
 export function parseKf8(
   data: ArrayBuffer,
   fallbackTitle: string,
   format: Extract<KindleFormat, 'azw3' | 'kf8'>,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
-  return parseKindleBook(data, fallbackTitle, format, (input) => initKf8File(input) as Promise<Kf8>);
+  return parseKindleBook(data, fallbackTitle, format, (input) => initKf8File(input) as Promise<Kf8>, isCancelled);
 }
 
 export async function parseKindle(
   data: ArrayBuffer,
   fallbackTitle: string,
   requestedFormat: KindleFormat,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
+  if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
   const inspection = inspectKindleFile(data);
   if (!inspection.isKindle) {
     throw new Error(`${formatLabel(requestedFormat)} 文件头无法识别；文件可能损坏、扩展名不正确，或实际为 KFX/AZW4 等不受支持格式`);
   }
 
   const attempts: Array<() => Promise<ParsedBook>> = requestedFormat === 'mobi' && !inspection.likelyKf8
-    ? [() => parseMobi(data, fallbackTitle), () => parseKf8(data, fallbackTitle, 'kf8')]
-    : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat), () => parseMobi(data, fallbackTitle)];
+    ? [() => parseMobi(data, fallbackTitle, isCancelled), () => parseKf8(data, fallbackTitle, 'kf8', isCancelled)]
+    : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat, isCancelled), () => parseMobi(data, fallbackTitle, isCancelled)];
   const errors: string[] = [];
   for (const attempt of attempts) {
     try {
       const parsed = await attempt();
+      if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
       return { ...parsed, format: requestedFormat };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/DRM|加密/.test(message)) throw error;
+      if (/DRM|加密|导入已取消/.test(message)) throw error;
       errors.push(message);
     }
   }

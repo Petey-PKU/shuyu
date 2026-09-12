@@ -5,6 +5,7 @@ import type { ParsedBook } from '../types';
 import { decodeHtmlEntities, htmlToParagraphs } from './markup';
 
 const MAX_EXTRACTED_CHARACTERS = 25_000_000;
+const IMPORT_CANCELLED_MESSAGE = '导入已取消';
 const FONT_OBFUSCATION_ALGORITHMS = new Set([
   'http://www.idpf.org/2008/embedding',
   'http://ns.adobe.com/pdf/enc#RC',
@@ -150,7 +151,11 @@ async function readTocTitles(
   return titles;
 }
 
-export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promise<ParsedBook> {
+export async function parseEpub(data: ArrayBuffer, fallbackTitle: string, isCancelled?: () => boolean): Promise<ParsedBook> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
+  throwIfCancelled();
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(data);
@@ -195,6 +200,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promi
   let extractedCharacters = 0;
 
   for (const item of candidates) {
+    throwIfCancelled();
     const href = item['@_href'];
     if (!href || item['@_properties']?.split(/\s+/).includes('nav')) continue;
     const chapterPath = resolveRelative(normalizedOpfPath, href);
@@ -204,6 +210,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promi
     const chapterFile = findZipFile(files, chapterPath);
     if (!chapterFile) continue;
     const source = await chapterFile.async('string');
+    throwIfCancelled();
     extractedCharacters += source.length;
     if (extractedCharacters > MAX_EXTRACTED_CHARACTERS) {
       throw new Error('EPUB 解压后的正文过大，请按卷拆分后再导入');

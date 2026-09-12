@@ -71,7 +71,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
     if (pdfOptions.isCancelled?.()) return null;
     pdfOptions.onImportStage?.('parsing');
-    return parseEpub(data, fallbackTitle);
+    return parseEpub(data, fallbackTitle, pdfOptions.isCancelled);
   }
 
   if (extension === 'azw3' || extension === 'kf8' || extension === 'mobi' || (!knownExtension && kindleMimeTypes.has(asset.mimeType || ''))) {
@@ -85,7 +85,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
     const format = extension === 'azw3' || extension === 'kf8'
       ? extension
       : inspection.likelyKf8 ? 'azw3' : 'mobi';
-    return parseKindle(data, fallbackTitle, format);
+    return parseKindle(data, fallbackTitle, format, pdfOptions.isCancelled);
   }
 
   if (extension === 'pdf' || (!knownExtension && asset.mimeType === 'application/pdf')) {

@@ -41,6 +41,12 @@ async function verifyEpub() {
   assert.equal(book.chapters.length, 1);
   assert.equal(book.chapters[0].title, 'The First Light');
   assert.match(book.chapters[0].paragraphs.join(' '), /quiet & warm/);
+  let cancellationChecks = 0;
+  await assert.rejects(
+    () => parseEpub(data, 'Fallback', () => cancellationChecks++ > 0),
+    /导入已取消/,
+    'EPUB parsing must observe cancellation inside the chapter loop',
+  );
 }
 
 async function verifyEpubCompatibility() {

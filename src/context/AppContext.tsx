@@ -256,6 +256,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // banner, so the user does not need to import the same file again.
       }
       return book;
+    } catch (error) {
+      if (error instanceof Error && error.message === '导入已取消') return null;
+      throw error;
     } finally {
       importingRef.current = false;
       importCancelRequestedRef.current = false;
