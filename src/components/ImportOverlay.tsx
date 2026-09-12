@@ -32,7 +32,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
       transparent
       visible={status !== null}
       animationType="fade"
-      onRequestClose={isOcr ? onCancel : undefined}
+      onRequestClose={onCancel}
     >
       <View style={styles.backdrop} accessibilityViewIsModal>
         <View accessibilityRole="alert" style={styles.card}>
@@ -63,7 +63,18 @@ export function ImportOverlay({ status, onCancel }: Props) {
               </Pressable>
             </>
           ) : (
-            <Text style={styles.body}>本地解析章节与文字，书籍原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</Text>
+            <>
+              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>本地解析章节与文字，书籍原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="取消电子书导入"
+                disabled={status?.cancelling}
+                onPress={onCancel}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed, status?.cancelling && styles.disabled]}
+              >
+                <Text style={styles.cancelText}>{status?.cancelling ? '正在取消' : '取消导入'}</Text>
+              </Pressable>
+            </>
           )}
         </View>
       </View>

@@ -160,6 +160,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [readingSignals, setReadingSignals] = useState<ReadingSignal[]>([]);
   const readingSignalsRef = useRef<ReadingSignal[]>([]);
   const ocrCancelRef = useRef<(() => void) | null>(null);
+  const importCancelRequestedRef = useRef(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [persistenceRetrying, setPersistenceRetrying] = useState(false);
   const [persistence] = useState(() => createPersistenceTracker((state) => {
@@ -211,10 +212,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importBook = useCallback(async () => {
     if (storageActivityRef.current || resettingRef.current || importingRef.current) return null;
     importingRef.current = true;
+    importCancelRequestedRef.current = false;
     const startedAt = Date.now();
     setImportStatus({ phase: 'parsing', startedAt });
     try {
       const parsed = await pickAndParseBook({
+        isCancelled: () => importCancelRequestedRef.current,
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
@@ -238,7 +241,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ocrCancelRef.current = cancel;
         },
       });
-      if (!parsed) return null;
+      if (!parsed || importCancelRequestedRef.current) return null;
       const { book } = await createBook(parsed);
       const next = [book, ...booksRef.current];
       booksRef.current = next;
@@ -247,18 +250,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return book;
     } finally {
       importingRef.current = false;
+      importCancelRequestedRef.current = false;
       ocrCancelRef.current = null;
       setImportStatus(null);
     }
   }, [persist]);
 
   const cancelImport = useCallback(() => {
+    if (!importingRef.current) return;
+    importCancelRequestedRef.current = true;
     const cancel = ocrCancelRef.current;
-    if (!cancel) return;
     setImportStatus((current) => current?.phase === 'ocr'
       ? { ...current, cancelling: true }
-      : current);
-    cancel();
+      : current ? { ...current, cancelling: true } : current);
+    if (cancel) cancel();
   }, []);
 
   const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => {
