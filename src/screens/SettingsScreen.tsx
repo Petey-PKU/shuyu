@@ -34,10 +34,14 @@ export function SettingsScreen() {
   useEffect(() => {
     let active = true;
     listEnglishVoices().then((available) => {
-      if (active) setVoices(available.slice(0, 5));
+      if (!active) return;
+      const visible = available.slice(0, 5);
+      const selected = preferences.speechVoice && available.find((voice) => voice.identifier === preferences.speechVoice);
+      if (selected && !visible.some((voice) => voice.identifier === selected.identifier)) visible.push(selected);
+      setVoices(visible);
     });
     return () => { active = false; };
-  }, []);
+  }, [preferences.speechVoice]);
 
   const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
 
