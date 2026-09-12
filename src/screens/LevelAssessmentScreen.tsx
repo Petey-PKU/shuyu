@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,24 +20,34 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
+  const [answering, setAnswering] = useState(false);
+  const answeringRef = useRef(false);
   const question = assessmentQuestions[questionIndex];
 
   const choose = async (optionIndex: number) => {
-    const next = { ...answers, [question.id]: optionIndex };
-    setAnswers(next);
-    if (questionIndex < assessmentQuestions.length - 1) {
-      setQuestionIndex(questionIndex + 1);
-      return;
-    }
-    const profile = scoreAssessment(next);
+    if (answeringRef.current) return;
+    answeringRef.current = true;
+    setAnswering(true);
     try {
-      await setReadingProfile(profile);
-    } catch {
-      // The optimistic profile is still usable; AppShell exposes the retry action.
+      const next = { ...answers, [question.id]: optionIndex };
+      setAnswers(next);
+      if (questionIndex < assessmentQuestions.length - 1) {
+        setQuestionIndex(questionIndex + 1);
+        return;
+      }
+      const profile = scoreAssessment(next);
+      try {
+        await setReadingProfile(profile);
+      } catch {
+        // The optimistic profile is still usable; AppShell exposes the retry action.
+      } finally {
+        // The optimistic profile is already available in memory; show the result even
+        // when the persistence layer reports a recoverable write failure.
+        setResult(profile);
+      }
     } finally {
-      // The optimistic profile is already available in memory; show the result even
-      // when the persistence layer reports a recoverable write failure.
-      setResult(profile);
+      answeringRef.current = false;
+      setAnswering(false);
     }
   };
 
@@ -78,7 +88,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         <Text style={styles.prompt}>{question.prompt}</Text>
         <View style={styles.options}>
           {question.options.map((option, index) => (
-            <Pressable key={option} accessibilityRole="button" accessibilityLabel={`选择答案 ${String.fromCharCode(65 + index)}：${option}`} onPress={() => void choose(index)} style={({ pressed }) => [styles.option, pressed && styles.optionPressed]}>
+            <Pressable key={option} accessibilityRole="button" accessibilityLabel={`选择答案 ${String.fromCharCode(65 + index)}：${option}`} accessibilityState={{ disabled: answering }} disabled={answering} onPress={() => void choose(index)} style={({ pressed }) => [styles.option, pressed && styles.optionPressed, answering && styles.optionDisabled]}>
               <View style={styles.optionLetter}><Text style={styles.optionLetterText}>{String.fromCharCode(65 + index)}</Text></View>
               <Text style={styles.optionText}>{option}</Text>
             </Pressable>
@@ -105,6 +115,7 @@ const styles = StyleSheet.create({
   options: { gap: 11, marginTop: 30 },
   option: { minHeight: 64, borderRadius: radii.medium, backgroundColor: 'rgba(255,255,255,0.75)', borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 11, flexDirection: 'row', alignItems: 'center', gap: 13 },
   optionPressed: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  optionDisabled: { opacity: 0.62 },
   optionLetter: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   optionLetterText: { color: colors.ink, fontSize: 11, fontWeight: '900' },
   optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 21, fontWeight: '600' },
