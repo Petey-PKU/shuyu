@@ -549,6 +549,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="上一页"
+          accessibilityState={{ disabled: (!emptyChapter && !pages.length) || (currentPage === 0 && chapterIndex === 0) }}
           disabled={(!emptyChapter && !pages.length) || (currentPage === 0 && chapterIndex === 0)}
           onPress={() => turnPage(-1)}
           style={[styles.pageEdge, styles.pageEdgeLeft]}
@@ -556,6 +557,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={emptyChapter || currentPage === pages.length - 1 ? '下一章' : '下一页'}
+          accessibilityState={{ disabled: (!emptyChapter && !pages.length) || ((emptyChapter || currentPage === pages.length - 1) && chapterIndex === content.chapters.length - 1) }}
           disabled={(!emptyChapter && !pages.length) || ((emptyChapter || currentPage === pages.length - 1) && chapterIndex === content.chapters.length - 1)}
           onPress={() => turnPage(1)}
           style={[styles.pageEdge, styles.pageEdgeRight]}
@@ -563,7 +565,7 @@ function ReaderSession({ route, navigation }: Props) {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" accessibilityState={{ disabled: emptyChapter || !pages.length }} disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>

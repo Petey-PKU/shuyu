@@ -588,3 +588,9 @@
 - 发现页兴趣、想读筛选、等级浏览和推荐难度反馈此前只有视觉选中样式，读屏用户无法确认当前状态。
 - 为相关按钮补充 `accessibilityState.selected`，并同步推荐卡片和目录列表中的收藏按钮。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 关键动作禁用状态
+
+- 排版尚未完成时的翻页/朗读按钮，以及复习写入期间的两个提交按钮，原先只有视觉或原生禁用状态，读屏用户无法确认原因。
+- 为这些关键动作补充 `accessibilityState.disabled`，让辅助技术与实际交互状态保持一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。

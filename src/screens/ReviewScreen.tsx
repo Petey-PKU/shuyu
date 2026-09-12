@@ -88,8 +88,8 @@ export function ReviewScreen({ navigation }: Props) {
       </View>
       {revealed ? (
         <View style={styles.actions}>
-          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="稍后再次复习" onPress={() => void next(false)} style={[styles.action, styles.again, submitting && styles.actionDisabled]}><Ionicons name="refresh" size={19} color={colors.ink} /><Text style={styles.againText}>再看看</Text></Pressable>
-          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
+          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="稍后再次复习" accessibilityState={{ disabled: submitting }} onPress={() => void next(false)} style={[styles.action, styles.again, submitting && styles.actionDisabled]}><Ionicons name="refresh" size={19} color={colors.ink} /><Text style={styles.againText}>再看看</Text></Pressable>
+          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" accessibilityState={{ disabled: submitting }} onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
         </View>
       ) : null}
     </View>
