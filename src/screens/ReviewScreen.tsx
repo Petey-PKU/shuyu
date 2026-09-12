@@ -74,7 +74,7 @@ export function ReviewScreen({ navigation }: Props) {
         ) : (
           <Pressable accessibilityRole="button" accessibilityLabel="查看答案" onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.replace('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex })} style={styles.sourceButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.navigate('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
           <Text style={styles.source}>{current.bookTitle} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>

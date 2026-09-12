@@ -96,7 +96,7 @@ export function ReaderScreen({ route, navigation }: Props) {
 }
 
 function ReaderSession({ route, navigation }: Props) {
-  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay } = route.params;
+  const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay, returnTo } = route.params;
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext } = useDictionary();
@@ -426,6 +426,7 @@ function ReaderSession({ route, navigation }: Props) {
   }), [turnPage]);
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
+  const returnToSource = () => navigation.popTo('Main', { screen: returnTo === 'Vocabulary' ? 'Vocabulary' : 'Library' });
   const restartBook = () => {
     completionDismissed.current = true;
     setCompletionVisible(false);
@@ -450,7 +451,7 @@ function ReaderSession({ route, navigation }: Props) {
             <Text style={styles.contentRetryText}>重新打开</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" onPress={returnToLibrary} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>返回书架</Text></Pressable>
+        <Pressable accessibilityRole="button" onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
       </View>
     );
   }
