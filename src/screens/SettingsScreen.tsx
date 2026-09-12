@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -9,6 +9,7 @@ import { colors, radii, typography } from '../theme';
 import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
 import { getTranslationProviderSummary } from '../services/translation';
 import type { BackupPayload } from '../types';
+import { InlineNotice } from '../components/InlineNotice';
 
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
@@ -28,6 +29,7 @@ export function SettingsScreen() {
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
+  const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -55,9 +57,9 @@ export function SettingsScreen() {
     void updatePreferences({ speechVoice: voice }).catch(() => undefined);
     void speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice).then((provider) => {
       if (voice === OFFLINE_VOICE_ID && provider === 'system') {
-        Alert.alert('离线音色暂不可用', '当前运行环境没有载入书语离线音色，试听已自动使用系统发音。请在正式 Android APK 中测试。');
+        setVoiceMessage('离线音色暂不可用，试听已自动使用系统发音。请在正式 Android APK 中测试。');
       }
-    });
+    }).catch(() => setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。'));
   };
 
   const confirmReset = () => setResetVisible(true);
@@ -169,6 +171,7 @@ export function SettingsScreen() {
           </Pressable>
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
+        {voiceMessage ? <InlineNotice message={voiceMessage} onDismiss={() => setVoiceMessage(null)} /> : null}
       </View>
 
       <Text style={styles.sectionLabel}>项目</Text>
