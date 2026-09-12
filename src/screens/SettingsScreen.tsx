@@ -21,7 +21,7 @@ const rows = [
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
-  const { entryCount } = useDictionary();
+  const { entryCount, dictionaryUnavailable } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
@@ -222,7 +222,7 @@ export function SettingsScreen() {
         {rows.map((row, index) => (
           <Pressable key={row.title} accessibilityRole="button" accessibilityLabel={row.title} accessibilityState={{ disabled: row.title === '离线英汉词典' }} disabled={row.title === '离线英汉词典'} onPress={() => openInfo(row.title)} style={[styles.infoRow, index < rows.length - 1 && styles.infoBorder, row.title !== '离线英汉词典' && styles.infoInteractive]}>
             <View style={styles.infoIcon}><Ionicons name={row.icon} size={20} color={colors.ink} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.settingTitle}>{row.title}</Text><Text style={styles.settingCaption}>{row.title === '离线英汉词典' && !entryCount ? (preferences.onlineSentenceTranslation ? 'Web 预览不加载随包词典；当前开启在线增强，未收录词可能联网' : 'Web 预览不加载随包词典；当前关闭在线增强，仅使用内置基础兜底') : row.title === '离线英汉词典' ? `ECDICT Core · ${entryCount.toLocaleString()} 词条` : row.caption}</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.settingTitle}>{row.title}</Text><Text style={styles.settingCaption}>{row.title === '离线英汉词典' && dictionaryUnavailable ? '离线词典暂不可用；当前使用基础兜底，可重启应用重试' : row.title === '离线英汉词典' && !entryCount ? (preferences.onlineSentenceTranslation ? 'Web 预览不加载随包词典；当前开启在线增强，未收录词可能联网' : 'Web 预览不加载随包词典；当前关闭在线增强，仅使用内置基础兜底') : row.title === '离线英汉词典' ? `ECDICT Core · ${entryCount.toLocaleString()} 词条` : row.caption}</Text></View>
             {'status' in row ? <Text style={styles.readyBadge}>{entryCount ? row.status : 'Web'}</Text> : <Ionicons name="chevron-forward" size={17} color={colors.inkMuted} />}
           </Pressable>
         ))}

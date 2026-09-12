@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 离线词典故障时保留核心阅读
+
+- 随包 SQLite 词典初始化失败时，Expo 默认行为会重新抛出错误，可能阻断整个 App，即使用户只想继续阅读。
+- 现在原生端会降级到基础释义/在线策略并继续显示书架、阅读和复习；设置与查词卡片明确标注离线词典暂不可用，重启应用可再次尝试加载。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 在线翻译开启前明确隐私确认
 
 - 在线翻译增强原先点击开关就会生效，用户可能没有充分注意未收录单词或主动整句翻译会发送给第三方服务。
