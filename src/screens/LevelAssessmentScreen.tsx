@@ -1,5 +1,5 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,8 +21,35 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
   const [answering, setAnswering] = useState(false);
+  const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
+  const allowExitRef = useRef(false);
   const question = assessmentQuestions[questionIndex];
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (allowExitRef.current || result || !Object.keys(answers).length) return;
+      event.preventDefault();
+      setExitVisible(true);
+    });
+    return unsubscribe;
+  }, [answers, navigation, result]);
+
+  const requestExit = () => {
+    if (answeringRef.current) return;
+    if (result || !Object.keys(answers).length) {
+      allowExitRef.current = true;
+      navigation.goBack();
+      return;
+    }
+    setExitVisible(true);
+  };
+
+  const confirmExit = () => {
+    allowExitRef.current = true;
+    setExitVisible(false);
+    navigation.goBack();
+  };
 
   const choose = async (optionIndex: number) => {
     if (answeringRef.current) return;
@@ -78,7 +105,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="退出测试" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="退出测试" onPress={requestExit} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress * 100}%` }]} /></View>
         <Text style={styles.counter}>{questionIndex + 1}/{assessmentQuestions.length}</Text>
       </View>
@@ -96,6 +123,16 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         </View>
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
+      <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
+        <Pressable style={styles.exitBackdrop} onPress={() => setExitVisible(false)}>
+          <Pressable accessibilityViewIsModal style={styles.exitCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.exitTitle}>退出水平测试？</Text>
+            <Text style={styles.exitBody}>已完成的作答不会保存为结果，退出后需要重新开始这次测试。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="退出并放弃当前测试" onPress={confirmExit} style={styles.exitDanger}><Text style={styles.exitDangerText}>退出测试</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="继续当前测试" onPress={() => setExitVisible(false)} style={styles.exitCancel}><Text style={styles.exitCancelText}>继续测试</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -134,4 +171,12 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   secondaryButton: { height: 48, justifyContent: 'center', paddingHorizontal: 20, marginTop: 5 },
   secondaryText: { color: colors.inkMuted, fontSize: 12, fontWeight: '700' },
+  exitBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  exitCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  exitTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
+  exitBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  exitDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  exitDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  exitCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  exitCancelText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
 });

@@ -648,3 +648,9 @@
 - 书籍和生词删除确认后原先立即关闭弹层，正文清理或本地写入较慢时无法判断是否仍在处理。
 - 增加删除提交锁、处理中文案、取消锁定和读屏禁用状态，避免重复删除和误操作。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 水平测试退出保护
+
+- 水平测试进行中点关闭或系统返回原先会直接离开，已完成的作答也会丢失。
+- 增加退出确认弹层，并拦截未完成测试的系统返回；用户可继续测试或明确放弃当前作答。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
