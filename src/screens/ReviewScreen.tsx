@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -18,6 +18,7 @@ export function ReviewScreen({ navigation }: Props) {
   const [reviewQueueIds] = useState(() => words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).map((word) => word.id));
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
     if (word && !reviewedIds.includes(word.id)) items.push(word);
@@ -33,7 +34,8 @@ export function ReviewScreen({ navigation }: Props) {
   }
 
   const next = async (mastered: boolean) => {
-    if (submitting) return;
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       if (mastered) await toggleMastered(current.id);
@@ -43,6 +45,7 @@ export function ReviewScreen({ navigation }: Props) {
       // banner when persistence fails, so do not make the user review this
       // same card twice while the local write is recoverable.
     } finally {
+      submittingRef.current = false;
       setReviewedIds((ids) => ids.includes(current.id) ? ids : [...ids, current.id]);
       setRevealed(false);
       setSubmitting(false);
