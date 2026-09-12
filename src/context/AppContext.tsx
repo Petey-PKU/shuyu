@@ -59,6 +59,8 @@ interface AddWordInput {
 interface AppContextValue {
   ready: boolean;
   storageActivity: 'export' | 'restore' | null;
+  storageNotice: string | null;
+  dismissStorageNotice: () => void;
   startupError: string | null;
   retryLoad: () => Promise<void>;
   importing: boolean;
@@ -132,6 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const importingRef = useRef(false);
   const storageActivityRef = useRef<'export' | 'restore' | null>(null);
   const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | null>(null);
+  const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const booksRef = useRef<Book[]>([]);
@@ -169,6 +172,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return;
     await persistence.retryAll();
   }, [persistence]);
+
+  const dismissStorageNotice = useCallback(() => setStorageNotice(null), []);
 
   const hydrate = useCallback(async () => {
     if (hydratingRef.current) return;
@@ -524,10 +529,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPreferences(restored.preferences);
       setRecommendationState(restored.recommendationState);
       setReadingSignals(restored.readingSignals);
+      setStorageNotice('恢复完成：书架、阅读进度、生词和设置已从备份恢复。');
       setReady(true);
     } catch (error) {
       // Re-read only after the persisted rollback has completed; otherwise stay on recovery screen.
       await hydrate();
+      setStorageNotice(`恢复未完成：${error instanceof Error ? error.message : '原有书架已保留，请检查备份文件后重试。'}`);
       throw error;
     } finally {
       storageActivityRef.current = null;
@@ -536,13 +543,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [hydrate, persistence]);
 
   const value = useMemo(() => ({
-    ready, storageActivity, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
+    ready, storageActivity, storageNotice, dismissStorageNotice, startupError, retryLoad: hydrate, importing: importStatus !== null, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport,
     getBookContent: loadBookContent, updateProgress, addWord, toggleMastered, deferWord,
     removeWord, removeBook, updateBookMetadata, updatePreferences, setReadingProfile, togglePreferredGenre,
     toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup, addReadingMinutes, resetAll, persistenceError, persistenceRetrying, retryPersistence,
     exportBackup, pickBackup: pickBackupFile, restoreBackup,
   }), [
-    ready, storageActivity, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
+    ready, storageActivity, storageNotice, dismissStorageNotice, startupError, hydrate, importStatus, books, words, stats, preferences, recommendationState, readingSignals, importBook, cancelImport, updateProgress,
     addWord, toggleMastered, deferWord, removeWord, removeBook, updateBookMetadata, updatePreferences, addReadingMinutes, resetAll,
     setReadingProfile, togglePreferredGenre, toggleSavedRecommendedBook, setRecommendedBookFeedback, recordLookup,
     exportBackup, restoreBackup, persistenceError, persistenceRetrying, retryPersistence,
