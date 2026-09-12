@@ -7,6 +7,7 @@ import { useApp } from '../context/AppContext';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radii, shadows, typography } from '../theme';
 import { speakEnglish } from '../services/speech';
+import { InlineNotice } from '../components/InlineNotice';
 import { isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
@@ -18,6 +19,7 @@ export function ReviewScreen({ navigation }: Props) {
   const [reviewQueueIds] = useState(() => words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).map((word) => word.id));
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const submittingRef = useRef(false);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
@@ -28,6 +30,10 @@ export function ReviewScreen({ navigation }: Props) {
   const [revealed, setRevealed] = useState(false);
   const current = queue[0];
   const nextReviewAt = nextReviewTime(words);
+  const speakWord = (word: string) => {
+    setSpeechError(null);
+    void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+  };
 
   if (!current) {
     return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneButton}><Text style={styles.doneButtonText}>返回生词本</Text></Pressable></View>;
@@ -62,12 +68,13 @@ export function ReviewScreen({ navigation }: Props) {
         <View style={styles.close} />
       </View>
       <View style={styles.progress}><View style={[styles.progressFill, { width: `${total ? ((reviewedIds.length + 1) / total) * 100 : 0}%` }]} /></View>
+      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
       <View style={styles.card}>
         <Text style={styles.eyebrow}>回到原句</Text>
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => { void speakEnglish(current.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => speakWord(current.word)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>

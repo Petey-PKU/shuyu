@@ -25,6 +25,7 @@ import type { LookupResult } from '../services/translation';
 import { sentenceAt, tokenizeParagraph } from '../utils/text';
 import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../utils/reading';
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
+import { InlineNotice } from '../components/InlineNotice';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
   pageAtOffset,
@@ -123,6 +124,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
@@ -339,6 +341,11 @@ function ReaderSession({ route, navigation }: Props) {
     setTranslationFailed(false);
   };
 
+  const speak = useCallback((text: string, kind: 'word' | 'paragraph') => {
+    setSpeechError(null);
+    void speakEnglish(text, kind, preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+  }, [preferences.speechVoice]);
+
   const isSaved = useMemo(() => selection
     ? words.some((item) => item.word.toLowerCase() === selection.word.toLowerCase() && item.context === selection.sentence)
     : false, [selection, words]);
@@ -469,6 +476,7 @@ function ReaderSession({ route, navigation }: Props) {
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
+      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
@@ -537,7 +545,7 @@ function ReaderSession({ route, navigation }: Props) {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => { void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice).catch(() => undefined); }} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
@@ -556,7 +564,7 @@ function ReaderSession({ route, navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.wordTitle}>{selection?.word}</Text>
                 {lookup?.phonetic ? <Text style={styles.phonetic}>{lookup.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) void speakEnglish(selection.word, 'word', preferences.speechVoice).catch(() => undefined); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) speak(selection.word, 'word'); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
             <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>

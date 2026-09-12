@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import { PageHeader } from '../components/PageHeader';
+import { InlineNotice } from '../components/InlineNotice';
 import { colors, radii, typography } from '../theme';
 import { speakEnglish } from '../services/speech';
 import { isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
@@ -27,6 +28,7 @@ export function VocabularyScreen({ navigation }: Props) {
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     const subscription = AppState.addEventListener('change', (state) => {
@@ -45,11 +47,16 @@ export function VocabularyScreen({ navigation }: Props) {
   const reviewMeta = !active && nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}` : reviewedToday ? `今天已复习 ${reviewedToday} 个` : '从原句开始回忆';
   const emptyTitle = tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
   const emptyBody = tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
+  const speakWord = (word: string) => {
+    setSpeechError(null);
+    void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+  };
   const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
+      <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
+      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review')} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
@@ -76,7 +83,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <View style={styles.wordTitleRow}>
                 <Text style={styles.word}>{item.word}</Text>
                 {item.phonetic ? <Text style={styles.phonetic}>{item.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => { void speakEnglish(item.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${item.word}`} onPress={() => speakWord(item.word)}><Ionicons name="volume-medium-outline" size={19} color={colors.accent} /></Pressable>
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>

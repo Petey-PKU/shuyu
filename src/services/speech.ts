@@ -20,6 +20,7 @@ let voicesPromise: Promise<Speech.Voice[]> | undefined;
 let offlineEnginePromise: Promise<StreamingTtsEngine> | undefined;
 let activeOfflineStream: TtsStreamController | undefined;
 let offlineGeneration = 0;
+let systemGeneration = 0;
 
 function voiceScore(voice: Speech.Voice): number {
   const language = voice.language.toLowerCase();
@@ -170,18 +171,25 @@ async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
   else await controller.cancel().catch(() => undefined);
 }
 
-async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoice?: string) {
+async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoice: string | undefined, generation: number) {
   const chunks = speechChunks(text);
   const voice = await getPreferredSystemVoice(requestedVoice);
   const rate = kind === 'word' ? 0.86 : kind === 'sentence' ? 0.9 : 0.92;
   for (const chunk of chunks) {
-    Speech.speak(chunk, {
-      language: voice?.language || 'en-US',
-      voice: voice?.identifier,
-      rate,
-      pitch: 1,
-      useApplicationAudioSession: false,
+    if (generation !== systemGeneration) return;
+    await new Promise<void>((resolve, reject) => {
+      Speech.speak(chunk, {
+        language: voice?.language || 'en-US',
+        voice: voice?.identifier,
+        rate,
+        pitch: 1,
+        useApplicationAudioSession: false,
+        onDone: resolve,
+        onStopped: resolve,
+        onError: (error) => reject(new Error(error.message || '系统朗读失败')),
+      });
     });
+    if (generation !== systemGeneration) return;
   }
 }
 
@@ -189,6 +197,9 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return undefined;
   await stopSpeech();
+  // Reserve a unique generation after stopping any previous request. Concurrent
+  // taps must not allow an older request to enqueue another chunk.
+  const generation = ++systemGeneration;
   const selectedVoice = requestedVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
   if (selectedVoice === OFFLINE_VOICE_ID) {
     try {
@@ -198,10 +209,11 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
       console.warn('Bundled offline voice unavailable; falling back to system TTS.', error);
     }
   }
-  await speakWithSystemVoice(normalized, kind, selectedVoice);
+  await speakWithSystemVoice(normalized, kind, selectedVoice, generation);
   return 'system' as const;
 }
 
 export async function stopSpeech() {
+  systemGeneration += 1;
   await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
 }
