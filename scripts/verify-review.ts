@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import type { SavedWord } from '../src/types';
+import { deferReview, isWordDue, nextReviewTime, reviewDelayLabel } from '../src/utils/review';
+
+const now = Date.parse('2026-09-09T10:00:00Z');
+const word: SavedWord = { id: 'one', word: 'quiet', meaning: '安静的', context: 'It was quiet.', bookId: 'book', bookTitle: 'Story', createdAt: new Date(now).toISOString(), mastered: false, reviewCount: 0 };
+const first = deferReview(word, now);
+const repeated = deferReview({ ...word, reviewCount: 30 }, now);
+assert.equal(Date.parse(first.nextReviewAt!) - now, 600_000);
+assert.equal(repeated.nextReviewAt, first.nextReviewAt, 'Repeated unsuccessful recall must not delay the word for days');
+assert.equal(repeated.reviewCount, 31);
+assert.equal(word.reviewCount, 0, 'Scheduling must preserve the original word until applied');
+assert.equal(isWordDue(first.nextReviewAt, now + 599_999), false);
+assert.equal(isWordDue(first.nextReviewAt, now + 600_000), true);
+assert.equal(isWordDue(undefined, now), true, 'Old words without a schedule remain reviewable');
+assert.equal(isWordDue('broken timestamp', now), true);
+assert.equal(reviewDelayLabel(first.nextReviewAt, now), '10 分钟后再来');
+assert.equal(nextReviewTime([word, first, { ...word, mastered: true, nextReviewAt: new Date(now).toISOString() }]), first.nextReviewAt, 'Mastered and unscheduled words must not hide the next scheduled review');
+assert.equal(nextReviewTime([{ ...word, nextReviewAt: 'invalid' }]), undefined);
+console.log('Review scheduling verification passed.');

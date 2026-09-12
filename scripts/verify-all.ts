@@ -1,2 +1,10 @@
 import './verify-parsers';
 import './verify-pagination';
+import './verify-reading';
+import './verify-book-content';
+import './verify-review';
+import './verify-bootstrap';
+import './verify-backup';
+import './verify-restore';
+import './verify-persistence';
+import './verify-book-removal';

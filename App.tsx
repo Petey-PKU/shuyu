@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -62,19 +62,31 @@ function MainTabs() {
 }
 
 function AppShell() {
-  const { ready, importStatus, cancelImport } = useApp();
+  const { ready, storageActivity, startupError, retryLoad, importStatus, cancelImport, persistenceError, persistenceRetrying, retryPersistence } = useApp();
   if (!ready) {
     return (
       <View style={styles.splash}>
         <View style={styles.logo}><Text style={styles.logoText}>语</Text></View>
         <Text style={styles.brand}>书语</Text>
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 18 }} />
+        {startupError ? (
+          <View accessibilityViewIsModal style={styles.recovery}>
+            <Text accessibilityRole="alert" style={styles.recoveryTitle}>本地数据未能读取</Text>
+            <Text style={styles.recoveryBody}>{startupError}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={() => void retryLoad()} style={styles.retryButton}>
+              <Text style={styles.retryText}>重新读取</Text>
+            </Pressable>
+          </View>
+        ) : <>
+          <ActivityIndicator accessibilityLabel={storageActivity === 'restore' ? '正在恢复备份' : '正在读取本地书架'} color={colors.accent} style={{ marginTop: 18 }} />
+          {storageActivity === 'restore' ? <Text style={styles.recoveryBody}>正在恢复备份，请保持应用打开…</Text> : null}
+        </>}
       </View>
     );
   }
 
   return (
     <>
+      <View style={{ flex: 1 }} pointerEvents={storageActivity ? 'none' : 'auto'} accessibilityElementsHidden={!!storageActivity} importantForAccessibility={storageActivity ? 'no-hide-descendants' : 'auto'}>
       <NavigationContainer theme={{ ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.canvas } }}>
         <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
           <Stack.Screen name="Main" component={MainTabs} />
@@ -84,7 +96,21 @@ function AppShell() {
           <Stack.Screen name="Review" component={ReviewScreen} options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
         </Stack.Navigator>
       </NavigationContainer>
+      </View>
       <ImportOverlay status={importStatus} onCancel={cancelImport} />
+      {persistenceError ? <View accessibilityRole="alert" style={styles.persistenceBanner}>
+        <View style={styles.persistenceCopy}>
+          <Text style={styles.persistenceTitle}>本地数据需要重试</Text>
+          <Text numberOfLines={2} style={styles.persistenceBody}>{persistenceError}</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="重试保存本地数据" accessibilityState={{ disabled: persistenceRetrying }} disabled={persistenceRetrying} onPress={() => void retryPersistence()} style={[styles.persistenceButton, persistenceRetrying && styles.persistenceButtonDisabled]}>
+          <Text style={styles.persistenceButtonText}>{persistenceRetrying ? '保存中…' : '重试'}</Text>
+        </Pressable>
+      </View> : null}
+      {storageActivity === 'export' ? <View accessibilityViewIsModal style={styles.storageOverlay}>
+        <ActivityIndicator color={colors.accent} accessibilityLabel="正在准备本地备份" />
+        <Text style={styles.recoveryBody}>正在准备备份，请保持应用打开…</Text>
+      </View> : null}
       <StatusBar style="dark" />
     </>
   );
@@ -103,10 +129,23 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  storageOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: 'rgba(252,250,246,0.96)', alignItems: 'center', justifyContent: 'center' },
+  persistenceBanner: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 110, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
+  persistenceCopy: { flex: 1 },
+  persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },
+  persistenceButton: { minWidth: 52, minHeight: 40, borderRadius: 20, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  persistenceButtonDisabled: { opacity: 0.58 },
+  persistenceButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   splash: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 72, height: 72, borderRadius: 24, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   logoText: { color: colors.accent, fontFamily: typography.serif, fontSize: 38, fontWeight: '700' },
   brand: { color: colors.ink, fontSize: 12, fontWeight: '900', letterSpacing: 4, marginTop: 16 },
+  recovery: { marginTop: 24, paddingHorizontal: 32, maxWidth: 420, alignItems: 'center' },
+  recoveryTitle: { color: colors.ink, fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  recoveryBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 12 },
+  retryButton: { backgroundColor: colors.ink, borderRadius: 24, paddingHorizontal: 24, paddingVertical: 14, marginTop: 22 },
+  retryText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   tabBar: {
     position: 'absolute', left: 14, right: 14, bottom: 12, height: 68, paddingTop: 8, paddingBottom: 8,
     borderTopWidth: 0, borderRadius: 24, backgroundColor: 'rgba(252,250,246,0.96)', elevation: 12,

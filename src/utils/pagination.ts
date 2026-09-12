@@ -99,7 +99,7 @@ export function paragraphAtOffset(starts: number[], offset: number): number {
 }
 
 export function pageAtOffset(pages: ReaderPage[], offset: number): number {
-  const index = pages.findIndex((page) => offset >= page.start && offset < page.end);
+  const index = pages.findIndex((page) => offset < page.end);
   if (index >= 0) return index;
   return Math.max(0, pages.length - 1);
 }

@@ -4,6 +4,7 @@ export type ReaderTheme = 'paper' | 'white' | 'night';
 
 export interface ImportStatus {
   phase: 'parsing' | 'ocr';
+  startedAt?: number;
   currentPage?: number;
   totalPages?: number;
   skippedPages?: number;
@@ -90,6 +91,7 @@ export interface Book {
   lastOpenedAt: string;
   currentChapter: number;
   currentParagraph: number;
+  currentOffset?: number;
   progress: number;
   totalWords: number;
   chapterCount: number;
@@ -105,14 +107,21 @@ export interface SavedWord {
   contextTranslation?: string;
   bookId: string;
   bookTitle: string;
+  chapterIndex?: number;
+  paragraphIndex?: number;
   createdAt: string;
   mastered: boolean;
   reviewCount: number;
+  nextReviewAt?: string;
+  lastReviewedAt?: string;
 }
 
 export interface ReadingStats {
   minutes: number;
   words: number;
+  todayMinutes: number;
+  todayWords: number;
+  todayDate?: string;
   streak: number;
   lastReadDate?: string;
 }
@@ -120,6 +129,7 @@ export interface ReadingStats {
 export interface ReadingPreferences {
   fontSize: number;
   lineHeight: number;
+  dailyGoalMinutes: number;
   theme: ReaderTheme;
   onlineSentenceTranslation: boolean;
   speechVoice?: string;
@@ -130,4 +140,17 @@ export interface ParsedBook {
   author: string;
   chapters: Omit<Chapter, 'id'>[];
   format: BookFormat;
+}
+
+export interface BackupPayload {
+  app: 'shuyu';
+  schemaVersion: 1;
+  exportedAt: string;
+  books: Book[];
+  contents: Record<string, BookContent>;
+  words: SavedWord[];
+  stats: ReadingStats;
+  preferences: ReadingPreferences;
+  recommendationState: RecommendationState;
+  readingSignals: ReadingSignal[];
 }
