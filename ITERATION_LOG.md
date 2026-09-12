@@ -576,3 +576,9 @@
 - 长原句、整句翻译和来源提示可能让查词卡片超过小屏高度，底部的关闭或重试操作因此不可见。
 - 查词卡片正文现在限制最大高度并支持垂直滚动，保留顶部收藏与关闭操作，长内容仍能完整访问。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 推荐收藏结果反馈
+
+- 推荐详情页收藏“想读”原先只有图标变化，保存失败时用户无法判断是否需要再次处理。
+- 新增加入/移除成功提示、设备保存失败说明，以及收藏按钮的选中语义；提示会保留当前会话结果并指向稍后重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。

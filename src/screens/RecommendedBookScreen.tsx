@@ -25,6 +25,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
   const book = recommendedBookById.get(route.params.bookId);
   const [importError, setImportError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<{ tone: 'success' | 'error'; message: string } | null>(null);
   const {
     books,
     recommendationState,
@@ -49,14 +50,26 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleToggleSaved = async () => {
+    const wasSaved = recommendationState.savedBookIds.includes(book.id);
+    setSaveNotice(null);
+    try {
+      await toggleSavedRecommendedBook(book.id);
+      setSaveNotice({ tone: 'success', message: wasSaved ? '已从想读移除' : '已加入想读' });
+    } catch {
+      setSaveNotice({ tone: 'error', message: wasSaved ? '本次会话已移除，但设备保存失败，请稍后重试保存。' : '本次会话已加入，但设备保存失败，请稍后重试保存。' });
+    }
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
       <View style={styles.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="返回" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={23} color={colors.ink} /></Pressable>
         <Text style={styles.topTitle}>选书详情</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved }} onPress={() => void handleToggleSaved()} style={[styles.iconButton, saved && styles.savedIconButton]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
       {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
+      {saveNotice ? <InlineNotice tone={saveNotice.tone} message={saveNotice.message} onDismiss={() => setSaveNotice(null)} /> : null}
 
       <View style={styles.hero}>
         <RecommendedBookCover book={book} width={150} />
