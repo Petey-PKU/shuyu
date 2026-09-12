@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -158,7 +158,7 @@ export function DiscoverScreen({ navigation }: Props) {
         })}
       </View>
 
-      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，再导入本地书架。</Text></View></View>
+      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>{Platform.OS === 'web' ? '书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，再导入本地书架；PDF 与 OCR 请使用正式 Android 安装包。' : '书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，再导入本地书架。'}</Text></View></View>
     </ScrollView>
   );
 }
