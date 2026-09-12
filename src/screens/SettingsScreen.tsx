@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -22,6 +22,7 @@ export function SettingsScreen() {
   const { entryCount } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
+  const [privacyVisible, setPrivacyVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -35,7 +36,7 @@ export function SettingsScreen() {
 
   const openInfo = (title: string) => {
     if (title === '隐私说明') {
-      Alert.alert('隐私说明', '书籍正文、阅读进度和生词默认只保存在设备。只有主动查询未收录单词或获取整句翻译时，相关文字才可能发送给第三方服务。');
+      setPrivacyVisible(true);
       return;
     }
     if (title === '开源项目') {
@@ -189,6 +190,22 @@ export function SettingsScreen() {
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
       <Text style={styles.footer}>书语 · SHUYU{`\n`}在书里，学会一门语言。</Text>
+
+      <Modal visible={privacyVisible} transparent animationType="fade" onRequestClose={() => setPrivacyVisible(false)}>
+        <Pressable style={styles.infoBackdrop} onPress={() => setPrivacyVisible(false)}>
+          <Pressable style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <View style={styles.infoCardHeader}>
+              <View style={styles.infoIcon}><Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} /></View>
+              <Text accessibilityRole="header" style={styles.infoTitle}>隐私说明</Text>
+            </View>
+            <Text style={styles.infoBody}>书籍正文、阅读进度、生词和学习统计默认只保存在此设备。</Text>
+            <Text style={styles.infoBody}>离线词典优先在本地查词。开启在线翻译增强后，未收录的单词才会尝试发送给第三方词典服务。</Text>
+            <Text style={styles.infoBody}>整句翻译始终需要你在单词卡片中主动点击“获取整句翻译”；点击后，当前句子可能发送给第三方翻译服务。</Text>
+            <Text style={styles.infoBody}>关闭在线翻译增强后，书语不会发起这些在线查词或整句翻译请求。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭隐私说明" onPress={() => setPrivacyVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -234,4 +251,11 @@ const styles = StyleSheet.create({
   dangerButton: { marginTop: 18, height: 52, borderRadius: radii.medium, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(217,95,89,0.09)' },
   dangerText: { color: colors.danger, fontSize: 13, fontWeight: '700' },
   footer: { color: '#AAABA6', textAlign: 'center', fontSize: 9, lineHeight: 16, fontWeight: '700', letterSpacing: 1.2, marginTop: 30 },
+  infoBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  infoCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 16 },
+  infoTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
+  infoBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 20, marginTop: 10 },
+  infoClose: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  infoCloseText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 });
