@@ -577,6 +577,12 @@
 - 查词卡片正文现在限制最大高度并支持垂直滚动，保留顶部收藏与关闭操作，长内容仍能完整访问。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 · 书架编辑防误丢
+
+- 书架编辑弹层原先点击背景或系统返回会直接关闭，未保存的书名/作者输入会丢失；保存失败信息也只显示在弹层背后。
+- 有未保存修改时要求明确选择保存或取消，保存中锁定两个动作，失败信息直接显示在编辑弹层并保留输入内容。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 · 推荐收藏结果反馈
 
 - 推荐详情页收藏“想读”原先只有图标变化，保存失败时用户无法判断是否需要再次处理。

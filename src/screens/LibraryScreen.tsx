@@ -24,6 +24,8 @@ export function LibraryScreen({ navigation }: Props) {
   const [deleteBook, setDeleteBook] = useState<{ id: string; title: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
+  const [editWarning, setEditWarning] = useState<string | null>(null);
+  const [metadataSaving, setMetadataSaving] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
@@ -52,14 +54,33 @@ export function LibraryScreen({ navigation }: Props) {
   };
 
   const saveMetadata = async () => {
-    if (!editingBook) return;
+    if (!editingBook || metadataSaving) return;
+    setMetadataSaving(true);
+    setEditWarning(null);
     try {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
       setEditingBook(null);
+      setEditWarning(null);
     } catch (error) {
       setErrorKind('save');
-      setErrorMessage(error instanceof Error ? error.message : '请检查书名后重试');
+      const message = error instanceof Error ? error.message : '请检查书名后重试';
+      setErrorMessage(message);
+      setEditWarning(message);
+    } finally {
+      setMetadataSaving(false);
     }
+  };
+
+  const closeEditing = () => {
+    if (!editingBook) return;
+    const changed = draftTitle.trim() !== editingBook.title
+      || (draftAuthor.trim() || '未知作者') !== editingBook.author;
+    if (changed) {
+      setEditWarning('还有未保存的修改，请选择“保存”或“取消”。');
+      return;
+    }
+    setEditingBook(null);
+    setEditWarning(null);
   };
 
   return (
@@ -122,19 +143,20 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         )}
       />
-      <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={() => setEditingBook(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setEditingBook(null)}>
+      <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={closeEditing}>
+        <Pressable style={styles.modalBackdrop} onPress={closeEditing}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
             <Pressable style={styles.editCard} onPress={(event) => event.stopPropagation()}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={styles.editTitle}>编辑书籍信息</Text>
+                {editWarning ? <Text accessibilityRole="alert" style={styles.editWarning}>{editWarning}</Text> : null}
                 <Text style={styles.editLabel}>书名</Text>
                 <TextInput accessibilityLabel="编辑书名" value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
                 <Text style={styles.editLabel}>作者</Text>
                 <TextInput accessibilityLabel="编辑作者，可选" value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
                 <View style={styles.editActions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" onPress={() => setEditingBook(null)} style={styles.editCancel}><Text style={styles.editCancelText}>取消</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" onPress={() => void saveMetadata()} style={styles.editSave}><Text style={styles.editSaveText}>保存</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => { setEditingBook(null); setEditWarning(null); }} style={[styles.editCancel, metadataSaving && styles.editDisabled]}><Text style={styles.editCancelText}>取消</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => void saveMetadata()} style={[styles.editSave, metadataSaving && styles.editDisabled]}><Text style={styles.editSaveText}>{metadataSaving ? '保存中…' : '保存'}</Text></Pressable>
                 </View>
               </ScrollView>
             </Pressable>
@@ -151,6 +173,7 @@ export function LibraryScreen({ navigation }: Props) {
               setEditingBook(menuBook);
               setDraftTitle(menuBook.title);
               setDraftAuthor(menuBook.author);
+              setEditWarning(null);
               setMenuBook(null);
             }} style={styles.actionPrimary}><Text style={styles.actionPrimaryText}>编辑信息</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="删除书籍" onPress={() => menuBook && confirmDelete(menuBook.id, menuBook.title)} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
@@ -209,6 +232,7 @@ const styles = StyleSheet.create({
   keyboardAvoiding: { width: '100%' },
   editCard: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 34 },
   editTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 22, fontWeight: '700', marginBottom: 20 },
+  editWarning: { color: colors.danger, fontSize: 11, lineHeight: 17, marginTop: -10, marginBottom: 10 },
   editLabel: { color: colors.inkMuted, fontSize: 10, fontWeight: '800', marginTop: 10, marginBottom: 7 },
   editInput: { height: 48, borderRadius: 14, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, color: colors.ink, fontSize: 14 },
   editActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
@@ -216,4 +240,5 @@ const styles = StyleSheet.create({
   editCancelText: { color: colors.inkMuted, fontSize: 13, fontWeight: '800' },
   editSave: { flex: 1, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
   editSaveText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  editDisabled: { opacity: 0.55 },
 });
