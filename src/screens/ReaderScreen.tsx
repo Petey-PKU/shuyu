@@ -472,7 +472,7 @@ function ReaderSession({ route, navigation }: Props) {
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
       <View style={[styles.topBar, { paddingTop: insets.top + 4, backgroundColor: theme.chrome }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="返回书架" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回上一页'} onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.topTitleWrap}>
           <Text numberOfLines={1} style={[styles.topTitle, { color: theme.text }]}>{book.title}</Text>
           <Text numberOfLines={1} style={[styles.topChapter, { color: theme.muted }]}>{chapter.title}</Text>
