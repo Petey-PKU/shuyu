@@ -62,7 +62,7 @@ function MainTabs() {
 }
 
 function AppShell() {
-  const { ready, storageActivity, startupError, retryLoad, importStatus, cancelImport } = useApp();
+  const { ready, storageActivity, startupError, retryLoad, importStatus, cancelImport, persistenceError, retryPersistence } = useApp();
   if (!ready) {
     return (
       <View style={styles.splash}>
@@ -98,6 +98,15 @@ function AppShell() {
       </NavigationContainer>
       </View>
       <ImportOverlay status={importStatus} onCancel={cancelImport} />
+      {persistenceError ? <View accessibilityRole="alert" style={styles.persistenceBanner}>
+        <View style={styles.persistenceCopy}>
+          <Text style={styles.persistenceTitle}>本地数据需要重试</Text>
+          <Text numberOfLines={2} style={styles.persistenceBody}>{persistenceError}</Text>
+        </View>
+        <Pressable accessibilityRole="button" accessibilityLabel="重试保存本地数据" onPress={() => void retryPersistence()} style={styles.persistenceButton}>
+          <Text style={styles.persistenceButtonText}>重试</Text>
+        </Pressable>
+      </View> : null}
       {storageActivity === 'export' ? <View accessibilityViewIsModal style={styles.storageOverlay}>
         <ActivityIndicator color={colors.accent} accessibilityLabel="正在准备本地备份" />
         <Text style={styles.recoveryBody}>正在准备备份，请保持应用打开…</Text>
@@ -121,6 +130,12 @@ export default function App() {
 
 const styles = StyleSheet.create({
   storageOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: 'rgba(252,250,246,0.96)', alignItems: 'center', justifyContent: 'center' },
+  persistenceBanner: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 110, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
+  persistenceCopy: { flex: 1 },
+  persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },
+  persistenceButton: { minWidth: 52, minHeight: 40, borderRadius: 20, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  persistenceButtonText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   splash: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 72, height: 72, borderRadius: 24, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   logoText: { color: colors.accent, fontFamily: typography.serif, fontSize: 38, fontWeight: '700' },

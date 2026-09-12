@@ -32,7 +32,9 @@ const fixtureScript = String.raw`
   localStorage.setItem('@shuyu/reader-tap-hint-seen', 'true');
   localStorage.setItem(contentKey, JSON.stringify(content));
   const originalGetItem = Storage.prototype.getItem;
+  const originalSetItem = Storage.prototype.setItem;
   let attempts = 0;
+  let writeAttempts = 0;
   Storage.prototype.getItem = function(key) {
     if (this === localStorage && key === contentKey) {
       attempts += 1;
@@ -44,8 +46,14 @@ const fixtureScript = String.raw`
     }
     return originalGetItem.call(this, key);
   };
+  Storage.prototype.setItem = function(key, value) {
+    if (this === localStorage && key === '@shuyu/books' && mode === 'writefail' && writeAttempts++ === 0) {
+      throw new Error('测试存储空间暂不可用');
+    }
+    return originalSetItem.call(this, key, value);
+  };
 })();
 `;
 writeFileSync(resolve(directory, 'reader-recovery-test.html'), html.replace('<head>', '<head><script>' + fixtureScript + '</script>'));
 console.log('Prepared isolated reader preview: http://127.0.0.1:4174/reader-recovery-test.html?case=retry');
-console.log('Cases: retry, missing, corrupt, empty, mismatch, blank');
+console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail');
