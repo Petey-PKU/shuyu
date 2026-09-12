@@ -1,5 +1,6 @@
 import type { BackupPayload, Book, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../types';
 import { isBookContent, isSafeBookId } from './bookContent';
+import { isDateKey } from './calendar';
 export { isSafeBookId } from './bookContent';
 
 export function createBackupPayload(data: Omit<BackupPayload, 'app' | 'schemaVersion' | 'exportedAt'>, exportedAt = new Date().toISOString()): BackupPayload {
@@ -28,12 +29,6 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 function isNonNegativeNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0;
-}
-function isDateKey(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 export function validBook(value: unknown): value is Book {
   if (!isRecord(value)) return false;

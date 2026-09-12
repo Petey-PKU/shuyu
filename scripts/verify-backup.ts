@@ -13,6 +13,12 @@ const readingSignals: ReadingSignal[] = [{ bookId: book.id, lookups: 1, wordsRea
 const payload = createBackupPayload({ books: [book], contents: { [book.id]: content }, words: [word], stats, preferences, recommendationState, readingSignals }, '2026-09-09T12:00:00Z');
 const parsed = parseBackupPayload(JSON.stringify(payload));
 assert.deepEqual(parsed, payload, 'A written backup should round-trip without changing learning data');
+const datedStats: ReadingStats = { ...stats, todayDate: '2026-09-09', lastReadDate: '2026-09-09', dailyHistory: { '2024-02-29': { minutes: 0.5, words: 5 }, '2026-09-09': { minutes: 1, words: 2 } } };
+const historyBackup = createBackupPayload({ ...payload, stats: datedStats });
+assert.deepEqual(parseBackupPayload(JSON.stringify(historyBackup)).stats, datedStats, 'Daily history, including fractional minutes and leap dates, survives export/import');
+for (const dailyHistory of [null, [], { '2026-02-29': { minutes: 1, words: 2 } }, { '2026-09-09': { minutes: -1, words: 2 } }, { '2026-09-09': { minutes: 1, words: 0.5 } }, { '2026-09-09': null }, { '2026-09-09': { minutes: null, words: 2 } }]) {
+  assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, dailyHistory } })), /有效的书语备份/, 'Reject malformed daily records before restoring');
+}
 assert.throws(() => createBackupPayload({ books: [book], contents: {}, words: [], stats, preferences, recommendationState, readingSignals }), /正文无法读取/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, exportedAt: 'invalid' })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, contents: { other: content } })), /书籍与学习记录不匹配/);

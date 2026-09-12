@@ -4,7 +4,7 @@ import type { Book, ReadingPreferences, ReadingStats, SavedWord } from '../src/t
 
 const userBook: Book = { id: 'mine', title: 'My book', author: 'Reader', format: 'txt', createdAt: '2026-09-09', lastOpenedAt: '2026-09-09', currentChapter: 2, currentParagraph: 3, currentOffset: 90, progress: 0.4, totalWords: 1000, chapterCount: 5, accent: '#333' };
 const sampleBook: Book = { ...userBook, id: 'sample', format: 'sample', title: 'Sample' };
-const stats: ReadingStats = { minutes: 120, words: 5000, todayMinutes: 10, todayWords: 100, streak: 3 };
+const stats: ReadingStats = { minutes: 120, words: 5000, todayMinutes: 10, todayWords: 100, todayDate: '2026-09-09', lastReadDate: '2026-09-09', streak: 3, dailyHistory: { '2026-09-08': { minutes: 8, words: 80 }, '2026-09-09': { minutes: 10, words: 100 } } };
 const preferences: ReadingPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper', onlineSentenceTranslation: false };
 const words: SavedWord[] = [{ id: 'word', word: 'quiet', meaning: '安静的', context: 'It was quiet.', bookId: 'mine', bookTitle: 'My book', createdAt: '2026-09-09', mastered: false, reviewCount: 2 }];
 

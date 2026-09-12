@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -13,21 +13,20 @@ import { PageHeader } from '../components/PageHeader';
 import { InlineNotice } from '../components/InlineNotice';
 import { colors, radii, shadows, typography } from '../theme';
 import { isWordDue } from '../utils/review';
+import { localDateKey, shiftDateKey } from '../utils/calendar';
+import { getRecentReadingDays } from '../utils/readingStats';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Today'>, NativeStackScreenProps<RootStackParamList>>;
 
-function greeting() {
-  const hour = new Date().getHours();
+function greeting(clock: number) {
+  const hour = new Date(clock).getHours();
   if (hour < 11) return '早上好';
   if (hour < 18) return '下午好';
   return '晚上好';
 }
 
-function localDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function formatMinutes(minutes: number) {
+  return minutes > 0 && minutes < 0.1 ? '<0.1' : String(Number(minutes.toFixed(1)));
 }
 
 export function HomeScreen({ navigation }: Props) {
@@ -35,9 +34,12 @@ export function HomeScreen({ navigation }: Props) {
   const { books, stats, words, preferences, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
-    const timer = setInterval(() => setClock(Date.now()), 60_000);
-    return () => clearInterval(timer);
-  }, []);
+    const refresh = () => setClock(Date.now());
+    const timer = setInterval(refresh, 60_000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    const unsubscribe = navigation.addListener('focus', refresh);
+    return () => { clearInterval(timer); subscription.remove(); unsubscribe(); };
+  }, [navigation]);
   const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
@@ -46,19 +48,13 @@ export function HomeScreen({ navigation }: Props) {
   const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, clock)).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
   const today = localDateKey(new Date(clock));
-  const yesterday = localDateKey(new Date(clock - 86_400_000));
+  const yesterday = shiftDateKey(today, -1);
   const displayedStreak = stats.lastReadDate === today || stats.lastReadDate === yesterday ? stats.streak : 0;
-  const displayedTodayMinutes = stats.todayDate === today ? stats.todayMinutes : 0;
+  const weekDays = getRecentReadingDays(stats, new Date(clock));
+  const displayedTodayMinutes = weekDays[6].minutes;
   const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
-    : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
-  const weekDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(clock);
-    date.setHours(12, 0, 0, 0);
-    date.setDate(date.getDate() - (6 - index));
-    const key = localDateKey(date);
-    return { key, label: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()], minutes: stats.dailyHistory?.[key]?.minutes ?? (key === today ? displayedTodayMinutes : 0) };
-  });
+    : `${formatMinutes(displayedTodayMinutes)}/${preferences.dailyGoalMinutes} 分钟目标`;
   const weekMinutes = weekDays.reduce((total, day) => total + day.minutes, 0);
   const trendMax = Math.max(preferences.dailyGoalMinutes, ...weekDays.map((day) => day.minutes), 1);
   const openBook = (book: typeof current) => {
@@ -82,7 +78,7 @@ export function HomeScreen({ navigation }: Props) {
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
       <PageHeader
         eyebrow="书语 · 语境阅读"
-        title={greeting()}
+        title={greeting(clock)}
         right={
           <Pressable accessibilityRole="button" accessibilityLabel="导入电子书" onPress={handleImport} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <Ionicons name="add" size={25} color={colors.ink} />
@@ -138,7 +134,7 @@ export function HomeScreen({ navigation }: Props) {
         </View>
         <View style={[styles.metricCard, styles.metricSage]}>
           <Ionicons name="time-outline" size={21} color={colors.sage} />
-          <Text style={styles.metricValue}>{displayedTodayMinutes}</Text>
+          <Text style={styles.metricValue}>{formatMinutes(displayedTodayMinutes)}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review') : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
@@ -150,12 +146,19 @@ export function HomeScreen({ navigation }: Props) {
 
       <View style={styles.trendCard}>
         <View style={styles.trendHeader}>
-          <View><Text style={styles.trendTitle}>本周阅读</Text><Text style={styles.trendCaption}>{weekMinutes ? `近 7 天共 ${weekMinutes} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
+          <View><Text style={styles.trendTitle}>近 7 天阅读</Text><Text style={styles.trendCaption}>{weekDays.some((day) => day.recorded) ? `已记录 ${formatMinutes(weekMinutes)} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
           <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
         </View>
         <View style={styles.trendBars}>
-          {weekDays.map((day) => <View key={day.key} accessible accessibilityLabel={`${day.key}，${day.minutes} 分钟`} style={styles.trendDay}><View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: Math.max(day.minutes ? 8 : 3, day.minutes / trendMax * 72) }]} /></View><Text style={styles.trendDayLabel}>{day.label}</Text></View>)}
+          {weekDays.map((day) => (
+            <View key={day.key} accessible accessibilityLabel={`${day.key}，${day.recorded ? `${day.minutes} 分钟` : '无记录'}`} style={styles.trendDay}>
+              <Text style={styles.trendValue}>{day.recorded ? formatMinutes(day.minutes) : '—'}</Text>
+              <View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: day.minutes / trendMax * 72 }]} /></View>
+              <Text style={styles.trendDayLabel}>{day.label}</Text>
+            </View>
+          ))}
         </View>
+        {weekDays.some((day) => !day.recorded) ? <Text style={styles.trendCaption}>— 表示无记录</Text> : null}
       </View>
 
       <View style={styles.sectionHeader}>
@@ -228,8 +231,9 @@ const styles = StyleSheet.create({
   trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   trendTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 18, fontWeight: '700' },
   trendCaption: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
-  trendBars: { height: 98, marginTop: 13, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
-  trendDay: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
+  trendBars: { marginTop: 13, marginBottom: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
+  trendDay: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
+  trendValue: { color: colors.inkMuted, fontSize: 10 },
   trendBarTrack: { height: 72, width: '100%', borderRadius: 5, backgroundColor: colors.canvas, justifyContent: 'flex-end', overflow: 'hidden' },
   trendBar: { width: '100%', borderRadius: 5, backgroundColor: colors.sage },
   trendDayLabel: { color: colors.inkMuted, fontSize: 9, fontWeight: '700' },

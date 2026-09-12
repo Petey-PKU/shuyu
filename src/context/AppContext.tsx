@@ -42,7 +42,7 @@ import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
 import { persistBookRemoval } from '../utils/bookRemoval';
-import { recordReadingDay } from '../utils/readingStats';
+import { accumulateReadingStats } from '../utils/readingStats';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -99,13 +99,6 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
-
-function localDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
 
 function confirmScannedPdfOcr(pageCount: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -430,37 +423,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
-    if (minutes <= 0 && wordsRead <= 0) return;
     const currentStats = statsRef.current;
-    const today = localDateKey(new Date());
-    let streak = currentStats.streak;
-    if (currentStats.lastReadDate !== today) {
-      const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
-      streak = currentStats.lastReadDate === yesterday ? currentStats.streak + 1 : 1;
-    }
-    const sameDay = currentStats.todayDate === today;
-    const legacyTodayHistory = !currentStats.dailyHistory && sameDay && (currentStats.todayMinutes > 0 || currentStats.todayWords > 0)
-      ? { [today]: { minutes: currentStats.todayMinutes, words: currentStats.todayWords } }
-      : currentStats.dailyHistory;
-    const next = {
-      minutes: currentStats.minutes + Math.max(0, minutes),
-      words: currentStats.words + Math.max(0, wordsRead),
-      todayMinutes: (sameDay ? currentStats.todayMinutes : 0) + Math.max(0, minutes),
-      todayWords: (sameDay ? currentStats.todayWords : 0) + Math.max(0, wordsRead),
-      todayDate: today,
-      streak,
-      lastReadDate: today,
-      dailyHistory: recordReadingDay(legacyTodayHistory, today, minutes, wordsRead),
-    };
+    const next = accumulateReadingStats(currentStats, minutes, wordsRead);
+    if (next === currentStats) return;
+    const addedMinutes = next.minutes - currentStats.minutes;
+    const addedWords = next.words - currentStats.words;
     statsRef.current = next;
     setStats(next);
     const currentSignals = readingSignalsRef.current;
     const currentSignal = currentSignals.find((signal) => signal.bookId === bookId);
     const nextSignals = currentSignal
       ? currentSignals.map((signal) => signal.bookId === bookId
-        ? { ...signal, minutes: signal.minutes + Math.max(0, minutes), wordsRead: signal.wordsRead + Math.max(0, wordsRead) }
+        ? { ...signal, minutes: signal.minutes + addedMinutes, wordsRead: signal.wordsRead + addedWords }
         : signal)
-      : [...currentSignals, { bookId, lookups: 0, minutes: Math.max(0, minutes), wordsRead: Math.max(0, wordsRead) }];
+      : [...currentSignals, { bookId, lookups: 0, minutes: addedMinutes, wordsRead: addedWords }];
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
     await persist('reading-stats', '阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {

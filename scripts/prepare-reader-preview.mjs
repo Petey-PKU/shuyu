@@ -25,6 +25,19 @@ const fixtureScript = String.raw`
   localStorage.setItem('@shuyu/books', JSON.stringify([book]));
   localStorage.setItem('@shuyu/words', '[]');
   localStorage.setItem('@shuyu/stats', JSON.stringify({ minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 }));
+  if (mode === 'stats') {
+    const dayKey = (offset) => {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+      date.setDate(date.getDate() + offset);
+      return String(date.getFullYear()).padStart(4, '0') + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+    };
+    localStorage.setItem('@shuyu/stats', JSON.stringify({
+      minutes: 29, words: 290, todayMinutes: 5, todayWords: 50, streak: 3,
+      todayDate: dayKey(-1), lastReadDate: dayKey(-1),
+      dailyHistory: { [dayKey(-6)]: { minutes: 8, words: 80 }, [dayKey(-5)]: { minutes: 0, words: 0 }, [dayKey(-3)]: { minutes: 1, words: 10 }, [dayKey(-2)]: { minutes: 15, words: 150 } },
+    }));
+  }
   localStorage.setItem('@shuyu/preferences', JSON.stringify({ fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper', onlineSentenceTranslation: false }));
   localStorage.setItem('@shuyu/recommendations', JSON.stringify({ preferredGenres: [], savedBookIds: [], feedback: {} }));
   localStorage.setItem('@shuyu/reading-signals', '[]');
@@ -56,4 +69,4 @@ const fixtureScript = String.raw`
 `;
 writeFileSync(resolve(directory, 'reader-recovery-test.html'), html.replace('<head>', '<head><script>' + fixtureScript + '</script>'));
 console.log('Prepared isolated reader preview: http://127.0.0.1:4174/reader-recovery-test.html?case=retry');
-console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail, completed');
+console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail, completed, stats, stats-empty');

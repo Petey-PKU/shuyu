@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../src/utils/reading';
 import { pageAtOffset, type ReaderPage } from '../src/utils/pagination';
-import { recordReadingDay } from '../src/utils/readingStats';
 import type { Chapter } from '../src/types';
 
 const chapters: Chapter[] = [
@@ -38,14 +37,5 @@ coverage.recordPage('second', { start: 0, end: 10, text: 'Eight nine' });
 assert.equal(coverage.totalWords, 6, 'Changing chapters retains the words already seen');
 coverage.recordPage('first', { start: 0, end: 27, text: 'One two three four five six' });
 assert.equal(coverage.totalWords, 8, 'Reflow only adds words not already displayed');
-
-const recorded = recordReadingDay(recordReadingDay(undefined, '2026-09-10', 4, 40), '2026-09-10', 3, 20);
-assert.deepEqual(recorded?.['2026-09-10'], { minutes: 7, words: 60 }, 'Daily reading history accumulates the same day');
-assert.deepEqual(recordReadingDay({ '2026-09-10': { minutes: 5, words: 50 } }, '2026-09-10', 2, 10)?.['2026-09-10'], { minutes: 7, words: 60 }, 'Legacy daily totals continue accumulating after migration');
-const oldHistory = Object.fromEntries(Array.from({ length: 91 }, (_, index) => {
-  const date = new Date(Date.UTC(2026, 0, 1 + index)).toISOString().slice(0, 10);
-  return [date, { minutes: 1, words: 1 }];
-}));
-assert.equal(Object.keys(recordReadingDay(oldHistory, '2026-11-01', 2, 3) ?? {}).length, 90, 'Daily history is capped to the latest 90 days');
 
 console.log('Reading resume and cross-chapter coverage verification passed.');
