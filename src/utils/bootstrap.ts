@@ -1,4 +1,5 @@
 import type { Book, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../types';
+import { validBook, validPreferences, validRecommendationState, validSignal, validStats, validWord } from './backup';
 
 interface BootstrapStorage {
   recoverPendingRestore?: () => Promise<void>;
@@ -11,6 +12,25 @@ interface BootstrapStorage {
   ensureSampleBook: (books: Book[]) => Promise<Book[]>;
 }
 
+function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, preferences: unknown, recommendationState: unknown, readingSignals: unknown) {
+  if (!Array.isArray(books) || !books.every(validBook) || new Set(books.map((book) => book.id)).size !== books.length) {
+    throw new Error('本地书架数据损坏，请重试读取或在设置中恢复备份。');
+  }
+  const bookIds = new Set(books.map((book) => book.id));
+  if (!Array.isArray(words) || !words.every(validWord) || new Set(words.map((word) => word.id)).size !== words.length
+    || words.some((word) => !bookIds.has(word.bookId))) {
+    throw new Error('本地生词数据损坏，请重试读取或在设置中恢复备份。');
+  }
+  if (!validStats(stats)) throw new Error('本地阅读统计损坏，请重试读取或在设置中恢复备份。');
+  if (!validPreferences(preferences)) throw new Error('本地阅读设置损坏，请重试读取或在设置中恢复备份。');
+  if (!validRecommendationState(recommendationState)) throw new Error('本地推荐偏好损坏，请重试读取或在设置中恢复备份。');
+  if (!Array.isArray(readingSignals) || !readingSignals.every(validSignal)
+    || new Set(readingSignals.map((signal) => signal.bookId)).size !== readingSignals.length
+    || readingSignals.some((signal) => !bookIds.has(signal.bookId))) {
+    throw new Error('本地阅读记录损坏，请重试读取或在设置中恢复备份。');
+  }
+}
+
 /** Publish a complete snapshot only after every persisted data group is readable. */
 export async function loadAppSnapshot(storage: BootstrapStorage) {
   await storage.recoverPendingRestore?.();
@@ -18,6 +38,7 @@ export async function loadAppSnapshot(storage: BootstrapStorage) {
     storage.loadBooks(), storage.loadWords(), storage.loadStats(), storage.loadPreferences(),
     storage.loadRecommendationState(), storage.loadReadingSignals(),
   ]);
+  validateLocalSnapshot(books, words, stats, preferences, recommendationState, readingSignals);
   const seededBooks = await storage.ensureSampleBook(books);
   return { books: seededBooks, words, stats, preferences, recommendationState, readingSignals };
 }

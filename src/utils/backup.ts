@@ -29,7 +29,7 @@ function isNonNegativeInteger(value: unknown): value is number {
 function isNonNegativeNumber(value: unknown): value is number {
   return isFiniteNumber(value) && value >= 0;
 }
-function validBook(value: unknown): value is Book {
+export function validBook(value: unknown): value is Book {
   if (!isRecord(value)) return false;
   const progress = value.progress;
   return isSafeBookId(value.id) && typeof value.title === 'string' && typeof value.author === 'string'
@@ -40,7 +40,7 @@ function validBook(value: unknown): value is Book {
     && isFiniteNumber(progress) && progress >= 0 && progress <= 1
     && (value.currentOffset === undefined || isNonNegativeInteger(value.currentOffset));
 }
-function validWord(value: unknown): value is SavedWord {
+export function validWord(value: unknown): value is SavedWord {
   if (!isRecord(value)) return false;
   return isSafeBookId(value.id) && typeof value.word === 'string' && typeof value.meaning === 'string' && typeof value.context === 'string'
     && isSafeBookId(value.bookId) && typeof value.bookTitle === 'string' && isIsoDate(value.createdAt)
@@ -52,13 +52,13 @@ function validWord(value: unknown): value is SavedWord {
     && (value.nextReviewAt === undefined || isIsoDate(value.nextReviewAt))
     && (value.lastReviewedAt === undefined || isIsoDate(value.lastReviewedAt));
 }
-function validStats(value: unknown): value is ReadingStats {
+export function validStats(value: unknown): value is ReadingStats {
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))
     && isNonNegativeNumber(value.minutes) && isNonNegativeNumber(value.todayMinutes)
     && (value.todayDate === undefined || typeof value.todayDate === 'string')
     && (value.lastReadDate === undefined || typeof value.lastReadDate === 'string');
 }
-function validPreferences(value: unknown): value is ReadingPreferences {
+export function validPreferences(value: unknown): value is ReadingPreferences {
   if (!isRecord(value)) return false;
   const { fontSize, lineHeight, dailyGoalMinutes } = value;
   return isFiniteNumber(fontSize) && fontSize >= 12 && fontSize <= 40
@@ -67,7 +67,7 @@ function validPreferences(value: unknown): value is ReadingPreferences {
     && (value.theme === 'paper' || value.theme === 'white' || value.theme === 'night') && typeof value.onlineSentenceTranslation === 'boolean'
     && (value.speechVoice === undefined || typeof value.speechVoice === 'string');
 }
-function validRecommendationState(value: unknown): value is RecommendationState {
+export function validRecommendationState(value: unknown): value is RecommendationState {
   if (!isRecord(value)) return false;
   const profile = value.profile;
   const genres = ['adventure', 'biography', 'classic', 'contemporary', 'crime', 'fantasy', 'history', 'humor', 'mystery', 'nonfiction', 'romance', 'science', 'society'];
@@ -78,7 +78,7 @@ function validRecommendationState(value: unknown): value is RecommendationState 
       && isFiniteNumber(profile.score) && ['low', 'medium', 'high'].includes(profile.confidence as string)
       && isIsoDate(profile.assessedAt) && ['assessment', 'manual'].includes(profile.source as string)));
 }
-function validSignal(value: unknown): value is ReadingSignal {
+export function validSignal(value: unknown): value is ReadingSignal {
   return isRecord(value) && isSafeBookId(value.bookId) && ['lookups', 'wordsRead'].every((key) => isNonNegativeInteger(value[key])) && isNonNegativeNumber(value.minutes);
 }
 

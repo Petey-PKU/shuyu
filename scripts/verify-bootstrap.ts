@@ -29,6 +29,22 @@ async function main() {
   assert.deepEqual(recovered.stats, stats, 'Retry preserves reading history');
   assert.equal(recovered.preferences.onlineSentenceTranslation, false, 'Retry preserves privacy preferences');
 
+  const validSnapshotStorage = {
+    ...storage,
+    loadPreferences: async () => preferences,
+    ensureSampleBook: async (books: Book[]) => books,
+  };
+  for (const [label, invalidStorage] of [
+    ['books', { loadBooks: async () => [{}] }],
+    ['words', { loadWords: async () => [{ id: 'bad' }] }],
+    ['stats', { loadStats: async () => ({ minutes: 'bad' }) }],
+    ['preferences', { loadPreferences: async () => ({ theme: 'unknown' }) }],
+    ['recommendations', { loadRecommendationState: async () => ({ preferredGenres: ['unknown'], savedBookIds: [], feedback: {} }) }],
+    ['signals', { loadReadingSignals: async () => [{ bookId: 'missing', lookups: 1, wordsRead: 0, minutes: 0 }] }],
+  ] as const) {
+    await assert.rejects(() => loadAppSnapshot({ ...validSnapshotStorage, ...invalidStorage } as unknown as Parameters<typeof loadAppSnapshot>[0]), /本地.*损坏/, `${label} corruption must stop startup before publishing a snapshot`);
+  }
+
   let rolledBack = false;
   await loadAppSnapshot({ ...storage,
     recoverPendingRestore: async () => { rolledBack = true; },
