@@ -135,6 +135,8 @@ function ReaderSession({ route, navigation }: Props) {
   const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechRetry, setSpeechRetry] = useState<{ text: string; kind: 'word' | 'paragraph' } | null>(null);
+  const speechRequest = useRef(0);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
   const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
@@ -362,10 +364,16 @@ function ReaderSession({ route, navigation }: Props) {
   };
 
   const speak = useCallback((text: string, kind: 'word' | 'paragraph') => {
+    const request = ++speechRequest.current;
     setSpeechError(null);
+    setSpeechRetry(null);
     void speakEnglish(text, kind, preferences.speechVoice)
-      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
-      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => {
+        if (request !== speechRequest.current) return;
+        setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
+        setSpeechRetry({ text, kind });
+      });
   }, [preferences.speechVoice]);
 
   const isSaved = useMemo(() => selection
@@ -535,7 +543,7 @@ function ReaderSession({ route, navigation }: Props) {
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
-      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {speechError ? <InlineNotice message={speechError} actionLabel={speechRetry ? '重试朗读' : undefined} onAction={speechRetry ? () => void speak(speechRetry.text, speechRetry.kind) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetry(null); }} /> : null}
       {progressSaveError || statsSaveError || settingsSaveError ? <InlineNotice message={progressSaveError ?? statsSaveError ?? settingsSaveError!} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => { setProgressSaveError(null); setStatsSaveError(null); setSettingsSaveError(null); }} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
