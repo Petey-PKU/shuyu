@@ -12,11 +12,12 @@ import type { BackupPayload } from '../types';
 import { InlineNotice } from '../components/InlineNotice';
 import { formatBackupOperationError } from '../utils/backupErrors';
 
+const appVersion = (require('../../app.json') as { expo?: { version?: string } }).expo?.version ?? '未知';
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
   { icon: 'shield-checkmark-outline', title: '隐私说明', caption: '原文默认只保存在本地' },
   { icon: 'logo-github', title: '开源项目', caption: 'GPL-3.0-only · 欢迎贡献' },
-  { icon: 'information-circle-outline', title: '关于书语', caption: '版本 1.3.1' },
+  { icon: 'information-circle-outline', title: '关于书语', caption: `版本 ${appVersion}` },
 ] as const;
 
 export function SettingsScreen() {
