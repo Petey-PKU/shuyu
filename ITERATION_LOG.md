@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 保留水平测试最后答案
+
+- 水平测试最后一道题原先直接计算结果并删除草稿，应用在结果写入前被系统回收时，最后答案无法恢复。
+- 现在先保存最终答案，再写入等级结果；恢复到完整草稿时会自动生成结果并清理草稿，减少首次使用中断后的重复作答。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 统一备份操作失败提示
 
 - Android 文件提供器在备份导出、选择或恢复失败时可能返回权限、空间不足或文件不存在等英文系统错误，原先设置页会直接展示这些细节。

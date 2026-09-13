@@ -10,3 +10,4 @@ import './verify-restore';
 import './verify-persistence';
 import './verify-book-removal';
 import './verify-recommendation';
+import './verify-assessment';

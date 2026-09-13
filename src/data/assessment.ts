@@ -30,6 +30,11 @@ export const assessmentQuestions: AssessmentQuestion[] = [
   { id: 'c2-3', level: 'C2', passage: 'Her apology was impeccable: measured, gracious, and delivered only after it could no longer alter the outcome. Its timing made the performance easier to admire than the intention behind it.', prompt: '作者对道歉的真实态度是：', options: ['毫无保留地赞赏', '认为道歉来得早而真诚', '欣赏表达方式，但怀疑动机', '认为道歉改变了结果'], correctIndex: 2 },
 ];
 
+export function isAssessmentComplete(answers: Record<string, number>) {
+  return assessmentQuestions.every((question) => Number.isInteger(answers[question.id])
+    && answers[question.id] >= 0 && answers[question.id] < question.options.length);
+}
+
 export const languageLevels: LanguageLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
 const scoreBases: Record<LanguageLevel, number> = { A1: 8, A2: 24, B1: 40, B2: 56, C1: 72, C2: 88 };

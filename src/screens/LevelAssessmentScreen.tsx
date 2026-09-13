@@ -4,7 +4,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { assessmentQuestions, scoreAssessment } from '../data/assessment';
+import { assessmentQuestions, isAssessmentComplete, scoreAssessment } from '../data/assessment';
 import { useApp } from '../context/AppContext';
 import type { RootStackParamList } from '../navigation/types';
 import type { ReadingLevelProfile } from '../types';
@@ -36,9 +36,16 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       try {
         const parsed = raw ? JSON.parse(raw) as Record<string, number> : {};
         const restored = Object.fromEntries(Object.entries(parsed).filter(([id, value]) => assessmentQuestions.some((item) => item.id === id) && Number.isInteger(value) && value >= 0 && value < 4));
-        const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
         setAnswers(restored);
-        setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
+        const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
+        if (isAssessmentComplete(restored)) {
+          const profile = scoreAssessment(restored);
+          void AsyncStorage.removeItem(assessmentDraftKey);
+          void setReadingProfile(profile).catch(() => undefined);
+          setResult(profile);
+        } else {
+          setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
+        }
       } catch {
         void AsyncStorage.removeItem(assessmentDraftKey);
       } finally {
@@ -97,8 +104,16 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         setQuestionIndex(questionIndex + 1);
         return;
       }
+      // Persist the final answer before scoring so a process death in the
+      // short gap before the profile write can resume with a complete draft.
+      try {
+        await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+        setDraftSaveError(null);
+      } catch {
+        setDraftSaveError('本机暂时无法保存测试进度；当前结果仍可继续，但退出后可能无法恢复。');
+      }
       const profile = scoreAssessment(next);
-      void AsyncStorage.removeItem(assessmentDraftKey);
+      try { await AsyncStorage.removeItem(assessmentDraftKey); } catch { /* The result remains usable in memory. */ }
       try {
         await setReadingProfile(profile);
       } catch {
