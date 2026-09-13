@@ -2,7 +2,7 @@
 
 这份清单用于正式 Android APK，不适用于 Web 预览或 Android bundle 导出。每次发布候选版本都在真实设备上执行，并记录设备型号、Android 版本和 APK 构建号。
 
-生成 APK 前，CI 会先检查随包 ECDICT 词典、Piper 离线音色模型和隐私 Manifest；资源缺失或重新启用宽泛存储权限时，构建会提前失败。
+生成 APK 前，CI 会检查随包 ECDICT 词典和隐私 Manifest；下载并准备 Piper 离线音色模型后，还会单独检查模型文件及其元数据。资源缺失或重新启用宽泛存储权限时，构建会提前失败。
 
 ## 首次使用与书架
 

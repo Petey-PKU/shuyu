@@ -48,6 +48,7 @@
     "typecheck": "tsc --noEmit",
     "test": "tsx scripts/verify-all.ts",
     "test:in-process": "node scripts/run-verifier.mjs",
+    "test:android-assets": "tsx scripts/verify-android-assets.ts",
     "test:translation": "tsx scripts/verify-translation.ts",
     "test:translation-proxy": "node --test-isolation=none --test translation-proxy/test/gateway.test.mjs",
     "test:dictionary": "python scripts/verify_dictionary.py",

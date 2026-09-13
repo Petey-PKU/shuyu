@@ -53,6 +53,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: npm run prepare:tts-model
 
+      - name: Verify packaged Android assets
+        run: npm run test:android-assets
+
       - name: Set up Java
         uses: actions/setup-java@v5
         with:

@@ -1573,11 +1573,12 @@
 
 - 发布前静态检查现在确认 ECDICT Core、Piper 离线音色模型及其元数据仍在 Android 工程中，并确认 Manifest 保持关闭系统备份和移除旧版宽泛存储权限。
 - 资源缺失或隐私配置回退会在生成正式安装包前失败，避免用户安装后才发现离线查词/朗读不可用或本地书籍进入系统备份。
-- 新增 `scripts/verify-android-assets.ts` 并接入标准测试套件。
+- 新增 `scripts/verify-android-assets.ts`；模型检查安排在 CI 下载模型后执行，干净 checkout 不会在资源准备前误失败。
 
 验证：
 
 - `npm test`
+- `npm run test:android-assets`
 - `npm run typecheck`
 - `python scripts/verify_dictionary.py`
 - `git diff --check`

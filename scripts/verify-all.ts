@@ -10,7 +10,6 @@ import './verify-backup';
 import './verify-restore';
 import './verify-persistence';
 import './verify-serial-write';
-import './verify-android-assets';
 import './verify-book-removal';
 import './verify-recommendation';
 import './verify-assessment';
