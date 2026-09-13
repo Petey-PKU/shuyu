@@ -137,6 +137,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
   const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
+  const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
   const [retryingProgress, setRetryingProgress] = useState(false);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
@@ -417,7 +418,7 @@ function ReaderSession({ route, navigation }: Props) {
       || settingsDraft.theme !== preferences.theme;
     if (!changed) return;
     pageAnchorOffset.current = pages[currentPage]?.start ?? chapterParagraphStarts[currentParagraph] ?? 0;
-    void updatePreferences(settingsDraft).catch(() => undefined);
+    void updatePreferences(settingsDraft).catch(() => setSettingsSaveError('阅读排版已在当前会话生效，但设备尚未保存。'));
   };
 
   const changeDraftFont = (delta: number) => {
@@ -489,6 +490,7 @@ function ReaderSession({ route, navigation }: Props) {
       if (await retryPersistence()) {
         setProgressSaveError(null);
         setStatsSaveError(null);
+        setSettingsSaveError(null);
       }
     } finally {
       setRetryingProgress(false);
@@ -534,7 +536,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
       {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
-      {progressSaveError || statsSaveError ? <InlineNotice message={progressSaveError ?? statsSaveError!} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => { setProgressSaveError(null); setStatsSaveError(null); }} /> : null}
+      {progressSaveError || statsSaveError || settingsSaveError ? <InlineNotice message={progressSaveError ?? statsSaveError ?? settingsSaveError!} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => { setProgressSaveError(null); setStatsSaveError(null); setSettingsSaveError(null); }} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
