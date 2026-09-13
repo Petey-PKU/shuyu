@@ -29,12 +29,14 @@ function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
 
 export function VocabularyScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, preferences, toggleMastered, removeWord } = useApp();
+  const { words, preferences, toggleMastered, removeWord, retryPersistence } = useApp();
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
   const [query, setQuery] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [retryingSave, setRetryingSave] = useState(false);
   const [updatingWordId, setUpdatingWordId] = useState<string | null>(null);
   const [removingWordId, setRemovingWordId] = useState<string | null>(null);
   const updatingWordRef = useRef<string | null>(null);
@@ -90,8 +92,9 @@ export function VocabularyScreen({ navigation }: Props) {
     setUpdatingWordId(wordId);
     try {
       await toggleMastered(wordId);
+      setSaveError(null);
     } catch {
-      // AppShell exposes the persistence retry banner while keeping the local state usable.
+      setSaveError('状态已更新到当前会话，但设备尚未保存。');
     } finally {
       updatingWordRef.current = null;
       setUpdatingWordId(null);
@@ -104,12 +107,22 @@ export function VocabularyScreen({ navigation }: Props) {
     setRemovingWordId(target.id);
     try {
       await removeWord(target.id);
+      setSaveError(null);
     } catch {
-      // AppShell exposes the persistence retry banner while keeping the
-      // optimistic list usable.
+      setSaveError('生词已从当前列表移除，但设备尚未保存。');
     } finally {
       setRemovingWordId(null);
       setRemoveTarget(null);
+    }
+  };
+
+  const retrySave = async () => {
+    if (retryingSave) return;
+    setRetryingSave(true);
+    try {
+      if (await retryPersistence()) setSaveError(null);
+    } finally {
+      setRetryingSave(false);
     }
   };
 
@@ -117,6 +130,7 @@ export function VocabularyScreen({ navigation }: Props) {
       <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
       {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {saveError ? <InlineNotice message={saveError} actionLabel={retryingSave ? '保存中…' : '重试保存'} onAction={() => void retrySave()} onDismiss={() => setSaveError(null)} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review', { returnTo: 'Vocabulary' })} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
