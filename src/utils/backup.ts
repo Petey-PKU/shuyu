@@ -1,14 +1,22 @@
 import type { BackupPayload, Book, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../types';
 import { isBookContent, isSafeBookId } from './bookContent';
+import { isDateKey } from './calendar';
 export { isSafeBookId } from './bookContent';
 
 export function createBackupPayload(data: Omit<BackupPayload, 'app' | 'schemaVersion' | 'exportedAt'>, exportedAt = new Date().toISOString()): BackupPayload {
   if (data.books.some((book) => !data.contents[book.id] || data.contents[book.id].id !== book.id)) {
     throw new Error('有书籍正文无法读取，备份未生成');
   }
+  // The shelf metadata is the source of truth after a user edits a title or
+  // author. Keep the copied content metadata aligned for cross-device restore.
+  const contents = Object.fromEntries(data.books.map((book) => [book.id, {
+    ...data.contents[book.id],
+    title: book.title,
+    author: book.author,
+  }])) as Record<string, import('../types').BookContent>;
   // Older releases retained recommendation signals after deleting a book.
   const bookIds = new Set(data.books.map((book) => book.id));
-  const payload: BackupPayload = { ...data, app: 'shuyu', schemaVersion: 1, exportedAt,
+  const payload: BackupPayload = { ...data, contents, app: 'shuyu', schemaVersion: 1, exportedAt,
     readingSignals: data.readingSignals.filter((signal) => bookIds.has(signal.bookId)),
   };
   validateBackupPayload(payload);
@@ -53,10 +61,16 @@ export function validWord(value: unknown): value is SavedWord {
     && (value.lastReviewedAt === undefined || isIsoDate(value.lastReviewedAt));
 }
 export function validStats(value: unknown): value is ReadingStats {
+  const history = isRecord(value) ? value.dailyHistory : undefined;
+  const validHistory = history === undefined || (isRecord(history) && Object.entries(history).every(([date, entry]) => {
+    return isDateKey(date) && isRecord(entry)
+      && isNonNegativeNumber(entry.minutes) && isNonNegativeInteger(entry.words);
+  }));
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))
     && isNonNegativeNumber(value.minutes) && isNonNegativeNumber(value.todayMinutes)
-    && (value.todayDate === undefined || typeof value.todayDate === 'string')
-    && (value.lastReadDate === undefined || typeof value.lastReadDate === 'string');
+    && (value.todayDate === undefined || isDateKey(value.todayDate))
+    && (value.lastReadDate === undefined || isDateKey(value.lastReadDate))
+    && validHistory;
 }
 export function validPreferences(value: unknown): value is ReadingPreferences {
   if (!isRecord(value)) return false;
@@ -65,6 +79,7 @@ export function validPreferences(value: unknown): value is ReadingPreferences {
     && isFiniteNumber(lineHeight) && lineHeight >= 16 && lineHeight <= 64
     && isNonNegativeInteger(dailyGoalMinutes) && dailyGoalMinutes > 0 && dailyGoalMinutes <= 180
     && (value.theme === 'paper' || value.theme === 'white' || value.theme === 'night') && typeof value.onlineSentenceTranslation === 'boolean'
+    && (value.readingStatsEnabled === undefined || typeof value.readingStatsEnabled === 'boolean')
     && (value.speechVoice === undefined || typeof value.speechVoice === 'string');
 }
 export function validRecommendationState(value: unknown): value is RecommendationState {
@@ -100,12 +115,38 @@ export function validateBackupPayload(value: unknown): BackupPayload {
   const bookIds = new Set(parsed.books.map((book) => book.id));
   const wordIds = new Set(parsed.words.map((word) => word.id));
   const contentIds = Object.keys(contents);
+  const metadataMismatch = parsed.books.some((book) => {
+    const content = contents[book.id];
+    if (!content) return false;
+    const totalWords = content.chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0);
+    const chapter = content.chapters[book.currentChapter];
+    return book.chapterCount !== content.chapters.length
+      || book.totalWords !== totalWords
+      || book.currentChapter >= content.chapters.length
+      || !chapter
+      || (chapter.paragraphs.length === 0 ? book.currentParagraph !== 0 : book.currentParagraph >= chapter.paragraphs.length);
+  });
+  if (metadataMismatch) throw new Error('备份中的书籍元数据与正文不匹配');
   if (bookIds.size !== parsed.books.length || wordIds.size !== parsed.words.length || contentIds.length !== parsed.books.length
     || parsed.books.some((book) => contents[book.id]?.id !== book.id)
     || contentIds.some((id) => !bookIds.has(id))
     || parsed.words.some((word) => !bookIds.has(word.bookId))
     || parsed.readingSignals.some((signal) => !bookIds.has(signal.bookId))) {
     throw new Error('备份中的书籍与学习记录不匹配');
+  }
+  const wordLocationMismatch = parsed.words.some((word) => {
+    const hasChapter = word.chapterIndex !== undefined;
+    const hasParagraph = word.paragraphIndex !== undefined;
+    if (hasChapter !== hasParagraph) return true;
+    if (!hasChapter) return false;
+    const chapter = contents[word.bookId]?.chapters[word.chapterIndex!];
+    return !chapter || word.paragraphIndex! >= chapter.paragraphs.length;
+  });
+  if (wordLocationMismatch) throw new Error('备份中的生词位置与正文不匹配');
+  const signalBookIds = new Set<string>();
+  for (const signal of parsed.readingSignals) {
+    if (signalBookIds.has(signal.bookId)) throw new Error('备份中的阅读记录重复');
+    signalBookIds.add(signal.bookId);
   }
   return parsed;
 }

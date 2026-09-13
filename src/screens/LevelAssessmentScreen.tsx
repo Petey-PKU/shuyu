@@ -1,9 +1,10 @@
-import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { assessmentQuestions, scoreAssessment } from '../data/assessment';
+import { assessmentQuestions, isAssessmentComplete, scoreAssessment } from '../data/assessment';
 import { useApp } from '../context/AppContext';
 import type { RootStackParamList } from '../navigation/types';
 import type { ReadingLevelProfile } from '../types';
@@ -13,6 +14,7 @@ import { colors, radii, typography } from '../theme';
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelAssessment'>;
 
 const confidenceLabels = { low: '初步判断', medium: '可信度中等', high: '可信度较高' } as const;
+const assessmentDraftKey = '@shuyu/assessment-draft';
 
 export function LevelAssessmentScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -21,8 +23,69 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
   const [answering, setAnswering] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(true);
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
+  const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
+  const allowExitRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
+      if (!active) return;
+      try {
+        const parsed = raw ? JSON.parse(raw) as Record<string, number> : {};
+        const restored = Object.fromEntries(Object.entries(parsed).filter(([id, value]) => assessmentQuestions.some((item) => item.id === id) && Number.isInteger(value) && value >= 0 && value < 4));
+        setAnswers(restored);
+        const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
+        if (isAssessmentComplete(restored)) {
+          const profile = scoreAssessment(restored);
+          void AsyncStorage.removeItem(assessmentDraftKey);
+          void setReadingProfile(profile).catch(() => undefined);
+          setResult(profile);
+        } else {
+          setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
+        }
+      } catch {
+        void AsyncStorage.removeItem(assessmentDraftKey);
+      } finally {
+        setDraftLoading(false);
+      }
+    }).catch(() => {
+      if (active) {
+        setDraftSaveError('本机暂时无法读取测试草稿；当前作答仍可继续，但退出后可能无法恢复。');
+        setDraftLoading(false);
+      }
+    });
+    return () => { active = false; };
+  }, []);
   const question = assessmentQuestions[questionIndex];
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (allowExitRef.current || result || !Object.keys(answers).length) return;
+      event.preventDefault();
+      setExitVisible(true);
+    });
+    return unsubscribe;
+  }, [answers, navigation, result]);
+
+  const requestExit = () => {
+    if (answeringRef.current) return;
+    if (result || !Object.keys(answers).length) {
+      allowExitRef.current = true;
+      navigation.goBack();
+      return;
+    }
+    setExitVisible(true);
+  };
+
+  const confirmExit = () => {
+    allowExitRef.current = true;
+    void AsyncStorage.removeItem(assessmentDraftKey);
+    setExitVisible(false);
+    navigation.goBack();
+  };
 
   const choose = async (optionIndex: number) => {
     if (answeringRef.current) return;
@@ -32,10 +95,25 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       const next = { ...answers, [question.id]: optionIndex };
       setAnswers(next);
       if (questionIndex < assessmentQuestions.length - 1) {
+        try {
+          await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+          setDraftSaveError(null);
+        } catch {
+          setDraftSaveError('本机暂时无法保存测试进度；当前作答仍可继续，但退出后可能无法恢复。');
+        }
         setQuestionIndex(questionIndex + 1);
         return;
       }
+      // Persist the final answer before scoring so a process death in the
+      // short gap before the profile write can resume with a complete draft.
+      try {
+        await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+        setDraftSaveError(null);
+      } catch {
+        setDraftSaveError('本机暂时无法保存测试进度；当前结果仍可继续，但退出后可能无法恢复。');
+      }
       const profile = scoreAssessment(next);
+      try { await AsyncStorage.removeItem(assessmentDraftKey); } catch { /* The result remains usable in memory. */ }
       try {
         await setReadingProfile(profile);
       } catch {
@@ -52,6 +130,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   };
 
   const restart = () => {
+    void AsyncStorage.removeItem(assessmentDraftKey);
     setAnswers({});
     setQuestionIndex(0);
     setResult(null);
@@ -74,11 +153,20 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     );
   }
 
+  if (draftLoading) {
+    return (
+      <View style={[styles.loading, { paddingTop: insets.top + 8 }]}>
+        <ActivityIndicator color={colors.accent} accessibilityLabel="正在恢复水平测试进度" />
+        <Text style={styles.loadingText}>正在恢复测试进度…</Text>
+      </View>
+    );
+  }
+
   const progress = (questionIndex + 1) / assessmentQuestions.length;
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="退出测试" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="退出测试" onPress={requestExit} style={styles.iconButton}><Ionicons name="close" size={23} color={colors.ink} /></Pressable>
         <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progress * 100}%` }]} /></View>
         <Text style={styles.counter}>{questionIndex + 1}/{assessmentQuestions.length}</Text>
       </View>
@@ -94,14 +182,28 @@ export function LevelAssessmentScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
+        {draftSaveError ? <Text accessibilityRole="alert" style={styles.draftWarning}>{draftSaveError}</Text> : null}
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
+      <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
+        <Pressable style={styles.exitBackdrop} onPress={() => setExitVisible(false)}>
+          <Pressable accessibilityViewIsModal style={styles.exitCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.exitTitle}>退出水平测试？</Text>
+            <Text style={styles.exitBody}>已完成的作答会保存在本机草稿中，之后可以继续这次测试；如果确认退出，当前草稿会被放弃。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="退出并放弃当前测试" onPress={confirmExit} style={styles.exitDanger}><Text style={styles.exitDangerText}>退出测试</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="继续当前测试" onPress={() => setExitVisible(false)} style={styles.exitCancel}><Text style={styles.exitCancelText}>继续测试</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
+  loading: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: colors.inkMuted, fontSize: 12 },
+  draftWarning: { color: colors.accent, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 20 },
   topBar: { height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 5, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
@@ -134,4 +236,12 @@ const styles = StyleSheet.create({
   primaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   secondaryButton: { height: 48, justifyContent: 'center', paddingHorizontal: 20, marginTop: 5 },
   secondaryText: { color: colors.inkMuted, fontSize: 12, fontWeight: '700' },
+  exitBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  exitCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  exitTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
+  exitBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  exitDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  exitDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
+  exitCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  exitCancelText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
 });

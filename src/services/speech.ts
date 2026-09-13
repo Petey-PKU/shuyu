@@ -20,6 +20,7 @@ let voicesPromise: Promise<Speech.Voice[]> | undefined;
 let offlineEnginePromise: Promise<StreamingTtsEngine> | undefined;
 let activeOfflineStream: TtsStreamController | undefined;
 let offlineGeneration = 0;
+let systemGeneration = 0;
 
 function voiceScore(voice: Speech.Voice): number {
   const language = voice.language.toLowerCase();
@@ -140,6 +141,10 @@ async function stopOfflineSpeech() {
   }
 }
 
+async function stopActiveSpeech() {
+  await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
+}
+
 async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
   const engine = await getOfflineEngine();
   const generation = ++offlineGeneration;
@@ -147,6 +152,7 @@ async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
   await engine.startPcmPlayer(sampleRate, 1);
   let writes = Promise.resolve();
   let completed = false;
+  let streamError: Error | undefined;
   const speed = kind === 'word' ? 0.88 : kind === 'sentence' ? 0.94 : 0.97;
   const controller = await engine.generateSpeechStream(text, { sid: 0, speed, silenceScale: 0.18 }, {
     onChunk: (chunk) => {
@@ -161,47 +167,67 @@ async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
     },
     onError: (error) => {
       completed = true;
+      streamError = new Error(error.message || '离线音色生成失败');
       console.warn('Offline TTS playback failed:', error.message);
       if (generation === offlineGeneration) activeOfflineStream = undefined;
       void engine.stopPcmPlayer().catch(() => undefined);
     },
   });
+  if (streamError) {
+    await engine.stopPcmPlayer().catch(() => undefined);
+    throw streamError;
+  }
   if (!completed && generation === offlineGeneration) activeOfflineStream = controller;
   else await controller.cancel().catch(() => undefined);
 }
 
-async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoice?: string) {
+async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoice: string | undefined, generation: number) {
   const chunks = speechChunks(text);
   const voice = await getPreferredSystemVoice(requestedVoice);
   const rate = kind === 'word' ? 0.86 : kind === 'sentence' ? 0.9 : 0.92;
   for (const chunk of chunks) {
-    Speech.speak(chunk, {
-      language: voice?.language || 'en-US',
-      voice: voice?.identifier,
-      rate,
-      pitch: 1,
-      useApplicationAudioSession: false,
+    if (generation !== systemGeneration) return;
+    await new Promise<void>((resolve, reject) => {
+      Speech.speak(chunk, {
+        language: voice?.language || 'en-US',
+        voice: voice?.identifier,
+        rate,
+        pitch: 1,
+        useApplicationAudioSession: false,
+        onDone: resolve,
+        onStopped: resolve,
+        onError: (error) => reject(new Error(error.message || '系统朗读失败')),
+      });
     });
+    if (generation !== systemGeneration) return;
   }
 }
 
 export async function speakEnglish(text: string, kind: SpeechKind = 'word', requestedVoice?: string) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return undefined;
-  await stopSpeech();
+  // Reserve the newest generation before awaiting cancellation. If another tap
+  // arrives while the stop is still in flight, this request becomes stale and
+  // must not start playback after the newer request.
+  const generation = ++systemGeneration;
+  await stopActiveSpeech();
+  if (generation !== systemGeneration) return undefined;
   const selectedVoice = requestedVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+  let offlineFallback = false;
   if (selectedVoice === OFFLINE_VOICE_ID) {
     try {
       await speakWithOfflineVoice(normalized, kind);
       return 'offline' as const;
     } catch (error) {
+      offlineFallback = true;
       console.warn('Bundled offline voice unavailable; falling back to system TTS.', error);
     }
   }
-  await speakWithSystemVoice(normalized, kind, selectedVoice);
-  return 'system' as const;
+  await speakWithSystemVoice(normalized, kind, selectedVoice, generation);
+  return offlineFallback ? 'system-fallback' as const : 'system' as const;
 }
 
 export async function stopSpeech() {
-  await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
+  systemGeneration += 1;
+  await stopActiveSpeech();
 }

@@ -34,15 +34,25 @@ function stableNoise(value: string) {
   return Math.abs(hash % 100) / 100;
 }
 
+function hasComparableReadingSignal(signal: ReadingSignal, books: Book[]) {
+  if (signal.wordsRead < 800) return false;
+  const imported = books.find((book) => book.id === signal.bookId);
+  if (!imported) return false;
+  return recommendedBooks.some((book) => normalizeTitle(book.title) === normalizeTitle(imported.title));
+}
+
+export function hasRecommendationReadingSignal(signals: ReadingSignal[], books: Book[]) {
+  return signals.some((signal) => hasComparableReadingSignal(signal, books));
+}
+
 export function effectiveReadingScore(state: RecommendationState, signals: ReadingSignal[], books: Book[]) {
   const base = state.profile?.score ?? levelScores.B1;
   const adjustments: number[] = [];
 
   for (const signal of signals) {
-    if (signal.wordsRead < 800) continue;
+    if (!hasComparableReadingSignal(signal, books)) continue;
     const imported = books.find((book) => book.id === signal.bookId);
-    if (!imported) continue;
-    const catalogBook = recommendedBooks.find((book) => normalizeTitle(book.title) === normalizeTitle(imported.title));
+    const catalogBook = imported && recommendedBooks.find((book) => normalizeTitle(book.title) === normalizeTitle(imported.title));
     if (!catalogBook) continue;
     const lookupsPerThousand = signal.lookups / Math.max(1, signal.wordsRead) * 1000;
     if (lookupsPerThousand <= 10 && catalogBook.difficulty >= base - 6) adjustments.push(4);

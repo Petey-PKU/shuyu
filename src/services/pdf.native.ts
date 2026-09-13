@@ -6,6 +6,7 @@ import {
   recognizePdf,
 } from '../../modules/shuyu-pdf-ocr';
 import { parseExtractedPdfText, pdfNeedsOcr } from './pdfText';
+import { formatPdfExtractionError } from './pdfErrors';
 import type { PdfImportOptions } from './pdfTypes';
 
 function makeOcrJobId() {
@@ -20,8 +21,7 @@ export async function parsePdf(
   if (!isAvailable()) throw new Error('当前安装包未包含 PDF 文本解析模块，请安装最新测试 APK');
   const result = await extractTextWithInfo(uri);
   if (!result.success) {
-    if (result.passwordRequired) throw new Error('暂不支持需要密码的 PDF');
-    throw new Error(result.errorCode === 'CORRUPT_PDF' ? 'PDF 文件损坏或格式不受支持' : result.error || '无法读取 PDF 正文');
+    throw new Error(formatPdfExtractionError(result.passwordRequired ? 'PASSWORD_REQUIRED' : result.errorCode));
   }
   if (!pdfNeedsOcr(result.text, result.pageCount)) {
     return parseExtractedPdfText(result.text, fallbackTitle);

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -13,40 +13,61 @@ import { PageHeader } from '../components/PageHeader';
 import { InlineNotice } from '../components/InlineNotice';
 import { colors, radii, shadows, typography } from '../theme';
 import { isWordDue } from '../utils/review';
+import { localDateKey, shiftDateKey } from '../utils/calendar';
+import { getRecentReadingDays } from '../utils/readingStats';
+import { formatImportFailure } from '../utils/importErrors';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Today'>, NativeStackScreenProps<RootStackParamList>>;
 
-function greeting() {
-  const hour = new Date().getHours();
+function greeting(clock: number) {
+  const hour = new Date(clock).getHours();
   if (hour < 11) return '早上好';
   if (hour < 18) return '下午好';
   return '晚上好';
 }
 
-function localDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function formatMinutes(minutes: number) {
+  return minutes > 0 && minutes < 0.1 ? '<0.1' : String(Number(minutes.toFixed(1)));
 }
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { books, stats, words, preferences, importBook } = useApp();
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const refresh = () => setClock(Date.now());
+    const timer = setInterval(refresh, 60_000);
+    const subscription = AppState.addEventListener('change', (state) => { if (state === 'active') refresh(); });
+    const unsubscribe = navigation.addListener('focus', refresh);
+    return () => { clearInterval(timer); subscription.remove(); unsubscribe(); };
+  }, [navigation]);
   const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
+  const recentWords = [...words].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
+  const wordSourceLabel = (word: typeof recentWords[number]) => word.chapterIndex !== undefined && word.paragraphIndex !== undefined
+    ? `${word.bookTitle} · 第${word.chapterIndex + 1}章 · 第${word.paragraphIndex + 1}段`
+    : word.bookTitle;
   const activeWords = words.filter((word) => !word.mastered).length;
-  const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, Date.now())).length;
+  const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, clock)).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
-  const today = localDateKey(new Date());
-  const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
-  const displayedStreak = stats.lastReadDate === today || stats.lastReadDate === yesterday ? stats.streak : 0;
-  const displayedTodayMinutes = stats.todayDate === today ? stats.todayMinutes : 0;
-  const goalCaption = displayedTodayMinutes >= preferences.dailyGoalMinutes
+  const today = localDateKey(new Date(clock));
+  const yesterday = shiftDateKey(today, -1);
+  const statsEnabled = preferences.readingStatsEnabled !== false;
+  const recordedWeekDays = getRecentReadingDays(stats, new Date(clock));
+  const weekDays = statsEnabled ? recordedWeekDays : recordedWeekDays.map((day) => ({ ...day, recorded: false, minutes: 0, words: 0 }));
+  const displayedStreak = statsEnabled && (stats.lastReadDate === today || stats.lastReadDate === yesterday) ? stats.streak : 0;
+  const displayedTodayMinutes = statsEnabled ? weekDays[6].minutes : 0;
+  const displayedStreakLabel = statsEnabled ? String(displayedStreak) : '—';
+  const displayedTodayMinutesLabel = statsEnabled ? formatMinutes(displayedTodayMinutes) : '—';
+  const goalCaption = !statsEnabled
+    ? '阅读统计已关闭'
+    : displayedTodayMinutes >= preferences.dailyGoalMinutes
     ? '今日目标已完成'
-    : `${displayedTodayMinutes}/${preferences.dailyGoalMinutes} 分钟目标`;
+    : `${formatMinutes(displayedTodayMinutes)}/${preferences.dailyGoalMinutes} 分钟目标`;
+  const weekMinutes = weekDays.reduce((total, day) => total + day.minutes, 0);
+  const trendMax = Math.max(preferences.dailyGoalMinutes, ...weekDays.map((day) => day.minutes), 1);
   const openBook = (book: typeof current) => {
     if (!book) return;
     navigation.navigate('Reader', book.progress >= 1
@@ -60,7 +81,7 @@ export function HomeScreen({ navigation }: Props) {
       setImportError(null);
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : '请确认文件格式后重试');
+      setImportError(formatImportFailure(error));
     }
   };
 
@@ -68,7 +89,7 @@ export function HomeScreen({ navigation }: Props) {
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
       <PageHeader
         eyebrow="书语 · 语境阅读"
-        title={greeting()}
+        title={greeting(clock)}
         right={
           <Pressable accessibilityRole="button" accessibilityLabel="导入电子书" onPress={handleImport} style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}>
             <Ionicons name="add" size={25} color={colors.ink} />
@@ -87,6 +108,16 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable accessibilityRole="button" accessibilityLabel="导入自己的英文书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
         </View>
       ) : null}
+      {!current ? (
+        <View style={styles.welcomeCard}>
+          <View style={styles.welcomeIcon}><Ionicons name="library-outline" size={20} color={colors.accent} /></View>
+          <View style={styles.welcomeCopy}>
+            <Text style={styles.welcomeTitle}>书架还没有书</Text>
+            <Text style={styles.welcomeBody}>导入一本你有权使用的英文书，书语会从上次位置帮你继续阅读。</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="导入第一本书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
+        </View>
+      ) : null}
 
       {current ? (
         <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
@@ -100,7 +131,7 @@ export function HomeScreen({ navigation }: Props) {
             <View>
               <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${Math.max(3, current.progress * 100)}%` }]} /></View>
               <View style={styles.progressMeta}>
-                <Text style={styles.progressText}>{Math.round(current.progress * 100)}%</Text>
+                <Text numberOfLines={1} style={styles.progressText}>{Math.round(current.progress * 100)}% · 第 {Math.min(current.currentChapter + 1, Math.max(1, current.chapterCount))}/{Math.max(1, current.chapterCount)} 章</Text>
                 <View style={styles.continuePill}>
                   <Text style={styles.continueText}>{currentCompleted ? '重读' : '继续'}</Text>
                   <Ionicons name="arrow-forward" size={14} color={colors.ink} />
@@ -119,19 +150,67 @@ export function HomeScreen({ navigation }: Props) {
       <View style={styles.metrics}>
         <View style={[styles.metricCard, styles.metricWarm]}>
           <Ionicons name="flame-outline" size={21} color={colors.accent} />
-          <Text style={styles.metricValue}>{displayedStreak}</Text>
+          <Text style={styles.metricValue}>{displayedStreakLabel}</Text>
           <Text style={styles.metricLabel}>连续天数</Text>
         </View>
         <View style={[styles.metricCard, styles.metricSage]}>
           <Ionicons name="time-outline" size={21} color={colors.sage} />
-          <Text style={styles.metricValue}>{displayedTodayMinutes}</Text>
+          <Text style={styles.metricValue}>{displayedTodayMinutesLabel}</Text>
           <Text style={styles.metricLabel}>今日分钟</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review') : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${dueWords ? '开始复习' : '打开生词本'}，${activeWords} 个学习中${dueWords ? `，${dueWords} 个今天到期` : ''}`} onPress={() => dueWords ? navigation.navigate('Review', { returnTo: 'Today' }) : navigation.navigate('Vocabulary')} style={[styles.metricCard, styles.metricBlue]}>
           <Ionicons name="sparkles-outline" size={21} color={colors.blue} />
           <Text style={styles.metricValue}>{activeWords}</Text>
           <Text style={styles.metricLabel}>待掌握词</Text>
         </Pressable>
+      </View>
+      {dueWords > 0 ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`开始复习，${dueWords} 个词今天到期`} onPress={() => navigation.navigate('Review', { returnTo: 'Today' })} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+          <View style={styles.nextActionIcon}><Ionicons name="layers-outline" size={20} color={colors.accent} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nextActionEyebrow}>今天可以先复习</Text>
+            <Text style={styles.nextActionTitle}>{dueWords} 个词等待重逢</Text>
+            <Text style={styles.nextActionBody}>用几分钟回顾原句，再回到书里继续读。</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        </Pressable>
+      ) : statsEnabled && current && displayedTodayMinutes < preferences.dailyGoalMinutes ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`继续阅读，今日还差${formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)}分钟完成目标`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+          <View style={styles.nextActionIcon}><Ionicons name="time-outline" size={20} color={colors.accent} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nextActionEyebrow}>今天还可以读一会儿</Text>
+            <Text style={styles.nextActionTitle}>再读 {formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)} 分钟完成目标</Text>
+            <Text style={styles.nextActionBody}>从《{current.title}》的上次位置继续。</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        </Pressable>
+      ) : statsEnabled && current ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`今日目标已完成，继续阅读《${current.title}》`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+          <View style={styles.nextActionIcon}><Ionicons name="checkmark-circle-outline" size={20} color={colors.sage} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nextActionEyebrow}>今日目标已完成</Text>
+            <Text style={styles.nextActionTitle}>想再读几页吗？</Text>
+            <Text style={styles.nextActionBody}>从《{current.title}》的上次位置继续，保持你的阅读节奏。</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        </Pressable>
+      ) : null}
+
+      <View style={styles.trendCard}>
+        <View style={styles.trendHeader}>
+          <View><Text style={styles.trendTitle}>近 7 天阅读</Text><Text style={styles.trendCaption}>{!statsEnabled ? '可在设置中重新开启' : weekDays.some((day) => day.recorded) ? `已记录 ${formatMinutes(weekMinutes)} 分钟` : '阅读后会显示你的 7 天节奏'}</Text></View>
+          <Ionicons name="bar-chart-outline" size={20} color={colors.sage} />
+        </View>
+        <View style={styles.trendBars}>
+          {weekDays.map((day) => (
+            <View key={day.key} accessible accessibilityLabel={`${day.key}，${day.recorded ? `${day.minutes} 分钟` : '无记录'}`} style={styles.trendDay}>
+              <Text style={styles.trendValue}>{day.recorded ? formatMinutes(day.minutes) : '—'}</Text>
+              <View style={styles.trendBarTrack}><View style={[styles.trendBar, { height: day.minutes / trendMax * 72 }]} /></View>
+              <Text style={styles.trendDayLabel}>{day.label}</Text>
+            </View>
+          ))}
+        </View>
+        {statsEnabled && weekDays.some((day) => !day.recorded) ? <Text style={styles.trendCaption}>— 表示无记录</Text> : !statsEnabled ? <Text style={styles.trendCaption}>阅读进度仍会正常保存</Text> : null}
       </View>
 
       <View style={styles.sectionHeader}>
@@ -149,15 +228,33 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
-          <Text style={styles.importBody}>TXT · EPUB · MOBI · AZW3 · PDF</Text>
+          <Text style={styles.importBody}>{Platform.OS === 'web' ? 'TXT · EPUB · MOBI · AZW3 · KF8' : 'TXT · EPUB · MOBI · AZW3 · KF8 · PDF'}</Text>
         </Pressable>
       </ScrollView>
+
+      {recentWords.length ? (
+        <View style={styles.recentWordsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>最近收藏</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="查看全部生词" onPress={() => navigation.navigate('Vocabulary')}><Text style={styles.link}>查看生词本</Text></Pressable>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.wordRow}>
+            {recentWords.map((word) => (
+              <Pressable key={word.id} accessibilityRole="button" accessibilityLabel={`回到${word.bookTitle}中的${word.word}原文`} onPress={() => navigation.navigate('Reader', { bookId: word.bookId, chapterIndex: word.chapterIndex, paragraphIndex: word.paragraphIndex, returnTo: 'Today' })} style={({ pressed }) => [styles.wordCard, pressed && styles.pressed]}>
+                <Text style={styles.wordCardWord}>{word.word}</Text>
+                <Text numberOfLines={2} style={styles.wordCardMeaning}>{word.meaning}</Text>
+                <Text numberOfLines={1} style={styles.wordCardSource}>{wordSourceLabel(word)}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <View style={styles.privacyNote}>
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
         <View style={{ flex: 1 }}>
           <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>书籍正文保存在设备。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
+          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
         </View>
       </View>
     </ScrollView>
@@ -186,7 +283,7 @@ const styles = StyleSheet.create({
   progressTrack: { width: '100%', height: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 4, backgroundColor: colors.accent },
   progressMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 13 },
-  progressText: { color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
+  progressText: { flex: 1, marginRight: 8, color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '600' },
   continuePill: { flexDirection: 'row', gap: 5, alignItems: 'center', backgroundColor: '#F8F4EA', borderRadius: radii.pill, paddingHorizontal: 13, paddingVertical: 8 },
   continueText: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   sectionHeader: { marginTop: 30, marginBottom: 14, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
@@ -198,8 +295,23 @@ const styles = StyleSheet.create({
   metricWarm: { backgroundColor: colors.accentSoft },
   metricSage: { backgroundColor: colors.sageSoft },
   metricBlue: { backgroundColor: '#DFE7EF' },
+  nextAction: { marginTop: 14, padding: 14, borderRadius: radii.medium, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  nextActionIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,112,67,0.16)', alignItems: 'center', justifyContent: 'center' },
+  nextActionEyebrow: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.1 },
+  nextActionTitle: { color: colors.surfaceStrong, fontFamily: typography.serif, fontSize: 17, fontWeight: '700', marginTop: 2 },
+  nextActionBody: { color: 'rgba(255,255,255,0.58)', fontSize: 10, marginTop: 3 },
   metricValue: { color: colors.ink, fontFamily: typography.serif, fontSize: 26, fontWeight: '700' },
   metricLabel: { color: colors.inkMuted, fontSize: 11, fontWeight: '600' },
+  trendCard: { marginTop: 14, padding: 17, borderRadius: radii.medium, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
+  trendHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  trendTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 18, fontWeight: '700' },
+  trendCaption: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
+  trendBars: { marginTop: 13, marginBottom: 8, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },
+  trendDay: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
+  trendValue: { color: colors.inkMuted, fontSize: 10 },
+  trendBarTrack: { height: 72, width: '100%', borderRadius: 5, backgroundColor: colors.canvas, justifyContent: 'flex-end', overflow: 'hidden' },
+  trendBar: { width: '100%', borderRadius: 5, backgroundColor: colors.sage },
+  trendDayLabel: { color: colors.inkMuted, fontSize: 9, fontWeight: '700' },
   bookRow: { gap: 15, paddingBottom: 8, paddingRight: 10 },
   bookItem: { width: 116, gap: 7 },
   bookTitle: { color: colors.ink, fontSize: 13, fontWeight: '700', lineHeight: 17 },
@@ -208,6 +320,12 @@ const styles = StyleSheet.create({
   importIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   importTitle: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   importBody: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
+  recentWordsSection: { marginTop: 4 },
+  wordRow: { gap: 10, paddingBottom: 8, paddingRight: 10 },
+  wordCard: { width: 148, minHeight: 106, padding: 14, borderRadius: radii.medium, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
+  wordCardWord: { color: colors.ink, fontFamily: typography.serif, fontSize: 20, fontWeight: '700' },
+  wordCardMeaning: { color: colors.inkMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  wordCardSource: { color: colors.sage, fontSize: 9, fontWeight: '700', marginTop: 8 },
   privacyNote: { marginTop: 30, padding: 18, borderRadius: radii.medium, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'flex-start', gap: 13 },
   privacyTitle: { color: colors.ink, fontWeight: '700', fontSize: 13, marginBottom: 5 },
   privacyBody: { color: colors.inkMuted, fontSize: 11, lineHeight: 17 },

@@ -28,22 +28,32 @@ function safeDecodeFileName(value: string) {
 }
 
 export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancelled?: () => boolean }): Promise<ParsedBook | null> {
-  const result = await DocumentPicker.getDocumentAsync({
-    // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
-    // and validate the extension plus BOOKMOBI signature inside the app.
-    type: '*/*',
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
+  let result: DocumentPicker.DocumentPickerResult;
+  try {
+    result = await DocumentPicker.getDocumentAsync({
+      // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
+      // and validate the extension plus BOOKMOBI signature inside the app.
+      type: '*/*',
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code ?? '';
+    if (/CANCEL/i.test(code)) return null;
+    throw error;
+  }
 
   if (result.canceled) return null;
-  const asset = result.assets[0];
+  const asset = result.assets?.[0];
+  if (!asset) throw new Error('未选择有效文件，请重试');
   const decodedUriName = safeDecodeFileName(asset.uri.split(/[\\/]/).pop() || '');
   const fileName = asset.name || decodedUriName || '未命名书籍';
-  const fallbackTitle = cleanFileName(fileName);
+  const fallbackTitle = cleanFileName(fileName) || '未命名书籍';
   const extension = (fileName.split('.').pop() || '').toLowerCase();
   const webFile = Platform.OS === 'web' ? asset.file : undefined;
+  pdfOptions.onFileSelected?.(fileName);
   const knownExtension = ['txt', 'epub', 'mobi', 'azw3', 'kf8', 'pdf'].includes(extension);
+  pdfOptions.onImportStage?.('reading');
 
   if (asset.size && asset.size > 80 * 1024 * 1024) {
     throw new Error('文件超过 80 MB。为避免手机内存不足，请导入更小的书籍文件');
@@ -59,6 +69,7 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
     if (text.includes('\uFFFD')) {
       throw new Error('TXT 编码无法识别，请将文件转换为 UTF-8 后重试');
     }
+    pdfOptions.onImportStage?.('parsing');
     const chapters = splitPlainText(text, fallbackTitle);
     if (!chapters.length) throw new Error('没有从 TXT 中识别到可阅读内容');
     return { title: fallbackTitle, author: '本地导入', chapters, format: 'txt' };
@@ -67,12 +78,14 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   if (extension === 'epub' || (!knownExtension && asset.mimeType === 'application/epub+zip')) {
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
     if (pdfOptions.isCancelled?.()) return null;
-    return parseEpub(data, fallbackTitle);
+    pdfOptions.onImportStage?.('parsing');
+    return parseEpub(data, fallbackTitle, pdfOptions.isCancelled);
   }
 
   if (extension === 'azw3' || extension === 'kf8' || extension === 'mobi' || (!knownExtension && kindleMimeTypes.has(asset.mimeType || ''))) {
     const data = webFile ? await webFile.arrayBuffer() : await new File(asset.uri).arrayBuffer();
     if (pdfOptions.isCancelled?.()) return null;
+    pdfOptions.onImportStage?.('parsing');
     const inspection = inspectKindleFile(data);
     if (!inspection.isKindle && !['mobi', 'azw3', 'kf8'].includes(extension)) {
       throw new Error('文件扩展名和内容均无法识别。请选择 TXT、EPUB、MOBI、AZW3、KF8 或 PDF 文件');
@@ -80,11 +93,15 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
     const format = extension === 'azw3' || extension === 'kf8'
       ? extension
       : inspection.likelyKf8 ? 'azw3' : 'mobi';
-    return parseKindle(data, fallbackTitle, format);
+    return parseKindle(data, fallbackTitle, format, pdfOptions.isCancelled);
   }
 
   if (extension === 'pdf' || (!knownExtension && asset.mimeType === 'application/pdf')) {
+    if (Platform.OS === 'web') {
+      throw new Error('Web 预览暂不支持 PDF 提取或 OCR，请使用正式 Android 安装包');
+    }
     if (pdfOptions.isCancelled?.()) return null;
+    pdfOptions.onImportStage?.('parsing');
     return parsePdf(asset.uri, fallbackTitle, pdfOptions);
   }
 

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { isBookContent, parseBookContent } from '../src/utils/bookContent';
 import { resolveReadingPosition } from '../src/utils/reading';
 import type { BookContent } from '../src/types';
+import { formatContentReadFailure } from '../src/utils/contentErrors';
 
 const content: BookContent = {
   id: 'book_test', title: 'A readable book', chapters: [
@@ -37,5 +38,8 @@ assert.equal(isBookContent({ ...content, chapters: [{ ...content.chapters[1], wo
 assert.equal(isBookContent({ ...content, author: 'An author' }), true);
 assert.equal(isBookContent({ ...content, chapters: [{ ...content.chapters[1], wordCount: 0, paragraphs: ['中文正文。'] }] }), true,
   'Zero English words does not make non-English text invalid');
+assert.equal(formatContentReadFailure(new Error('ENOENT: file not found')), '本地书籍正文不存在，请从原文件重新导入，或在设置中恢复备份。');
+assert.equal(formatContentReadFailure(new Error('EACCES: permission denied')), '无法访问本地书籍正文，请检查设备存储权限后重试。');
+assert.equal(formatContentReadFailure(new Error('正文校验失败')), '正文校验失败');
 
 console.log('Book content validation and empty-chapter position verification passed.');

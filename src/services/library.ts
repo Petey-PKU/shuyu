@@ -13,7 +13,7 @@ import type {
   BackupPayload,
 } from '../types';
 import { bookAccents } from '../theme';
-import { seedSampleOnce } from '../utils/bootstrap';
+import { recoverPendingImportOnce, seedSampleOnce } from '../utils/bootstrap';
 import { libraryKeys as KEYS } from '../utils/storageKeys';
 import { recoverInterruptedRestore, restoreBackupSnapshot, type RestoreStorage } from '../utils/backupRestore';
 import { isSafeBookId, parseBookContent } from '../utils/bookContent';
@@ -25,6 +25,7 @@ const defaultPreferences: ReadingPreferences = {
   dailyGoalMinutes: 15,
   theme: 'paper',
   onlineSentenceTranslation: false,
+  readingStatsEnabled: true,
   speechVoice: undefined,
 };
 
@@ -73,6 +74,43 @@ export async function loadBooks(): Promise<Book[]> {
 
 export async function saveBooks(books: Book[]) {
   await enqueueWrite(KEYS.books, () => AsyncStorage.setItem(KEYS.books, JSON.stringify(books)));
+}
+
+export async function savePendingImport(book: Book) {
+  await enqueueWrite(KEYS.pendingImport, async () => {
+    const raw = await AsyncStorage.getItem(KEYS.pendingImport);
+    let pending: Book[] = [];
+    if (raw) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        pending = (Array.isArray(parsed) ? parsed : [parsed]).filter((item): item is Book => !!item && typeof item === 'object' && 'id' in item && typeof item.id === 'string');
+      } catch { /* Replace an unreadable marker with the current import. */ }
+    }
+    const next = pending.some((item) => item.id === book.id) ? pending : [...pending, book];
+    await AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(next));
+  });
+}
+
+export async function clearPendingImport(bookId?: string) {
+  await enqueueWrite(KEYS.pendingImport, async () => {
+    if (!bookId) {
+      await AsyncStorage.removeItem(KEYS.pendingImport);
+      return;
+    }
+    const raw = await AsyncStorage.getItem(KEYS.pendingImport);
+    if (!raw) return;
+    let pending: unknown[];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      pending = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      await AsyncStorage.removeItem(KEYS.pendingImport);
+      return;
+    }
+    const remaining = pending.filter((item) => !(item && typeof item === 'object' && 'id' in item && item.id === bookId));
+    if (remaining.length) await AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(remaining));
+    else await AsyncStorage.removeItem(KEYS.pendingImport);
+  });
 }
 
 export async function loadWords(): Promise<SavedWord[]> {
@@ -146,12 +184,19 @@ export async function createBook(parsed: ParsedBook): Promise<{ book: Book; cont
     chapterCount: content.chapters.length,
     accent: bookAccents[Math.floor(Math.random() * bookAccents.length)],
   };
-  if (Platform.OS === 'web') {
-    await AsyncStorage.setItem(contentKey(id), JSON.stringify(content));
-  } else {
-    const file = contentFile(id);
-    file.create({ intermediates: true, overwrite: true });
-    file.write(JSON.stringify(content));
+  try {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.setItem(contentKey(id), JSON.stringify(content));
+    } else {
+      const file = contentFile(id);
+      file.create({ intermediates: true, overwrite: true });
+      file.write(JSON.stringify(content));
+    }
+  } catch (error) {
+    // A failed write must not leave an orphaned正文 file behind. The book
+    // index is published only after this block succeeds.
+    try { await removeBookContent(id); } catch { /* Preserve the original write error. */ }
+    throw error;
   }
   return { book, content };
 }
@@ -181,6 +226,7 @@ export async function loadBookContent(bookId: string): Promise<BookContent> {
 
 export async function restoreBackupData(payload: BackupPayload) {
   assertWritable();
+  await clearPendingImport();
   restoring = true;
   try {
     await Promise.allSettled([...writeQueues.values()]);
@@ -222,6 +268,18 @@ export async function recoverPendingRestore() {
   finally { restoring = false; }
 }
 
+export async function recoverPendingImport() {
+  assertWritable();
+  return recoverPendingImportOnce({
+    loadPendingImport: () => AsyncStorage.getItem(KEYS.pendingImport),
+    clearPendingImport,
+    loadBooks,
+    saveBooks,
+    contentExists: async (id) => Platform.OS === 'web'
+      ? (await AsyncStorage.getItem(contentKey(id))) !== null : contentFile(id).exists,
+  });
+}
+
 const sample: ParsedBook = {
   title: 'The Quiet Observatory',
   author: '书语编辑部',
@@ -255,6 +313,7 @@ export async function ensureSampleBook(books: Book[]): Promise<Book[]> {
     isSeeded: async () => (await AsyncStorage.getItem(KEYS.sample)) !== null,
     create: async () => (await createBook(sample)).book,
     saveBooks,
+    remove: (book) => deleteBookContent(book.id),
     markSeeded: () => AsyncStorage.setItem(KEYS.sample, 'true'),
   });
 }

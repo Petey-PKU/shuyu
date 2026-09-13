@@ -12,6 +12,7 @@ import { countWords } from '../utils/text';
 import { htmlToParagraphs } from './markup';
 
 const MAX_EXTRACTED_CHARACTERS = 25_000_000;
+const IMPORT_CANCELLED_MESSAGE = '导入已取消';
 type KindleFormat = Extract<BookFormat, 'mobi' | 'azw3' | 'kf8'>;
 type KindleTocItem = MobiTocItem | Kf8TocItem;
 
@@ -36,6 +37,10 @@ interface Kf8RawTextParser extends KindleTextParser {
 
 function formatLabel(format: KindleFormat) {
   return format === 'mobi' ? 'MOBI' : format.toUpperCase();
+}
+
+export function formatKindleParseFailure(format: KindleFormat) {
+  return `无法解析 ${formatLabel(format)} 文件。文件可能损坏、扩展名不正确，或包含暂不支持的固定版式；请确认文件无 DRM 且为可重排文字内容后重试`;
 }
 
 function asciiAt(data: ArrayBuffer, offset: number, length: number) {
@@ -101,8 +106,14 @@ function installObjectUrlFallback() {
   }
 }
 
-function collectTocTitles(parser: KindleTextParser, items: KindleTocItem[], titles: Map<string, string>) {
+function collectTocTitles(
+  parser: KindleTextParser,
+  items: KindleTocItem[],
+  titles: Map<string, string>,
+  throwIfCancelled?: () => void,
+) {
   for (const item of items) {
+    throwIfCancelled?.();
     let resolved: { id: string } | undefined;
     try {
       resolved = parser.resolveHref(item.href);
@@ -111,7 +122,7 @@ function collectTocTitles(parser: KindleTextParser, items: KindleTocItem[], titl
     }
     const label = item.label?.replace(/\s+/g, ' ').trim();
     if (resolved?.id && label && !titles.has(resolved.id)) titles.set(resolved.id, label);
-    if (item.children?.length) collectTocTitles(parser, item.children, titles);
+    if (item.children?.length) collectTocTitles(parser, item.children, titles, throwIfCancelled);
   }
 }
 
@@ -148,19 +159,27 @@ async function parseKindleBook(
   fallbackTitle: string,
   format: KindleFormat,
   initialize: (input: Uint8Array) => Promise<KindleTextParser>,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
   let parser: KindleTextParser | undefined;
   const restoreObjectUrl = installObjectUrlFallback();
   try {
+    throwIfCancelled();
     assertDrmFreeKindleFile(data, format);
     parser = await initialize(new Uint8Array(data));
+    throwIfCancelled();
     const metadata = parser.getMetadata();
+    throwIfCancelled();
     const tocTitles = new Map<string, string>();
-    collectTocTitles(parser, parser.getToc(), tocTitles);
+    collectTocTitles(parser, parser.getToc(), tocTitles, throwIfCancelled);
 
     const chapters: ParsedBook['chapters'] = [];
     let extractedCharacters = 0;
     for (const spineItem of parser.getSpine()) {
+      throwIfCancelled();
       const source = loadChapterSource(parser, spineItem, format);
       if (!source.trim()) continue;
       extractedCharacters += source.length;
@@ -169,6 +188,7 @@ async function parseKindleBook(
       }
       const sections = source.split(/<mbp:pagebreak\b[^>]*\/?\s*>/gi).filter((section) => section.trim());
       for (const [sectionIndex, section] of sections.entries()) {
+        throwIfCancelled();
         const parsed = htmlToParagraphs(section);
         const wordCount = countWords(parsed.paragraphs.join(' '));
         if (wordCount < 3) continue;
@@ -192,7 +212,7 @@ async function parseKindleBook(
       format,
     };
   } catch (error) {
-    if (error instanceof Error && /DRM|加密|正文过大|没有可读取|文件过小|记录表|内容记录/.test(error.message)) {
+    if (error instanceof Error && /DRM|加密|导入已取消|正文过大|没有可读取|文件过小|记录表|内容记录/.test(error.message)) {
       throw error;
     }
     throw new Error(`无法解析 ${formatLabel(format)} 文件：${error instanceof Error ? error.message : '文件可能损坏或格式不受支持'}。仅支持无 DRM 的可重排文字内容`);
@@ -206,41 +226,43 @@ async function parseKindleBook(
   }
 }
 
-export function parseMobi(data: ArrayBuffer, fallbackTitle: string): Promise<ParsedBook> {
-  return parseKindleBook(data, fallbackTitle, 'mobi', (input) => initMobiFile(input) as Promise<Mobi>);
+export function parseMobi(data: ArrayBuffer, fallbackTitle: string, isCancelled?: () => boolean): Promise<ParsedBook> {
+  return parseKindleBook(data, fallbackTitle, 'mobi', (input) => initMobiFile(input) as Promise<Mobi>, isCancelled);
 }
 
 export function parseKf8(
   data: ArrayBuffer,
   fallbackTitle: string,
   format: Extract<KindleFormat, 'azw3' | 'kf8'>,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
-  return parseKindleBook(data, fallbackTitle, format, (input) => initKf8File(input) as Promise<Kf8>);
+  return parseKindleBook(data, fallbackTitle, format, (input) => initKf8File(input) as Promise<Kf8>, isCancelled);
 }
 
 export async function parseKindle(
   data: ArrayBuffer,
   fallbackTitle: string,
   requestedFormat: KindleFormat,
+  isCancelled?: () => boolean,
 ): Promise<ParsedBook> {
+  if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
   const inspection = inspectKindleFile(data);
   if (!inspection.isKindle) {
     throw new Error(`${formatLabel(requestedFormat)} 文件头无法识别；文件可能损坏、扩展名不正确，或实际为 KFX/AZW4 等不受支持格式`);
   }
 
   const attempts: Array<() => Promise<ParsedBook>> = requestedFormat === 'mobi' && !inspection.likelyKf8
-    ? [() => parseMobi(data, fallbackTitle), () => parseKf8(data, fallbackTitle, 'kf8')]
-    : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat), () => parseMobi(data, fallbackTitle)];
-  const errors: string[] = [];
+    ? [() => parseMobi(data, fallbackTitle, isCancelled), () => parseKf8(data, fallbackTitle, 'kf8', isCancelled)]
+    : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat, isCancelled), () => parseMobi(data, fallbackTitle, isCancelled)];
   for (const attempt of attempts) {
     try {
       const parsed = await attempt();
+      if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
       return { ...parsed, format: requestedFormat };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (/DRM|加密/.test(message)) throw error;
-      errors.push(message);
+      if (/DRM|加密|导入已取消/.test(message)) throw error;
     }
   }
-  throw new Error(`无法解析 ${formatLabel(requestedFormat)} 文件。已尝试 KF8 与兼容 MOBI 内容：${errors.join('；')}`);
+  throw new Error(formatKindleParseFailure(requestedFormat));
 }

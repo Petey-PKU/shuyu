@@ -8,4 +8,5 @@ export const libraryKeys = {
   sample: '@shuyu/sample-seeded',
   readerHint: '@shuyu/reader-tap-hint-seen',
   restoreJournal: '@shuyu/restore-journal',
+  pendingImport: '@shuyu/pending-import',
 } as const;

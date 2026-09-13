@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import type { SavedWord } from '../src/types';
-import { deferReview, isWordDue, nextReviewTime, reviewDelayLabel } from '../src/utils/review';
+import { deferReview, escapeRegExp, isWordDue, nextReviewTime, reviewDelayLabel } from '../src/utils/review';
 
 const now = Date.parse('2026-09-09T10:00:00Z');
 const word: SavedWord = { id: 'one', word: 'quiet', meaning: '安静的', context: 'It was quiet.', bookId: 'book', bookTitle: 'Story', createdAt: new Date(now).toISOString(), mastered: false, reviewCount: 0 };
@@ -17,4 +17,5 @@ assert.equal(isWordDue('broken timestamp', now), true);
 assert.equal(reviewDelayLabel(first.nextReviewAt, now), '10 分钟后再来');
 assert.equal(nextReviewTime([word, first, { ...word, mastered: true, nextReviewAt: new Date(now).toISOString() }]), first.nextReviewAt, 'Mastered and unscheduled words must not hide the next scheduled review');
 assert.equal(nextReviewTime([{ ...word, nextReviewAt: 'invalid' }]), undefined);
+assert.equal(escapeRegExp('a[+b'), 'a\\[\\+b', 'Backup-provided words must be safe in review cloze patterns');
 console.log('Review scheduling verification passed.');

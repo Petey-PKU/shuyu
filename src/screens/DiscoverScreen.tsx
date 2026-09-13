@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -8,13 +9,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHeader } from '../components/PageHeader';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
 import { useApp } from '../context/AppContext';
-import { recommendedBooks } from '../data/recommendedBooks';
+import { assessmentQuestions } from '../data/assessment';
+import { recommendedBookById, recommendedBooks } from '../data/recommendedBooks';
 import type { MainTabParamList, RootStackParamList } from '../navigation/types';
 import type { LanguageLevel, RecommendedBook } from '../types';
 import {
   effectiveReadingScore,
   genreLabels,
   genreOptions,
+  hasRecommendationReadingSignal,
   levelLabels,
   levelOrder,
   rankRecommendedBooks,
@@ -24,18 +27,21 @@ import { colors, radii, typography } from '../theme';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Discover'>, NativeStackScreenProps<RootStackParamList>>;
 
-function BookTile({ book, saved, targetScore, onPress, onSave }: {
+const assessmentDraftKey = '@shuyu/assessment-draft';
+
+function BookTile({ book, saved, targetScore, onPress, onSave, saveDisabled }: {
   book: RecommendedBook;
   saved: boolean;
   targetScore: number;
   onPress: () => void;
   onSave: () => void;
+  saveDisabled: boolean;
 }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={onPress} style={({ pressed }) => [styles.bookTile, pressed && styles.pressed]}>
       <View>
         <RecommendedBookCover book={book} width={132} />
-        <Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={saveDisabled ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: saveDisabled }} disabled={saveDisabled} onPress={(event) => { event.stopPropagation(); onSave(); }} style={[styles.saveButton, saved && styles.savedButton, saveDisabled && styles.saveDisabled]}>
           <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color={saved ? '#fff' : colors.ink} />
         </Pressable>
       </View>
@@ -57,22 +63,67 @@ export function DiscoverScreen({ navigation }: Props) {
   } = useApp();
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
+  const [savingBookId, setSavingBookId] = useState<string | null>(null);
+  const [assessmentDraftExists, setAssessmentDraftExists] = useState(false);
+  const savingBookRef = useRef<string | null>(null);
+
+  const refreshAssessmentDraft = useCallback(() => {
+    void AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
+      try {
+        const parsed = raw ? JSON.parse(raw) as Record<string, unknown> : null;
+        const hasValidAnswer = !!parsed && assessmentQuestions.some((question) => {
+          const value = parsed[question.id];
+          return Number.isInteger(value) && Number(value) >= 0 && Number(value) < question.options.length;
+        });
+        setAssessmentDraftExists(hasValidAnswer);
+      } catch {
+        setAssessmentDraftExists(false);
+      }
+    }).catch(() => {
+      setAssessmentDraftExists(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', refreshAssessmentDraft);
+    refreshAssessmentDraft();
+    return unsubscribe;
+  }, [navigation, refreshAssessmentDraft]);
 
   useEffect(() => {
     if (recommendationState.profile) setBrowseLevel(recommendationState.profile.level);
   }, [recommendationState.profile]);
 
   const targetScore = effectiveReadingScore(recommendationState, readingSignals, books);
+  const validSavedBookIds = useMemo(
+    () => new Set(recommendationState.savedBookIds.filter((bookId) => recommendedBookById.has(bookId))),
+    [recommendationState.savedBookIds],
+  );
+  const savedBookCount = validSavedBookIds.size;
   const ranked = useMemo(
     () => rankRecommendedBooks(recommendationState, readingSignals, books),
     [books, readingSignals, recommendationState],
   );
-  const personal = (showSavedOnly ? ranked.filter((book) => recommendationState.savedBookIds.includes(book.id)) : ranked).slice(0, 8);
+  const personal = (showSavedOnly ? ranked.filter((book) => validSavedBookIds.has(book.id)) : ranked).slice(0, 8);
   const levelBooks = recommendedBooks.filter((book) => book.level === browseLevel);
   const filteredLevelBooks = recommendationState.preferredGenres.length
     ? levelBooks.filter((book) => book.genres.some((genre) => recommendationState.preferredGenres.includes(genre)))
     : levelBooks;
   const shelf = filteredLevelBooks.length ? filteredLevelBooks : levelBooks;
+  const handleToggleSaved = async (bookId: string) => {
+    if (savingBookRef.current) return;
+    savingBookRef.current = bookId;
+    setSavingBookId(bookId);
+    try {
+      await toggleSavedRecommendedBook(bookId);
+    } catch {
+      // The app shell exposes the persistence retry banner while keeping the
+      // optimistic recommendation state usable.
+    } finally {
+      savingBookRef.current = null;
+      setSavingBookId(null);
+    }
+  };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
@@ -92,15 +143,15 @@ export function DiscoverScreen({ navigation }: Props) {
           <View style={styles.assessmentIcon}><Ionicons name="sparkles" size={23} color={colors.accent} /></View>
           <Text style={styles.assessmentEyebrow}>先找到舒适起点</Text>
           <Text style={styles.assessmentTitle}>不知道该从哪一本开始？</Text>
-          <Text style={styles.assessmentBody}>完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="开始水平测试" onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>开始水平测试</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
+          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={assessmentDraftExists ? '继续水平测试' : '开始水平测试'} onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>{assessmentDraftExists ? '继续水平测试' : '开始水平测试'}</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
         </View>
       ) : (
         <View style={styles.profileCard}>
           <View style={styles.profileLevel}><Text style={styles.profileLevelText}>{recommendationState.profile.level}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileTitle}>{levelLabels[recommendationState.profile.level]}</Text>
-            <Text style={styles.profileBody}>适配分 {targetScore} · 推荐已结合测试结果{readingSignals.some((signal) => signal.wordsRead >= 800) ? '和近期阅读' : ''}</Text>
+            <Text style={styles.profileBody}>适配分 {targetScore} · 推荐已结合测试结果{hasRecommendationReadingSignal(readingSignals, books) ? '和近期阅读' : ''}</Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={colors.sage} />
         </View>
@@ -110,15 +161,15 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
       <View style={styles.sectionHeader}>
         <View><Text style={styles.sectionTitle}>{recommendationState.profile ? '正适合你的书' : '从这里开始看看'}</Text><Text style={styles.sectionSub}>难度、兴趣与近期阅读共同排序</Text></View>
-        {recommendationState.savedBookIds.length ? (
-          <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
-            <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${recommendationState.savedBookIds.length} 想读`}</Text>
+        {showSavedOnly || savedBookCount ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={showSavedOnly ? '查看全部推荐' : '只看想读'} accessibilityState={{ selected: showSavedOnly }} onPress={() => setShowSavedOnly((value) => !value)} style={[styles.savedCount, showSavedOnly && styles.savedCountSelected]}>
+            <Ionicons name="bookmark" size={12} color={showSavedOnly ? '#fff' : colors.accent} /><Text style={[styles.savedCountText, showSavedOnly && styles.savedCountTextSelected]}>{showSavedOnly ? '全部' : `${savedBookCount} 想读`}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -127,28 +178,29 @@ export function DiscoverScreen({ navigation }: Props) {
           <BookTile
             key={book.id}
             book={book}
-            saved={recommendationState.savedBookIds.includes(book.id)}
+            saved={validSavedBookIds.has(book.id)}
             targetScore={targetScore}
             onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })}
-            onSave={() => { void toggleSavedRecommendedBook(book.id).catch(() => undefined); }}
+            onSave={() => { void handleToggleSaved(book.id); }}
+            saveDisabled={savingBookId === book.id}
           />
         ))}
-        {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>还没有想读的书</Text></View> : null}
+        {!personal.length ? <View style={styles.savedEmpty}><Ionicons name="bookmark-outline" size={19} color={colors.inkMuted} /><Text style={styles.savedEmptyText}>{showSavedOnly ? '还没有想读的书，点“全部”继续浏览' : '还没有想读的书'}</Text></View> : null}
       </ScrollView>
 
       <View style={styles.sectionHeader}><View><Text style={styles.sectionTitle}>按等级浏览</Text><Text style={styles.sectionSub}>分级改写版与原版会明确标注</Text></View></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.levelRow}>
-        {levelOrder.map((level) => <Pressable key={level} accessibilityRole="button" accessibilityLabel={`浏览${level}级别：${levelLabels[level]}`} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
+        {levelOrder.map((level) => <Pressable key={level} accessibilityRole="button" accessibilityLabel={`浏览${level}级别：${levelLabels[level]}`} accessibilityState={{ selected: browseLevel === level }} onPress={() => setBrowseLevel(level)} style={[styles.levelChip, browseLevel === level && styles.levelChipSelected]}><Text style={[styles.levelChipMain, browseLevel === level && styles.levelChipMainSelected]}>{level}</Text><Text style={[styles.levelChipSub, browseLevel === level && styles.levelChipSubSelected]}>{levelLabels[level]}</Text></Pressable>)}
       </ScrollView>
 
       <View style={styles.catalogList}>
         {shelf.map((book) => {
-          const saved = recommendationState.savedBookIds.includes(book.id);
+          const saved = validSavedBookIds.has(book.id);
           return (
             <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`查看推荐《${book.title}》`} onPress={() => navigation.navigate('RecommendedBook', { bookId: book.id })} style={({ pressed }) => [styles.catalogRow, pressed && styles.pressed]}>
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
-                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={saved ? '移出想读' : '加入想读'} onPress={(event) => { event.stopPropagation(); void toggleSavedRecommendedBook(book.id).catch(() => undefined); }} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
+                <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={savingBookId === book.id ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: savingBookId === book.id }} disabled={savingBookId === book.id} onPress={(event) => { event.stopPropagation(); void handleToggleSaved(book.id); }} style={savingBookId === book.id && styles.saveDisabled} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
                 <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>
@@ -158,7 +210,7 @@ export function DiscoverScreen({ navigation }: Props) {
         })}
       </View>
 
-      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，再导入本地书架。</Text></View></View>
+      <View style={styles.boundaryNote}><Ionicons name="library-outline" size={20} color={colors.sage} /><View style={{ flex: 1 }}><Text style={styles.boundaryTitle}>这里是选书指南，不是书城</Text><Text style={styles.boundaryBody}>{Platform.OS === 'web' ? '书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，再导入本地书架；PDF 与 OCR 请使用正式 Android 安装包。' : '书语不提供图书获取入口。你可以自行取得有权使用的 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，再导入本地书架。'}</Text></View></View>
     </ScrollView>
   );
 }
@@ -195,6 +247,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.76 },
   saveButton: { position: 'absolute', right: 8, bottom: 8, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.9)', alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
+  saveDisabled: { opacity: 0.48 },
   bookTitle: { color: colors.ink, fontSize: 12, lineHeight: 16, fontWeight: '800', marginTop: 9 },
   bookAuthor: { color: colors.inkMuted, fontSize: 9, marginTop: 4 },
   match: { fontSize: 9, fontWeight: '800', marginTop: 6 },

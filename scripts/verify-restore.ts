@@ -8,7 +8,7 @@ const payload: BackupPayload = {
   books: [{ id: 'book_1', title: 'Restored story', author: 'Reader', format: 'txt', createdAt: '2026-09-09T00:00:00Z', lastOpenedAt: '2026-09-09T00:00:00Z', currentChapter: 0, currentParagraph: 0, progress: 0, totalWords: 2, chapterCount: 1, accent: '#333' }],
   contents: { book_1: { id: 'book_1', title: 'Restored story', chapters: [{ id: 'chapter_1', title: 'Start', paragraphs: ['Restored words.'], wordCount: 2 }] } },
   words: [{ id: 'word_1', word: 'restored', meaning: '恢复', context: 'Restored words.', bookId: 'book_1', bookTitle: 'Restored story', createdAt: '2026-09-09T00:00:00Z', mastered: false, reviewCount: 0 }],
-  stats: { minutes: 3, words: 4, todayMinutes: 3, todayWords: 4, streak: 1 },
+  stats: { minutes: 3, words: 4, todayMinutes: 3, todayWords: 4, todayDate: '2026-09-09', lastReadDate: '2026-09-09', streak: 1, dailyHistory: { '2026-09-09': { minutes: 3, words: 4 } } },
   preferences: { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper', onlineSentenceTranslation: true },
   recommendationState: { preferredGenres: [], savedBookIds: ['catalog_1'], feedback: { catalog_1: 'right' } },
   readingSignals: [{ bookId: 'book_1', lookups: 1, wordsRead: 2, minutes: 1 }],
@@ -51,6 +51,8 @@ async function main() {
   assert.equal(restored.readingSignals[0].bookId, restored.books[0].id);
   assert.deepEqual(restored.recommendationState, payload.recommendationState, 'Catalog IDs are not local book file IDs');
   assert.equal(successful.values.get(keys.books), JSON.stringify(restored.books));
+  assert.deepEqual(restored.stats, payload.stats, 'Restored daily history must reach the app snapshot');
+  assert.deepEqual(JSON.parse(successful.values.get(keys.stats)!), payload.stats, 'Daily history must also be persisted for the next launch');
   assert.equal(successful.values.has(keys.restoreJournal), false);
   assert.equal(successful.contents.has('book_1'), false);
   assert.deepEqual(successful.contents.get(restored.books[0].id)?.chapters[0].paragraphs, ['Restored words.']);
@@ -81,6 +83,7 @@ async function main() {
     } else {
       const books = JSON.parse(test.values.get(keys.books)!);
       assert.equal(books[0].title, 'Restored story');
+      assert.deepEqual(JSON.parse(test.values.get(keys.stats)!), payload.stats, 'Committed history survives interruption after restore');
       assert.ok(test.contents.has(books[0].id), 'Committed metadata always has its content');
     }
   }

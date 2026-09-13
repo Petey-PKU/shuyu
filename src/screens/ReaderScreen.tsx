@@ -7,7 +7,9 @@ import {
   type LayoutChangeEvent,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -23,8 +25,10 @@ import type { BookContent } from '../types';
 import { colors, radii, typography } from '../theme';
 import type { LookupResult } from '../services/translation';
 import { sentenceAt, tokenizeParagraph } from '../utils/text';
-import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../utils/reading';
+import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphIndex } from '../utils/reading';
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
+import { InlineNotice } from '../components/InlineNotice';
+import { formatContentReadFailure } from '../utils/contentErrors';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
   pageAtOffset,
@@ -75,6 +79,9 @@ const ReaderPageText = React.memo(function ReaderPageText({ color, fontSize, lin
       {cachedTokens(page.text).map((token, tokenIndex) => token.word ? (
         <Text
           key={`${token.start}_${tokenIndex}`}
+          accessibilityRole="button"
+          accessibilityLabel={`查词：${token.value}`}
+          accessibilityHint="双击查看释义和原句"
           onPress={() => onSelect(token.value, page.start + token.start)}
           suppressHighlighting={false}
           style={styles.wordToken}
@@ -97,9 +104,11 @@ export function ReaderScreen({ route, navigation }: Props) {
 
 function ReaderSession({ route, navigation }: Props) {
   const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay, returnTo } = route.params;
+  const sourceTab = returnTo === 'Vocabulary' ? 'Vocabulary' : returnTo === 'Today' ? 'Today' : 'Library';
+  const sourceLabel = sourceTab === 'Vocabulary' ? '生词本' : sourceTab === 'Today' ? '今天' : '书架';
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
-  const { lookup: lookupDictionary, translateContext } = useDictionary();
+  const { lookup: lookupDictionary, translateContext, entryCount, dictionaryLoading, dictionaryUnavailable } = useDictionary();
   const book = books.find((item) => item.id === bookId);
   const bookExists = !!book;
   const [content, setContent] = useState<BookContent | null>(null);
@@ -111,6 +120,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [lookup, setLookup] = useState<LookupResult | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupFailed, setLookupFailed] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [contextTranslation, setContextTranslation] = useState<string | undefined>();
   const [translationLoading, setTranslationLoading] = useState(false);
   const [translationFailed, setTranslationFailed] = useState(false);
@@ -123,6 +133,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [chaptersVisible, setChaptersVisible] = useState(false);
   const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
@@ -170,7 +181,7 @@ function ReaderSession({ route, navigation }: Props) {
       setCurrentParagraph(position.paragraphIndex);
       setContent(loaded);
     }).catch((error) => {
-      if (active) setContentError(error instanceof Error ? error.message : '本地正文暂时无法读取，请重试。若仍无法打开，可从原文件重新导入或在设置中恢复备份。');
+      if (active) setContentError(formatContentReadFailure(error));
     });
     return () => { active = false; };
   }, [bookId, bookExists, getBookContent, loadAttempt]);
@@ -323,8 +334,10 @@ function ReaderSession({ route, navigation }: Props) {
     const sentence = sentenceAt(chapterText, globalOffset);
     const request = ++lookupRequest.current;
     setSelection({ word, sentence, paragraphIndex: paragraphAtOffset(chapterParagraphStarts, globalOffset) });
+    setSaveFeedback('idle');
     setLookup(null);
     setContextTranslation(undefined);
+    setTranslationLoading(false);
     setTranslationFailed(false);
     setLookupLoading(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -335,9 +348,17 @@ function ReaderSession({ route, navigation }: Props) {
   const closeSelection = () => {
     lookupRequest.current += 1;
     setSelection(null);
+    setSaveFeedback('idle');
     setTranslationLoading(false);
     setTranslationFailed(false);
   };
+
+  const speak = useCallback((text: string, kind: 'word' | 'paragraph') => {
+    setSpeechError(null);
+    void speakEnglish(text, kind, preferences.speechVoice)
+      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+  }, [preferences.speechVoice]);
 
   const isSaved = useMemo(() => selection
     ? words.some((item) => item.word.toLowerCase() === selection.word.toLowerCase() && item.context === selection.sentence)
@@ -345,17 +366,24 @@ function ReaderSession({ route, navigation }: Props) {
 
   const saveSelection = async () => {
     if (!selection || !lookup || !book || isSaved) return;
-    await addWord({
-      word: selection.word,
-      phonetic: lookup.phonetic,
-      meaning: lookup.meaning,
-      context: selection.sentence,
-      contextTranslation,
-      bookId,
-      bookTitle: book.title,
-      chapterIndex,
-      paragraphIndex: selection.paragraphIndex,
-    });
+    const request = lookupRequest.current;
+    setSaveFeedback('saving');
+    try {
+      await addWord({
+        word: selection.word,
+        phonetic: lookup.phonetic,
+        meaning: lookup.meaning,
+        context: selection.sentence,
+        contextTranslation,
+        bookId,
+        bookTitle: book.title,
+        chapterIndex,
+        paragraphIndex: selection.paragraphIndex,
+      });
+      if (request === lookupRequest.current) setSaveFeedback('saved');
+    } catch {
+      if (request === lookupRequest.current) setSaveFeedback('error');
+    }
   };
 
   const openReaderSettings = () => {
@@ -387,9 +415,7 @@ function ReaderSession({ route, navigation }: Props) {
 
   const jumpToChapter = useCallback((index: number, paragraph = 0) => {
     const targetChapter = content?.chapters[index];
-    const safeParagraph = targetChapter
-      ? Math.max(0, Math.min(targetChapter.paragraphs.length - 1, paragraph))
-      : 0;
+    const safeParagraph = targetChapter ? safeParagraphIndex(targetChapter.paragraphs.length, paragraph) : 0;
     pageAnchorOffset.current = targetChapter ? paragraphStarts(targetChapter.paragraphs)[safeParagraph] ?? 0 : 0;
     setChapterIndex(index);
     setCurrentParagraph(safeParagraph);
@@ -426,7 +452,7 @@ function ReaderSession({ route, navigation }: Props) {
   }), [turnPage]);
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
-  const returnToSource = () => navigation.popTo('Main', { screen: returnTo === 'Vocabulary' ? 'Vocabulary' : 'Library' });
+  const returnToSource = () => navigation.popTo('Main', { screen: sourceTab });
   const restartBook = () => {
     completionDismissed.current = true;
     setCompletionVisible(false);
@@ -438,7 +464,13 @@ function ReaderSession({ route, navigation }: Props) {
   };
 
   if (!book || contentError || !content || !chapter) {
-    const error = !book ? '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。' : contentError;
+    const error = !book
+      ? returnTo === 'Vocabulary'
+        ? '这本书已不在本地书架中。请返回生词本选择其他词，或重新导入原文件。'
+        : returnTo === 'Today'
+          ? '这本书已不在本地书架中。请返回今天选择其他书籍，或重新导入原文件。'
+        : '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。'
+      : contentError;
     return (
       <View style={[styles.loading, { backgroundColor: theme.background, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
@@ -447,11 +479,11 @@ function ReaderSession({ route, navigation }: Props) {
         {book ? <Text numberOfLines={2} style={[styles.contentStateBook, { color: theme.muted }]}>{book.title}</Text> : null}
         {error ? <Text accessibilityRole="alert" style={[styles.contentStateBody, { color: theme.muted }]}>{error}</Text> : null}
         {error && book ? (
-          <Pressable accessibilityRole="button" onPress={() => { setContentError(null); setLoadAttempt((attempt) => attempt + 1); }} style={styles.contentRetry}>
+          <Pressable accessibilityRole="button" accessibilityLabel="重新打开书籍正文" onPress={() => { setContentError(null); setLoadAttempt((attempt) => attempt + 1); }} style={styles.contentRetry}>
             <Text style={styles.contentRetryText}>重新打开</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`返回${sourceLabel}`} onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{`返回${sourceLabel}`}</Text></Pressable>
       </View>
     );
   }
@@ -462,13 +494,14 @@ function ReaderSession({ route, navigation }: Props) {
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
       <View style={[styles.topBar, { paddingTop: insets.top + 4, backgroundColor: theme.chrome }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="返回书架" onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : returnTo === 'Today' ? '返回今天' : '返回上一页'} onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.topTitleWrap}>
           <Text numberOfLines={1} style={[styles.topTitle, { color: theme.text }]}>{book.title}</Text>
           <Text numberOfLines={1} style={[styles.topChapter, { color: theme.muted }]}>{chapter.title}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
+      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
@@ -482,7 +515,7 @@ function ReaderSession({ route, navigation }: Props) {
           <View style={styles.paginating}>
             <Text style={[styles.contentStateTitle, { color: theme.text }]}>本章没有正文</Text>
             <Text style={[styles.contentStateBody, { color: theme.muted }]}>可以从目录选择其他章节继续阅读。</Text>
-            <Pressable accessibilityRole="button" onPress={() => setChaptersVisible(true)} style={styles.contentRetry}><Text style={styles.contentRetryText}>选择章节</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="选择其他章节" onPress={() => setChaptersVisible(true)} style={styles.contentRetry}><Text style={styles.contentRetryText}>选择章节</Text></Pressable>
           </View>
         ) : pages.length ? (
           <View style={styles.pageSurface}>
@@ -523,6 +556,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="上一页"
+          accessibilityState={{ disabled: (!emptyChapter && !pages.length) || (currentPage === 0 && chapterIndex === 0) }}
           disabled={(!emptyChapter && !pages.length) || (currentPage === 0 && chapterIndex === 0)}
           onPress={() => turnPage(-1)}
           style={[styles.pageEdge, styles.pageEdgeLeft]}
@@ -530,6 +564,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={emptyChapter || currentPage === pages.length - 1 ? '下一章' : '下一页'}
+          accessibilityState={{ disabled: (!emptyChapter && !pages.length) || ((emptyChapter || currentPage === pages.length - 1) && chapterIndex === content.chapters.length - 1) }}
           disabled={(!emptyChapter && !pages.length) || ((emptyChapter || currentPage === pages.length - 1) && chapterIndex === content.chapters.length - 1)}
           onPress={() => turnPage(1)}
           style={[styles.pageEdge, styles.pageEdgeRight]}
@@ -537,7 +572,7 @@ function ReaderSession({ route, navigation }: Props) {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" disabled={emptyChapter || !pages.length} onPress={() => { void speakEnglish(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph', preferences.speechVoice).catch(() => undefined); }} style={styles.audioButton}>
+        <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" accessibilityState={{ disabled: emptyChapter || !pages.length }} disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
         <View style={styles.bottomProgress}>
@@ -554,52 +589,70 @@ function ReaderSession({ route, navigation }: Props) {
           <View style={styles.wordHeader}>
             <View style={{ flex: 1 }}>
               <View style={styles.wordTitleRow}>
-                <Text style={styles.wordTitle}>{selection?.word}</Text>
+                <Text accessibilityRole="header" style={styles.wordTitle}>{selection?.word}</Text>
                 {lookup?.phonetic ? <Text style={styles.phonetic}>{lookup.phonetic}</Text> : null}
-                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) void speakEnglish(selection.word, 'word', preferences.speechVoice).catch(() => undefined); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={`朗读${selection?.word || '单词'}`} onPress={() => { if (selection) speak(selection.word, 'word'); }} style={styles.soundButton}><Ionicons name="volume-medium" size={19} color={colors.accent} /></Pressable>
               </View>
             </View>
-            <Pressable accessibilityRole="button" accessibilityLabel={isSaved ? '已收藏到生词本' : '收藏到生词本'} disabled={!lookup || isSaved} onPress={() => void saveSelection().catch(() => undefined)} style={[styles.saveButton, isSaved && styles.savedButton]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={saveFeedback === 'saving' ? '正在保存到生词本' : isSaved ? '已收藏到生词本' : saveFeedback === 'error' ? '生词本保存失败' : '收藏到生词本'} accessibilityState={{ disabled: !lookup || isSaved || saveFeedback === 'saving' }} disabled={!lookup || isSaved || saveFeedback === 'saving'} onPress={() => void saveSelection()} style={[styles.saveButton, isSaved && styles.savedButton]}>
               <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={19} color={isSaved ? '#fff' : colors.ink} />
             </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭查词卡片" onPress={closeSelection} style={styles.sheetCloseButton}>
+              <Ionicons name="close" size={20} color={colors.inkMuted} />
+            </Pressable>
           </View>
-          {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
-            <View style={styles.lookupLoading}>
-              <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="重新查询这个单词" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
-                <Ionicons name="refresh" size={16} color={colors.accent} />
-                <Text style={styles.translationRetryText}>重新查词</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.meaningLabel}>{lookup?.source === 'offline' ? '词典释义' : '参考释义'}</Text>
-              <Text style={styles.meaning}>{lookup?.meaning}</Text>
-              {lookup?.matchedWord ? <Text style={styles.lemmaNote}>原形 · {lookup.matchedWord}</Text> : null}
-              <View style={styles.contextCard}>
-                <Text style={styles.contextText}>{selection?.sentence}</Text>
-                {contextTranslation ? <Text style={styles.contextTranslation}>{contextTranslation}</Text> : null}
-                {translationLoading ? <View style={styles.translationStatus}><ActivityIndicator size="small" color={colors.accent} /><Text style={styles.translationStatusText}>正在获取整句翻译</Text></View> : null}
-                {!translationLoading && !contextTranslation && preferences.onlineSentenceTranslation ? (
-                  <Pressable accessibilityRole="button" accessibilityLabel={translationFailed ? '重新获取整句翻译' : '获取整句翻译，可能联网'} onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
-                    <Ionicons name={translationFailed ? 'refresh' : 'language-outline'} size={14} color={colors.accent} />
-                    <Text style={styles.translationRetryText}>{translationFailed ? '翻译暂时不可用，点击重试' : '获取整句翻译（按需联网）'}</Text>
+          {saveFeedback !== 'idle' ? <Text accessibilityRole={saveFeedback === 'error' ? 'alert' : undefined} style={[styles.saveFeedback, saveFeedback === 'error' && styles.saveFeedbackError]}>{saveFeedback === 'saving' ? '正在加入生词本…' : saveFeedback === 'error' ? '已加入本次会话，但设备保存失败，请稍后重试保存。' : '已加入生词本'}</Text> : null}
+          <ScrollView style={styles.lookupScroll} contentContainerStyle={styles.lookupContent} showsVerticalScrollIndicator>
+            {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
+              <View style={styles.lookupLoading}>
+                <Text style={styles.lookupLoadingText}>查词暂时不可用，请重试。</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="重新查询这个单词" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
+                  <Ionicons name="refresh" size={16} color={colors.accent} />
+                  <Text style={styles.translationRetryText}>重新查词</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.meaningLabel}>{lookup?.source === 'offline' ? '词典释义' : '参考释义'}</Text>
+                <Text style={styles.meaning}>{lookup?.meaning}</Text>
+                {lookup?.matchedWord ? <Text style={styles.lemmaNote}>原形 · {lookup.matchedWord}</Text> : null}
+                <View style={styles.contextCard}>
+                  <Text style={styles.contextText}>{selection?.sentence}</Text>
+                  {contextTranslation ? <Text style={styles.contextTranslation}>{contextTranslation}</Text> : null}
+                  {translationLoading ? <View style={styles.translationStatus}><ActivityIndicator size="small" color={colors.accent} /><Text style={styles.translationStatusText}>正在获取整句翻译</Text></View> : null}
+                  {!translationLoading && !contextTranslation && preferences.onlineSentenceTranslation ? (
+                    <Pressable accessibilityRole="button" accessibilityLabel={translationFailed ? '重新获取整句翻译' : '获取整句翻译，可能联网'} onPress={() => selection && void requestSentenceTranslation(selection.sentence, lookupRequest.current)} style={styles.translationRetry}>
+                      <Ionicons name={translationFailed ? 'refresh' : 'language-outline'} size={14} color={colors.accent} />
+                      <Text style={styles.translationRetryText}>{translationFailed ? '翻译暂时不可用，点击重试' : '获取整句翻译（按需联网）'}</Text>
+                    </Pressable>
+                  ) : null}
+                  {!translationLoading && !contextTranslation && !preferences.onlineSentenceTranslation ? <Text style={styles.translationStatusText}>整句在线翻译已关闭</Text> : null}
+                </View>
+                <Text style={styles.providerNote}>
+                  {dictionaryLoading
+                    ? '离线词典加载中 · 已显示基础兜底'
+                    : dictionaryUnavailable
+                    ? '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
+                    : Platform.OS === 'web'
+                    ? lookup?.source === 'offline' ? 'Web 高频词典 · 查词无需联网' : lookup?.source === 'network' ? 'Web 高频词典未收录 · 在线补充释义' : 'Web 高频词典未收录 · 已显示兜底结果'
+                    : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}
+                </Text>
+                {lookup?.networkError ? (
+                  <Pressable accessibilityRole="button" accessibilityLabel="重新获取在线单词释义" onPress={() => selection && void requestWordLookup(selection.word, lookupRequest.current)} style={styles.translationRetry}>
+                    <Ionicons name="refresh" size={14} color={colors.accent} />
+                    <Text style={styles.translationRetryText}>在线补充释义暂不可用，点击重试</Text>
                   </Pressable>
                 ) : null}
-                {!translationLoading && !contextTranslation && !preferences.onlineSentenceTranslation ? <Text style={styles.translationStatusText}>整句在线翻译已关闭</Text> : null}
-              </View>
-              <Text style={styles.providerNote}>
-                {lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}
-              </Text>
-            </>
-          )}
+              </>
+            )}
+          </ScrollView>
         </View>
       </Modal>
 
       <Modal visible={settingsVisible} transparent animationType="fade" onRequestClose={applyReaderSettings}>
         <Pressable style={styles.centerBackdrop} onPress={applyReaderSettings}>
           <Pressable accessibilityViewIsModal style={styles.settingsCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>阅读排版</Text>
+            <Text accessibilityRole="header" style={styles.modalTitle}>阅读排版</Text>
             <View style={[styles.livePreview, { backgroundColor: readerThemes[settingsDraft.theme].background }]}>
               <Text style={[styles.livePreviewLabel, { color: readerThemes[settingsDraft.theme].muted }]}>当前段落预览</Text>
               <Text numberOfLines={3} style={[styles.livePreviewText, {
@@ -609,9 +662,9 @@ function ReaderSession({ route, navigation }: Props) {
               }]}>{chapter.paragraphs[currentParagraph] || 'Stories let us travel without leaving the quiet of a room.'}</Text>
             </View>
             <View style={styles.fontActions}>
-              <Pressable accessibilityRole="button" accessibilityLabel="减小正文字号" onPress={() => changeDraftFont(-1)} style={styles.fontButton}><Ionicons name="remove" size={20} color={colors.ink} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="减小正文字号" accessibilityState={{ disabled: settingsDraft.fontSize <= 16 }} disabled={settingsDraft.fontSize <= 16} onPress={() => changeDraftFont(-1)} style={[styles.fontButton, settingsDraft.fontSize <= 16 && styles.fontButtonDisabled]}><Ionicons name="remove" size={20} color={colors.ink} /></Pressable>
               <Text style={styles.fontValue}>{settingsDraft.fontSize}px</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="增大正文字号" onPress={() => changeDraftFont(1)} style={styles.fontButton}><Ionicons name="add" size={20} color={colors.ink} /></Pressable>
+              <Pressable accessibilityRole="button" accessibilityLabel="增大正文字号" accessibilityState={{ disabled: settingsDraft.fontSize >= 25 }} disabled={settingsDraft.fontSize >= 25} onPress={() => changeDraftFont(1)} style={[styles.fontButton, settingsDraft.fontSize >= 25 && styles.fontButtonDisabled]}><Ionicons name="add" size={20} color={colors.ink} /></Pressable>
             </View>
             <View style={styles.themeRow}>
               {(['paper', 'white', 'night'] as const).map((item) => (
@@ -629,7 +682,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable style={styles.sheetBackdrop} onPress={() => setChaptersVisible(false)} />
         <View accessibilityViewIsModal style={[styles.chapterSheet, { paddingBottom: insets.bottom + 14 }]}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.modalTitle}>目录</Text>
+          <Text accessibilityRole="header" style={styles.modalTitle}>目录</Text>
           <FlatList
             data={content.chapters}
             keyExtractor={(item) => item.id}
@@ -650,8 +703,8 @@ function ReaderSession({ route, navigation }: Props) {
           <Pressable accessibilityViewIsModal style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
             <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
-            <Text style={styles.completionBody}>你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="返回书架" onPress={returnToLibrary} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>返回书架</Text></Pressable>
+            <Text style={styles.completionBody}>{returnTo === 'Vocabulary' ? '你已经读到最后一页。可以返回生词本继续复习，或从头再读一遍。' : returnTo === 'Today' ? '你已经读到最后一页。可以返回今天继续安排阅读，或从头再读一遍。' : '你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`返回${sourceLabel}`} onPress={returnToSource} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>{`返回${sourceLabel}`}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="从头再读一遍" onPress={restartBook} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>从头再读一遍</Text></Pressable>
           </Pressable>
         </Pressable>
@@ -701,7 +754,7 @@ const styles = StyleSheet.create({
   bottomTrack: { height: 3, borderRadius: 3, overflow: 'hidden' },
   bottomFill: { height: 3, borderRadius: 3, backgroundColor: colors.accent },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.34)' },
-  wordSheet: { backgroundColor: '#FCFAF6', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, minHeight: 360 },
+  wordSheet: { backgroundColor: '#FCFAF6', borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 22, paddingTop: 10, minHeight: 360, maxHeight: '84%' },
   sheetHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.15)', alignSelf: 'center', marginBottom: 20 },
   wordHeader: { flexDirection: 'row', alignItems: 'center' },
   wordTitleRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 9 },
@@ -709,7 +762,12 @@ const styles = StyleSheet.create({
   phonetic: { color: colors.inkMuted, fontSize: 12 },
   soundButton: { width: 35, height: 35, borderRadius: 18, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
   saveButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  saveFeedback: { color: colors.accent, fontSize: 10, fontWeight: '700', marginTop: 9 },
+  saveFeedbackError: { color: '#A24B35' },
+  sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
+  lookupScroll: { flexShrink: 1 },
+  lookupContent: { paddingBottom: 12 },
   lookupLoading: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 12 },
   lookupLoadingText: { color: colors.inkMuted, fontSize: 11 },
   meaningLabel: { color: colors.accent, fontSize: 9, fontWeight: '800', letterSpacing: 1.2, marginTop: 24 },
@@ -731,6 +789,7 @@ const styles = StyleSheet.create({
   livePreviewText: { fontFamily: typography.serif, letterSpacing: 0.12 },
   fontActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
   fontButton: { width: 46, height: 42, borderRadius: 16, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
+  fontButtonDisabled: { opacity: 0.42 },
   fontValue: { color: colors.inkMuted, fontSize: 11, fontWeight: '700' },
   themeRow: { flexDirection: 'row', gap: 12, marginTop: 24 },
   themeChoice: { flex: 1, height: 54, borderRadius: 17, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' },

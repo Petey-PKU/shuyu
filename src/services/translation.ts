@@ -4,6 +4,8 @@ export interface LookupResult {
   meaning: string;
   phonetic?: string;
   source: 'offline' | 'network' | 'fallback';
+  /** True when online enhancement was requested but no network meaning was available. */
+  networkError?: boolean;
   matchedWord?: string;
   tags?: string[];
 }
@@ -66,6 +68,24 @@ function utf8ByteLength(text: string): number {
   return length;
 }
 
+function splitByUtf8Bytes(text: string, maxBytes: number): string[] {
+  const chunks: string[] = [];
+  let current = '';
+  let currentBytes = 0;
+  for (const character of text) {
+    const characterBytes = utf8ByteLength(character);
+    if (current && currentBytes + characterBytes > maxBytes) {
+      chunks.push(current);
+      current = '';
+      currentBytes = 0;
+    }
+    current += character;
+    currentBytes += characterBytes;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
 export function splitTranslationText(text: string): string[] {
   if (utf8ByteLength(text) <= MAX_QUERY_BYTES) return [text];
   const units = text.match(/[^,;:—.!?。！？]+[,;:—.!?。！？]+["'”’)]*|[^,;:—.!?。！？]+$/g) ?? [text];
@@ -91,7 +111,11 @@ export function splitTranslationText(text: string): string[] {
         wordChunk = combinedWords;
       } else {
         if (wordChunk) chunks.push(wordChunk);
-        wordChunk = word;
+        if (utf8ByteLength(word) <= MAX_QUERY_BYTES) wordChunk = word;
+        else {
+          chunks.push(...splitByUtf8Bytes(word, MAX_QUERY_BYTES));
+          wordChunk = '';
+        }
       }
     }
     current = wordChunk;
@@ -398,7 +422,7 @@ export function fallbackLookup(word: string): LookupResult {
 
 export async function lookupNetworkWord(word: string): Promise<LookupResult> {
   const meaning = await translate(word.toLowerCase(), 4_500, 1);
-  return meaning ? { meaning, source: 'network' } : fallbackLookup(word);
+  return meaning ? { meaning, source: 'network' } : { ...fallbackLookup(word), networkError: true };
 }
 
 export async function translateSentence(sentence: string): Promise<string | undefined> {

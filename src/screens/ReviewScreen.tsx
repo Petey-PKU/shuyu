@@ -7,17 +7,26 @@ import { useApp } from '../context/AppContext';
 import type { RootStackParamList } from '../navigation/types';
 import { colors, radii, shadows, typography } from '../theme';
 import { speakEnglish } from '../services/speech';
-import { isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
+import { InlineNotice } from '../components/InlineNotice';
+import { escapeRegExp, isWordDue, nextReviewTime, reviewDelayLabel } from '../utils/review';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
-export function ReviewScreen({ navigation }: Props) {
+function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
+  if (chapterIndex === undefined || paragraphIndex === undefined) return '';
+  return `第 ${chapterIndex + 1} 章 · 第 ${paragraphIndex + 1} 段`;
+}
+
+export function ReviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { words, preferences, toggleMastered, deferWord } = useApp();
   const now = Date.now();
   const [reviewQueueIds] = useState(() => words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).map((word) => word.id));
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
+  const [masteredCount, setMasteredCount] = useState(0);
+  const [deferredCount, setDeferredCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
   const submittingRef = useRef(false);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
@@ -28,9 +37,17 @@ export function ReviewScreen({ navigation }: Props) {
   const [revealed, setRevealed] = useState(false);
   const current = queue[0];
   const nextReviewAt = nextReviewTime(words);
+  const returnTo = route.params?.returnTo === 'Today' ? 'Today' : 'Vocabulary';
+  const returnLabel = returnTo === 'Today' ? '返回今天' : '返回生词本';
+  const speakWord = (word: string) => {
+    setSpeechError(null);
+    void speakEnglish(word, 'word', preferences.speechVoice)
+      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+  };
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="返回生词本" onPress={() => navigation.goBack()} style={styles.doneButton}><Text style={styles.doneButtonText}>返回生词本</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词：记住了 {masteredCount} 个，稍后再看 {deferredCount} 个。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
   }
 
   const next = async (mastered: boolean) => {
@@ -45,6 +62,8 @@ export function ReviewScreen({ navigation }: Props) {
       // banner when persistence fails, so do not make the user review this
       // same card twice while the local write is recoverable.
     } finally {
+      if (mastered) setMasteredCount((count) => count + 1);
+      else setDeferredCount((count) => count + 1);
       submittingRef.current = false;
       setReviewedIds((ids) => ids.includes(current.id) ? ids : [...ids, current.id]);
       setRevealed(false);
@@ -52,7 +71,7 @@ export function ReviewScreen({ navigation }: Props) {
     }
   };
 
-  const cloze = current.context.replace(new RegExp(`\\b${current.word}\\b`, 'i'), '______');
+  const cloze = current.context.replace(new RegExp(`\\b${escapeRegExp(current.word)}\\b`, 'i'), '______');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }]}>
@@ -62,27 +81,28 @@ export function ReviewScreen({ navigation }: Props) {
         <View style={styles.close} />
       </View>
       <View style={styles.progress}><View style={[styles.progressFill, { width: `${total ? ((reviewedIds.length + 1) / total) * 100 : 0}%` }]} /></View>
+      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
       <View style={styles.card}>
         <Text style={styles.eyebrow}>回到原句</Text>
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
           <View style={styles.answer}>
-            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => { void speakEnglish(current.word, 'word', preferences.speechVoice).catch(() => undefined); }}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
+            <View style={styles.answerRow}><Text style={styles.word}>{current.word}</Text><Pressable accessibilityRole="button" accessibilityLabel={`朗读${current.word}`} onPress={() => speakWord(current.word)}><Ionicons name="volume-medium" size={21} color={colors.accent} /></Pressable></View>
             <Text style={styles.meaning}>{current.meaning}</Text>
             {current.contextTranslation ? <Text style={styles.translation}>{current.contextTranslation}</Text> : null}
           </View>
         ) : (
           <Pressable accessibilityRole="button" accessibilityLabel="查看答案" onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
         )}
-        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.navigate('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
-          <Text style={styles.source}>{current.bookTitle} · 回到原文</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}${sourceLocation(current.chapterIndex, current.paragraphIndex) ? `，${sourceLocation(current.chapterIndex, current.paragraphIndex)}` : ''}原文`} onPress={() => navigation.navigate('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex, returnTo })} style={styles.sourceButton}>
+          <Text style={styles.source}>{current.bookTitle}{sourceLocation(current.chapterIndex, current.paragraphIndex) ? ` · ${sourceLocation(current.chapterIndex, current.paragraphIndex)}` : ''} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>
       </View>
       {revealed ? (
         <View style={styles.actions}>
-          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="稍后再次复习" onPress={() => void next(false)} style={[styles.action, styles.again, submitting && styles.actionDisabled]}><Ionicons name="refresh" size={19} color={colors.ink} /><Text style={styles.againText}>再看看</Text></Pressable>
-          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
+          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="稍后再次复习" accessibilityState={{ disabled: submitting }} onPress={() => void next(false)} style={[styles.action, styles.again, submitting && styles.actionDisabled]}><Ionicons name="refresh" size={19} color={colors.ink} /><Text style={styles.againText}>再看看</Text></Pressable>
+          <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" accessibilityState={{ disabled: submitting }} onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
         </View>
       ) : null}
     </View>
@@ -121,4 +141,6 @@ const styles = StyleSheet.create({
   doneBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 10 },
   doneButton: { backgroundColor: colors.ink, borderRadius: radii.pill, paddingHorizontal: 22, paddingVertical: 13, marginTop: 26 },
   doneButtonText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  doneSecondary: { paddingHorizontal: 22, paddingVertical: 12, marginTop: 3 },
+  doneSecondaryText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
 });

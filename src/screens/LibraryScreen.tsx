@@ -11,6 +11,8 @@ import { BookCover } from '../components/BookCover';
 import { InlineNotice } from '../components/InlineNotice';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, shadows, typography } from '../theme';
+import { formatImportFailure } from '../utils/importErrors';
+import { formatPersistenceFailure } from '../utils/persistence';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Library'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -24,10 +26,15 @@ export function LibraryScreen({ navigation }: Props) {
   const [deleteBook, setDeleteBook] = useState<{ id: string; title: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
+  const [editWarning, setEditWarning] = useState<string | null>(null);
+  const [metadataSaving, setMetadataSaving] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
   const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
-  const filtered = useMemo(() => books.filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
+  const filtered = useMemo(() => [...books]
+    .sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))
+    .filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
 
   const handleImport = async () => {
     try {
@@ -36,7 +43,7 @@ export function LibraryScreen({ navigation }: Props) {
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
       setErrorKind('import');
-      setErrorMessage(error instanceof Error ? error.message : '请稍后再试');
+      setErrorMessage(formatImportFailure(error, '请稍后再试'));
     }
   };
 
@@ -50,13 +57,46 @@ export function LibraryScreen({ navigation }: Props) {
   };
 
   const saveMetadata = async () => {
-    if (!editingBook) return;
+    if (!editingBook || metadataSaving) return;
+    setMetadataSaving(true);
+    setEditWarning(null);
     try {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
       setEditingBook(null);
+      setEditWarning(null);
     } catch (error) {
       setErrorKind('save');
-      setErrorMessage(error instanceof Error ? error.message : '请检查书名后重试');
+      const message = formatPersistenceFailure(error);
+      setErrorMessage(message);
+      setEditWarning(message);
+    } finally {
+      setMetadataSaving(false);
+    }
+  };
+
+  const closeEditing = () => {
+    if (!editingBook) return;
+    const changed = draftTitle.trim() !== editingBook.title
+      || (draftAuthor.trim() || '未知作者') !== editingBook.author;
+    if (changed) {
+      setEditWarning('还有未保存的修改，请选择“保存”或“取消”。');
+      return;
+    }
+    setEditingBook(null);
+    setEditWarning(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteBook || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await removeBook(deleteBook.id);
+    } catch (error) {
+      setErrorKind('save');
+      setErrorMessage(formatPersistenceFailure(error));
+    } finally {
+      setDeleteBusy(false);
+      setDeleteBook(null);
     }
   };
 
@@ -68,7 +108,7 @@ export function LibraryScreen({ navigation }: Props) {
       </View>
       <View style={styles.search}>
         <Ionicons name="search" size={18} color={colors.inkMuted} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
+        <TextInput accessibilityLabel="搜索书架" value={query} onChangeText={setQuery} placeholder="搜索书名或作者" placeholderTextColor="#9B9C97" style={styles.input} />
         {query ? <Pressable accessibilityRole="button" accessibilityLabel="清除搜索" onPress={() => setQuery('')} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.inkMuted} /></Pressable> : null}
       </View>
       {errorMessage ? <InlineNotice message={errorMessage} actionLabel={errorKind === 'import' ? '重试导入' : undefined} onAction={errorKind === 'import' ? () => void handleImport() : undefined} onDismiss={() => setErrorMessage(null)} /> : null}
@@ -83,7 +123,7 @@ export function LibraryScreen({ navigation }: Props) {
           <View style={styles.empty}>
             <Ionicons name="library-outline" size={34} color={colors.inkMuted} />
             <Text style={styles.emptyTitle}>{query ? '没有匹配的书籍' : '还没有书籍'}</Text>
-            <Text style={styles.emptyBody}>{query ? '试试其他书名或作者关键词。' : '导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。'}</Text>
+            <Text style={styles.emptyBody}>{query ? '试试其他书名或作者关键词。' : Platform.OS === 'web' ? 'Web 预览支持 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8；PDF 与 OCR 请使用正式 Android 安装包。' : '导入 TXT、EPUB、无 DRM 的 MOBI/AZW3/KF8，以及数字文本型或英文扫描版 PDF，开始你的私人阅读空间。'}</Text>
             {!query ? (
               <Pressable accessibilityRole="button" accessibilityLabel="导入第一本书" onPress={handleImport} style={styles.emptyButton}>
                 <Ionicons name="document-text-outline" size={17} color="#fff" />
@@ -120,19 +160,20 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         )}
       />
-      <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={() => setEditingBook(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setEditingBook(null)}>
+      <Modal visible={!!editingBook} transparent animationType="slide" onRequestClose={closeEditing}>
+        <Pressable style={styles.modalBackdrop} onPress={closeEditing}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardAvoiding}>
-            <Pressable style={styles.editCard} onPress={(event) => event.stopPropagation()}>
+            <Pressable accessibilityViewIsModal style={styles.editCard} onPress={(event) => event.stopPropagation()}>
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
                 <Text style={styles.editTitle}>编辑书籍信息</Text>
+                {editWarning ? <Text accessibilityRole="alert" style={styles.editWarning}>{editWarning}</Text> : null}
                 <Text style={styles.editLabel}>书名</Text>
-                <TextInput value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
+                <TextInput accessibilityLabel="编辑书名" value={draftTitle} onChangeText={setDraftTitle} placeholder="书名" placeholderTextColor="#9B9C97" style={styles.editInput} autoFocus returnKeyType="next" />
                 <Text style={styles.editLabel}>作者</Text>
-                <TextInput value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
+                <TextInput accessibilityLabel="编辑作者，可选" value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
                 <View style={styles.editActions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" onPress={() => setEditingBook(null)} style={styles.editCancel}><Text style={styles.editCancelText}>取消</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" onPress={() => void saveMetadata()} style={styles.editSave}><Text style={styles.editSaveText}>保存</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => { setEditingBook(null); setEditWarning(null); }} style={[styles.editCancel, metadataSaving && styles.editDisabled]}><Text style={styles.editCancelText}>取消</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => void saveMetadata()} style={[styles.editSave, metadataSaving && styles.editDisabled]}><Text style={styles.editSaveText}>{metadataSaving ? '保存中…' : '保存'}</Text></Pressable>
                 </View>
               </ScrollView>
             </Pressable>
@@ -141,7 +182,7 @@ export function LibraryScreen({ navigation }: Props) {
       </Modal>
       <Modal visible={!!menuBook} transparent animationType="fade" onRequestClose={() => setMenuBook(null)}>
         <Pressable style={styles.modalBackdropCenter} onPress={() => setMenuBook(null)}>
-          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+          <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>管理{menuBook ? `《${menuBook.title}》` : '书籍'}</Text>
             <Text style={styles.actionBody}>可以编辑书籍信息，或从本地书架删除它。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="编辑书籍信息" onPress={() => {
@@ -149,6 +190,7 @@ export function LibraryScreen({ navigation }: Props) {
               setEditingBook(menuBook);
               setDraftTitle(menuBook.title);
               setDraftAuthor(menuBook.author);
+              setEditWarning(null);
               setMenuBook(null);
             }} style={styles.actionPrimary}><Text style={styles.actionPrimaryText}>编辑信息</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="删除书籍" onPress={() => menuBook && confirmDelete(menuBook.id, menuBook.title)} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
@@ -156,16 +198,13 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => setDeleteBook(null)}>
-        <Pressable style={styles.modalBackdropCenter} onPress={() => setDeleteBook(null)}>
-          <Pressable style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
+      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => { if (!deleteBusy) setDeleteBook(null); }}>
+        <Pressable style={styles.modalBackdropCenter} onPress={() => { if (!deleteBusy) setDeleteBook(null); }}>
+          <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
             <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="确认删除书籍" onPress={() => {
-              if (deleteBook) void removeBook(deleteBook.id).catch(() => undefined);
-              setDeleteBook(null);
-            }} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" onPress={() => setDeleteBook(null)} style={styles.actionCancel}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={deleteBusy ? '正在删除书籍' : '确认删除书籍'} accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => void handleDelete()} style={[styles.actionDanger, deleteBusy && styles.actionDisabled]}><Text style={styles.actionDangerText}>{deleteBusy ? '删除中…' : '删除书籍'}</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => setDeleteBook(null)} style={[styles.actionCancel, deleteBusy && styles.actionDisabled]}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -207,6 +246,7 @@ const styles = StyleSheet.create({
   keyboardAvoiding: { width: '100%' },
   editCard: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 34 },
   editTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 22, fontWeight: '700', marginBottom: 20 },
+  editWarning: { color: colors.danger, fontSize: 11, lineHeight: 17, marginTop: -10, marginBottom: 10 },
   editLabel: { color: colors.inkMuted, fontSize: 10, fontWeight: '800', marginTop: 10, marginBottom: 7 },
   editInput: { height: 48, borderRadius: 14, backgroundColor: colors.canvas, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, color: colors.ink, fontSize: 14 },
   editActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
@@ -214,4 +254,6 @@ const styles = StyleSheet.create({
   editCancelText: { color: colors.inkMuted, fontSize: 13, fontWeight: '800' },
   editSave: { flex: 1, height: 50, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink },
   editSaveText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  editDisabled: { opacity: 0.55 },
+  actionDisabled: { opacity: 0.55 },
 });

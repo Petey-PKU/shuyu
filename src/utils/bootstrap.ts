@@ -3,6 +3,7 @@ import { validBook, validPreferences, validRecommendationState, validSignal, val
 
 interface BootstrapStorage {
   recoverPendingRestore?: () => Promise<void>;
+  recoverPendingImport?: () => Promise<boolean>;
   loadBooks: () => Promise<Book[]>;
   loadWords: () => Promise<SavedWord[]>;
   loadStats: () => Promise<ReadingStats>;
@@ -10,6 +11,59 @@ interface BootstrapStorage {
   loadRecommendationState: () => Promise<RecommendationState>;
   loadReadingSignals: () => Promise<ReadingSignal[]>;
   ensureSampleBook: (books: Book[]) => Promise<Book[]>;
+}
+
+export interface PendingImportStorage {
+  loadPendingImport: () => Promise<string | null>;
+  clearPendingImport: (bookId?: string) => Promise<void>;
+  loadBooks: () => Promise<Book[]>;
+  saveBooks: (books: Book[]) => Promise<void>;
+  contentExists: (bookId: string) => Promise<boolean>;
+}
+
+/** Recover an imported book whose正文 exists but whose shelf index was not acknowledged. */
+export async function recoverPendingImportOnce(storage: PendingImportStorage): Promise<boolean> {
+  const raw = await storage.loadPendingImport();
+  if (!raw) return false;
+
+  let pending: Book[];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    const candidates = Array.isArray(parsed) ? parsed : [parsed];
+    pending = candidates.filter(validBook);
+    if (!pending.length) throw new Error('invalid pending import');
+  } catch {
+    try { await storage.clearPendingImport(); } catch { /* A corrupt marker must not block startup. */ }
+    return false;
+  }
+
+  let books: Book[];
+  try { books = await storage.loadBooks(); } catch { return false; }
+  let recovered = false;
+  for (const pendingBook of pending) {
+    if (books.some((book) => book.id === pendingBook.id)) {
+      try { await storage.clearPendingImport(pendingBook.id); } catch { /* Retry cleanup on the next startup. */ }
+      continue;
+    }
+
+    let contentExists = false;
+    try { contentExists = await storage.contentExists(pendingBook.id); } catch { continue; }
+    if (!contentExists) {
+      try { await storage.clearPendingImport(pendingBook.id); } catch { /* Retry cleanup on the next startup. */ }
+      continue;
+    }
+
+    try {
+      books = [pendingBook, ...books];
+      await storage.saveBooks(books);
+      await storage.clearPendingImport(pendingBook.id);
+      recovered = true;
+    } catch {
+      // Keep this and later markers so a future startup can retry without losing imports.
+      return recovered;
+    }
+  }
+  return recovered;
 }
 
 function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, preferences: unknown, recommendationState: unknown, readingSignals: unknown) {
@@ -34,19 +88,21 @@ function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, p
 /** Publish a complete snapshot only after every persisted data group is readable. */
 export async function loadAppSnapshot(storage: BootstrapStorage) {
   await storage.recoverPendingRestore?.();
+  const pendingImportRecovered = await storage.recoverPendingImport?.() ?? false;
   const [books, words, stats, preferences, recommendationState, readingSignals] = await Promise.all([
     storage.loadBooks(), storage.loadWords(), storage.loadStats(), storage.loadPreferences(),
     storage.loadRecommendationState(), storage.loadReadingSignals(),
   ]);
   validateLocalSnapshot(books, words, stats, preferences, recommendationState, readingSignals);
   const seededBooks = await storage.ensureSampleBook(books);
-  return { books: seededBooks, words, stats, preferences, recommendationState, readingSignals };
+  return { books: seededBooks, words, stats, preferences, recommendationState, readingSignals, pendingImportRecovered };
 }
 
 interface SampleStorage {
   isSeeded: () => Promise<boolean>;
   create: () => Promise<Book>;
   saveBooks: (books: Book[]) => Promise<void>;
+  remove?: (book: Book) => Promise<void>;
   markSeeded: () => Promise<void>;
 }
 
@@ -59,7 +115,15 @@ export async function seedSampleOnce(books: Book[], storage: SampleStorage): Pro
   }
   const book = await storage.create();
   const next = [book, ...books];
-  await storage.saveBooks(next);
+  try {
+    await storage.saveBooks(next);
+  } catch (error) {
+    try { await storage.remove?.(book); } catch { /* Preserve the original index error. */ }
+    // Some storage providers may report an error after partially writing the
+    // index. Best-effort restoration prevents it from referencing deleted content.
+    try { await storage.saveBooks(books); } catch { /* Preserve the original index error. */ }
+    throw error;
+  }
   await storage.markSeeded();
   return next;
 }

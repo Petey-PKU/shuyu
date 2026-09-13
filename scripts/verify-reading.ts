@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { progressAtPage, ReadingCoverage, resolveReadingPosition } from '../src/utils/reading';
+import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphIndex } from '../src/utils/reading';
 import { pageAtOffset, type ReaderPage } from '../src/utils/pagination';
 import type { Chapter } from '../src/types';
 
@@ -21,6 +21,8 @@ assert.equal(resolveReadingPosition(chapters, 999, 999, 999).chapterIndex, 1);
 assert.equal(resolveReadingPosition(chapters, -1, -1, -1).offset, 0);
 assert.equal(resolveReadingPosition(chapters, NaN, NaN, NaN).offset, 0);
 assert.throws(() => resolveReadingPosition([]), /没有可阅读/);
+assert.equal(safeParagraphIndex(0, 99), 0, 'Empty chapters must persist a valid paragraph position');
+assert.equal(resolveReadingPosition([{ id: 'blank', title: 'Blank', paragraphs: [], wordCount: 0 }], 0, 99).paragraphIndex, 0, 'Resuming an empty chapter must stay at paragraph zero');
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 0), 0, 'Leading whitespace should not reopen the final page');
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 9), 1, 'Whitespace between pages resumes at the following page');
 assert.equal(progressAtPage(0, 10, 10, 10, 10), 1, 'A one-page book reaches 100% after its only page');

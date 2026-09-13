@@ -1,5 +1,554 @@
 # 书语持续迭代记录
 
+## 2026-09-13 让未完成阅读目标变成行动
+
+- 首页原先只有到期生词时才出现明确行动卡；没有到期词但今日阅读目标未完成时，用户只能看到分钟数字。
+- 现在会显示还差多少分钟，并直接回到当前书籍的上次位置；关闭阅读统计或目标已完成时不增加打扰。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 保留 Web 词典来源与许可证元数据
+
+- Web 词典生成文件原先只有条目和别名，后续更新时不容易确认来源归属。
+- 现在生成产物明确记录 ECDICT Core 来源和 MIT 许可证，并由校验脚本锁定元数据；不改变查词行为或原生词典资源。
+- 通过 `npm run build:web-dictionary`、`npm run test:web-dictionary`、`npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 显示首页最近收藏的原文位置
+
+- 首页最近收藏卡片原先只显示书名，用户点击前无法确认词条来自哪一章。
+- 现在在有位置数据时显示章节和段落，和生词本、复习页的来源信息保持一致；旧词条没有位置时仍显示书名。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 为 Web 预览加入轻量离线词典
+
+- Web 关闭在线增强时原先几乎只能使用内置基础词表，用户在桌面预览中无法获得与正式安装包一致的离线查词体验。
+- 现在 Web 只加载按词频筛选的约 10,000 个本地词条和词形别名，包体增加约 1.1MB；查词卡片、设置和隐私说明会区分“Web 高频词典未收录”与在线补充，正式安装包仍使用完整 SQLite 词典。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 从首页继续最近收藏的词
+
+- 首页原先只展示最近书页和到期复习入口，用户想重新理解刚收藏的词时还要先切到生词本再寻找来源。
+- 现在首页展示最近三个收藏词、释义和所属书籍，并直接跳回保存的章节/段落；没有生词时不增加空模块。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 合并多本中断导入记录
+
+- 待完成导入日志原先只有一个槽位，第一本书索引失败后继续导入第二本会覆盖第一本的恢复信息。
+- 现在日志按书籍 ID 合并保存，启动逐本恢复并逐本清理；同时兼容旧版单条 JSON 记录，避免用户在连续导入时丢失正文。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+
+## 2026-09-13 补充复习结果反馈
+
+- 复习完成页原先只显示本轮处理了多少个词，用户无法快速判断哪些已经掌握、哪些被延后。
+- 现在分别统计“记住了”和“稍后再看”的数量，并保留下次复习时间提示，复习结果更容易转化为下一步行动。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 清除数据时清理旧操作提示
+
+- 清除全部本地数据前，旧的备份恢复或中断导入成功提示原先可能继续显示，让用户误以为新书架仍来自上一轮操作。
+- 现在清除流程开始时立即移除旧提示，再进入清空和重新初始化；数据操作的状态不会跨越清除边界。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 明确提示已恢复的中断导入
+
+- 启动自动补回中断导入原先完全静默，用户可能把重新出现的书籍误认为重复导入或数据异常。
+- 现在启动快照返回“确实完成了补回”的结果，应用只在书架索引成功恢复后显示一次本地提示；清理失效标记和恢复失败不会展示成功通知。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+
+## 2026-09-13 避免导入恢复放大临时读取故障
+
+- 待完成导入恢复原先直接读取书架；如果这一步遇到一次暂时性 I/O 失败，启动会在正常读取前被恢复辅助流程打断。
+- 现在恢复辅助流程会保留标记并安静返回，让正常启动读取流程负责重试；新增临时书架读取失败回归校验。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`。
+
+## 2026-09-13 恢复被系统中断的书籍导入
+
+- 导入正文成功后如果应用在书架索引写入前被系统回收，原先下次启动只能看到旧书架，已写入的正文也无法被用户找到。
+- 现在先写入待完成导入标记；启动时会校验书籍记录和正文是否仍存在，自动补回书架并清理标记，索引写入失败则保留标记等待下次启动重试；取消导入、恢复备份和清理本地数据会同步处理该标记。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 同步编辑后的备份书籍元数据
+
+- 用户编辑书名或作者后，书架和生词会更新，但旧版本导出的正文副本仍可能保留旧元数据，换设备恢复后出现标题不一致。
+- 现在生成备份时以当前书架元数据覆盖正文副本的书名和作者，并增加跨设备一致性测试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 展示在线翻译提供方策略
+
+- 在线翻译确认弹窗原先只说明可能发送给第三方，没有展示当前构建实际采用的服务组合。
+- 现在确认弹窗和隐私说明会显示自有网关、必应实验性兼容模式与 MyMemory 兜底等当前策略，开启前的隐私决策更明确。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 修正备份恢复失败通知样式
+
+- 备份恢复失败时，应用原先会把“恢复未完成”写入成功样式的全局通知；在启动恢复路径中还可能直接展示系统底层错误。
+- 现在失败由当前恢复页面或设置页的错误提示承接，成功通知只在恢复提交完成后出现，并统一转换启动恢复异常。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 统一书架与正文读取失败提示
+
+- 书架编辑或删除失败、以及原生正文文件读取失败时，原先可能直接展示系统英文异常，用户无法判断是权限、文件缺失还是暂时写入失败。
+- 现在分别转换为存储权限、文件不存在或稍后重试的中文提示；已有的重新打开、重新导入、恢复备份入口保持可用。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 补充生词来源位置
+
+- 生词本和复习卡片原先只显示书名，用户需要先跳回阅读器才能确认词条来自哪一章。
+- 现在对带有位置数据的词条直接显示“第几章 · 第几段”，没有位置的旧词条仍按原样显示，减少在长书中寻找语境的成本。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 补齐备份学习记录引用校验
+
+- 备份原先只校验书籍进度与正文边界；生词的章节/段落越界、只提供一半位置、重复阅读记录或非法统计日期仍可能进入恢复流程。
+- 现在恢复前会校验生词“回到原文”的位置、日期格式和每本书只有一条阅读记录，发现异常就保留原书架并提示备份无效，避免用户恢复后跳错位置或看到异常趋势。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy` 和 `git diff --check`，并成功导出 Web 与 Android bundle。
+
+## 2026-09-13 修复离线朗读流式错误回退
+
+- Piper 流式生成触发 `onError` 时原先只记录日志，函数仍返回离线播放成功，用户可能听不到声音且无法获知原因。
+- 现在把流式错误传入系统音色回退路径，并让阅读、复习、生词本和设置页明确提示“当前使用系统音色”；系统音色自身失败仍显示可重试的朗读错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 校验备份书籍元数据一致性
+
+- 备份原先只校验书籍 ID 与正文 ID 的关联；章节数、总词数或当前段落被篡改时仍可能恢复，导致首页进度和阅读器位置与正文不一致。
+- 现在恢复前会对照正文校验章节数、总词数、当前章节和当前段落边界，发现不一致就保留原书架并提示备份无效；新增异常元数据覆盖测试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 统一电子书选择器失败提示
+
+- 文件选择器遇到权限、空间不足、文件失效或提供器异常时，首页、书架和推荐详情原先会直接展示系统英文错误；部分取消异常也可能进入失败提示。
+- 现在统一给出重新选择、检查权限或清理空间的中文方向，并把带取消码的选择器异常视为正常退出；新增导入错误分类验证。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 统一 Kindle 导入失败提示
+
+- MOBI/KF8 兼容解析全部失败时，原先会把解析器内部英文异常拼入最终提示，用户无法判断应转换格式、确认无 DRM 还是重新选择文件。
+- 现在统一提示文件损坏、扩展名/固定版式不支持和 DRM 排查方向，并保留可识别的 DRM、取消、正文过大等专项错误；解析器测试覆盖统一兜底文案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 保留水平测试最后答案
+
+- 水平测试最后一道题原先直接计算结果并删除草稿，应用在结果写入前被系统回收时，最后答案无法恢复。
+- 现在先保存最终答案，再写入等级结果；恢复到完整草稿时会自动生成结果并清理草稿，减少首次使用中断后的重复作答。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 统一备份操作失败提示
+
+- Android 文件提供器在备份导出、选择或恢复失败时可能返回权限、空间不足或文件不存在等英文系统错误，原先设置页会直接展示这些细节。
+- 现在统一给出重新选择目录、检查权限或清理空间的中文提示；已有中文校验和回滚错误继续保留，备份测试覆盖四类系统错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 归一化本地写入失败提示
+
+- 持久化重试横幅原先会直接拼接底层错误，例如 `disk full` 或 `SQLITE_BUSY`，用户无法据此判断应该清理空间、稍后重试还是检查权限。
+- 现在按存储空间、设备繁忙、写入权限和未知错误提供中文恢复提示；已有中文业务错误继续保留，测试覆盖各类分类和重试竞态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 统一 PDF 读取失败提示
+
+- PDF 原生模块实际可能返回 `PDF_LOAD_ERROR`、`PDF_EXTRACTION_ERROR` 等实现层错误码，原先未知码会把英文底层错误直接传到导入失败提示，用户难以判断下一步。
+- 现在按密码保护、文件失效、损坏/不支持和一般读取失败分级显示中文提示，并给出重新选择、转换或重试方向；解析器测试覆盖原生未公开错误码的降级文案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 修正 Kindle 导入取消提示
+
+- MOBI/KF8 解析在章节边界收到取消后，内部错误原先会被包装成“无法解析文件：导入已取消”，上层无法识别为用户主动停止，可能显示格式失败提示。
+- 现在保留取消错误原文，让停止导入直接结束，不进入失败提示或错误重试路径。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 保留 OCR 确认后的文件上下文
+
+- 扫描版 PDF 在系统 OCR 确认框前会暂时关闭导入弹层；确认后重新显示进度时，原先文件名没有恢复，长时间识别期间用户难以确认处理对象。
+- 现在在本次导入流程中保留已选文件名，OCR 进度弹层重新打开后继续显示同一文件名。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 对齐首页导入格式说明
+
+- 首页 Android 导入卡片原先漏列 KF8，用户从入口看到的支持范围比实际解析能力更窄。
+- 现在入口完整列出 TXT、EPUB、MOBI、AZW3、KF8 和 PDF，和文件选择器及其它导入说明保持一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 防止快速连点造成朗读重叠
+
+- 朗读请求在等待停止上一段语音时才分配代次；快速连续点词可能让旧请求在新请求之后开始播放，造成重叠或读错词。
+- 现在请求开始等待停止前就预留最新代次，停止完成后再次确认请求仍有效，旧请求不会越过新请求开始播放。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 清理切换单词后的旧翻译状态
+
+- 整句翻译尚未返回时切换到另一个单词，旧请求会被正确标记为过期，但新词卡原先仍继承“翻译加载中”状态，旧请求也不会再替它清理状态。
+- 现在每次选择新单词都会先结束旧翻译加载状态，新的词卡不会永久显示过期请求的加载指示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 保留从首页复习跳回原文的上下文
+
+- 从首页进入复习后，复习卡片的“回到原文”原先固定把阅读器返回目标设为生词本，返回或读完一本书会离开用户原本的“今天”路径。
+- 现在复习入口会把 Today/Vocabulary 上下文传给阅读器，错误状态、返回按钮和读完提示都会回到对应页面。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让 EPUB 目录解析也可取消
+
+- EPUB 导入原先会在逐章解析前读取并扫描导航目录；大型目录期间点击取消不会立即检查信号，用户可能长时间看到“正在取消”。
+- 现在目录文件读取、目录链接扫描和 NCX 解析边界都会观察取消状态，主动停止能更早结束且不会创建书架条目。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让 Kindle 目录遍历也可取消
+
+- MOBI/KF8 导入原先会同步遍历整棵 TOC，用户在大型目录期间点击停止要等遍历完成才响应。
+- 现在元数据读取和 TOC 递归遍历都会检查取消信号，主动停止能更早结束并释放解析器。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 防止体验书索引留下坏引用
+
+- 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。
+- 现在失败路径会清理体验书正文，并尽力回写初始化前的书架索引；启动验证覆盖部分确认失败，确保后续重试不会打开坏的体验书。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 对齐推荐依据说明
+
+- 发现页原先只要存在足够阅读量就显示“推荐已结合近期阅读”，但算法还要求导入书名与推荐目录匹配，文案可能夸大实际影响。
+- 现在提取相同匹配条件供算法和界面共同使用，只有确实能参与调整的阅读记录才会显示近期阅读依据。
+- 新增推荐依据验证，覆盖目录匹配和 800 词阅读量门槛。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 处理文件选择器的空资产返回
+
+- 部分文件提供器可能返回未取消但没有文件资产，导入流程原先会在读取文件名时触发底层属性错误。
+- 现在把这类返回统一转换为可理解的重试提示，真正的格式和读取错误仍沿用原有具体说明。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 过滤失效的想读书目状态
+
+- 旧版本或备份可能保留已从推荐目录移除的书目 ID，发现页原先仍显示想读数量，筛选后却没有对应内容。
+- 现在发现页按当前推荐目录过滤想读状态，数量、筛选结果和书签视觉状态保持一致；旧数据仍保留，不影响未来目录重新提供同一 ID 时恢复状态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 清理体验书初始化失败的孤立正文
+
+- 首次启动创建体验书时，正文写入成功但书架索引写入失败会留下用户看不到的文件，后续重试还可能重复占用空间。
+- 现在体验书索引写入失败会清理刚创建的正文；新增启动初始化验证，确保失败后可安全重试，索引标记失败则仍保留完整体验书以避免重复创建。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 清理导入失败留下的正文文件
+
+- 导入会先写正文文件、再保存书架索引；正文写入中途失败时，原先可能留下用户看不到的孤立文件并持续占用空间。
+- 现在正文创建失败会尝试立即清理对应文件，同时保留原始错误供界面提示；只有正文完整写入后才会进入书架索引保存。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 显示水平测试草稿写入失败
+
+- 水平测试中间题目的本机草稿写入原先在后台静默执行，设备存储异常时用户看不到风险，退出后可能无法恢复。
+- 现在每次进入下一题前等待草稿写入结果；读取或写入失败会在测试页就地提示，当前作答仍可继续，用户不会把未落盘状态误认为已保存。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 校正水平测试退出提示与草稿识别
+
+- 水平测试已支持本机草稿恢复，但退出确认框仍沿用旧文案，容易让用户误以为返回页面会丢失已答内容。
+- 现在退出提示明确说明草稿会保存在本机、之后可以继续；只有确认放弃才会清理草稿。发现页也只在草稿包含有效答案时显示“继续水平测试”，避免损坏或无效数据造成错误入口。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 增加离线词典重试入口
+
+- 离线词典初始化失败后，用户原先只能重启应用才能再次尝试加载。
+- 现在设置页的词典状态行可直接重试；重试期间书架、阅读和基础查词保持可用，成功后恢复完整本地词典。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让水平测试草稿有明确的继续入口
+
+- 水平测试已支持把未完成答案保存在本机，但发现页原先始终显示“开始水平测试”，用户返回后看不出已有进度。
+- 现在发现页重新获得焦点时检查本地草稿；存在未完成答案时显示“继续水平测试”，同时说明答案不会上传，进入测试后继续原来的题目。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 为 OCR 导入提供剩余时间估计
+
+- 扫描版 PDF 导入原先只有页码进度和已用时，长时间识别时用户难以判断还要等待多久。
+- 现在完成首批页面后根据本次 OCR 的实际速度显示预计剩余时间，并标注估计会随设备速度变化；停止、跳过页和隐私说明保持不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 为无效推荐链接补充恢复入口
+
+- 推荐详情遇到过期或无效的书籍 ID 时原先直接返回空节点，用户只能看到空白页面。
+- 现在显示推荐不可用的说明，并提供返回发现页按钮，用户可以继续浏览最新推荐。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 为无标题导入文件补充书名兜底
+
+- 文件提供器缺少名称或文件名只有扩展名时，原先清理后的书名可能为空，书架会出现无法识别的空标题。
+- 现在统一使用“未命名书籍”作为导入书名兜底；正文、格式识别和用户后续编辑书名保持不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让大型 EPUB 与 Kindle 导入可安全取消
+
+- 导入弹层原先能显示取消中，但 EPUB/MOBI/KF8 解析循环内部没有读取取消信号，用户可能要等完整解析结束。
+- 现在解析器在逐章和分段边界检查取消；取消后释放解析器资源并返回正常取消状态，不创建半成品书籍，也不显示误导性的导入失败。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 统一备份恢复的取消行为
+
+- 部分 Android 文件选择器会把用户取消选择备份表示为异常，恢复入口原先可能显示“无法读取备份”的错误提示。
+- 现在同时兼容取消返回值和取消异常；用户主动退出选择时安静返回，真正的读取或校验失败仍会保留明确错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让词典后台加载不阻断首次进入
+
+- 原生端启动时，SQLite 词典 Provider 加载期间不会渲染 App 内容，首次打开可能被词典初始化耗时拖住。
+- 现在书架、阅读和复习可先进入；加载期间查词使用基础兜底，词典成功后自动切换到完整本地释义，失败则沿用明确的降级提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 离线词典故障时保留核心阅读
+
+- 随包 SQLite 词典初始化失败时，Expo 默认行为会重新抛出错误，可能阻断整个 App，即使用户只想继续阅读。
+- 现在原生端会降级到基础释义/在线策略并继续显示书架、阅读和复习；设置与查词卡片明确标注离线词典暂不可用，重启应用可再次尝试加载。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 在线翻译开启前明确隐私确认
+
+- 在线翻译增强原先点击开关就会生效，用户可能没有充分注意未收录单词或主动整句翻译会发送给第三方服务。
+- 现在首次开启前先显示范围说明和确认按钮；取消确认保持离线，关闭开关仍立即生效，书籍正文和阅读进度继续留在设备。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 在继续阅读卡片显示章节位置
+
+- 首页主阅读卡片原先只显示百分比，用户在多本书之间切换时无法快速判断上次停留章节。
+- 现在显示“第 x/y 章”并保留百分比；文本在窄屏上单行收缩，继续阅读按钮和实际恢复位置不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让推荐难度反馈有明确结果
+
+- 推荐详情页的“偏简单/正合适/有点难”原先只有选中样式，快速点击可能重复提交，保存失败也没有就地反馈。
+- 现在反馈提交期间锁定选项并向读屏用户报告状态，完成后说明后续推荐会参考；本地保存失败时保留会话结果并提示稍后重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 保存未完成的水平测试草稿
+
+- 水平测试原先只在当前页面内保留答案，应用被系统回收后重新进入会从第一题开始，首次使用者可能需要重复作答。
+- 现在将未完成答案仅保存到本机并恢复到第一道未答题；完成测试、明确退出或重新开始时清理草稿，不上传答案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 离开设置页时停止试听
+
+- 设置页试听英语音色时离开页面，原先播放任务可能继续响到阅读或复习页面。
+- 现在设置页卸载时主动停止系统或离线朗读，避免试听声音越过页面边界；试听期间的状态锁仍会在页面内生效。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 避免英语音色试听交叠
+
+- 设置页快速点击多个英语音色时，试听请求可能交叠，用户无法判断当前播放和最终选择。
+- 现在试听期间显示“试听中”、暂时锁定音色列表，并在读屏标签中报告处理中状态；试听结束或失败后自动恢复操作。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让导入过程明确当前文件
+
+- 导入弹层此前只有阶段名称；选择大文件后，用户无法确认当前处理的是哪一本书，等待时容易误判为卡住或重复操作。
+- 现在在读取、解析、保存和 OCR 阶段显示所选文件名，并在 OCR 状态切换时保留该上下文；取消、隐私说明和保存阶段锁定行为保持不变。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 让阅读完成页保留来源上下文
+
+- 从生词本或复习卡片进入阅读并读完时，完成弹窗原先固定返回书架，用户会丢失正在处理的学习上下文。
+- 现在完成说明、主按钮和读屏标签按入口返回生词本或书架；从普通阅读进入的行为保持不变。
+
+## 2026-09-13 为生词本增加跨字段搜索
+
+- 生词本原先只能按学习状态切换，生词增多后无法通过单词、释义、原句或书名快速定位。
+- 现在增加搜索框和清除按钮，搜索无结果时显示独立说明；输入框和书架搜索也补充读屏名称，不会误导用户重新导入或收藏。
+- 书架编辑弹窗的书名和作者输入框也补充明确读屏名称，编辑路径对辅助技术更完整。
+
+## 2026-09-13 对齐生词来源失效时的恢复文案
+
+- 从生词本打开已删除书籍时，阅读器按钮会返回生词本，但错误正文仍提示返回书架，恢复路径前后不一致。
+- 现在错误说明按入口显示“返回生词本”或“返回书架”，并保留重新导入原文件的建议。
+
+## 2026-09-13 修正受限 Windows 环境的网关测试入口
+
+- 网关测试逻辑本身通过，但默认 Node 测试隔离会启动子进程，在当前受限 Windows 环境触发 `spawn EPERM`，容易把环境问题误判为回归。
+- 根项目脚本现在使用 Node 24 的无隔离测试模式；网关四项测试可直接通过，README 同步记录适用边界。
+
+## 2026-09-13 让复习完成后直接回到阅读
+
+- 复习完成页原先只有返回生词本按钮，虽然文案建议继续阅读，却需要用户再手动切换页面。
+- 现在主按钮直接回到今天页，保留返回生词本作为次要操作；今天页会根据书架状态显示最近阅读或导入入口。
+
+## 2026-09-13 为生词本空状态补充阅读入口
+
+- 生词本学习列表为空时原先只有“阅读时点击单词并收藏”的说明，没有直接回到阅读的行动入口。
+- 现在提供“去读一本书”或“继续阅读”按钮，直接回到今天页；已掌握列表为空时不增加无关操作。
+
+## 2026-09-13 对齐 Web 预览的导入格式提示
+
+- Web 预览原先在首页、空书架和推荐详情列出 PDF，但 Web 不具备 PDF 提取与 OCR 能力，用户可能先选文件再遇到失败。
+- 首页、空书架、发现页和推荐详情现在按平台显示可用格式；README 同步说明 Web 支持的导入范围，并明确提示 PDF/OCR 请使用正式 Android 安装包，原生端继续保留 PDF 说明。
+- 导入服务在 Web 用户手动选中 PDF 时也会提前返回可行动提示，不再让文件进入原生 PDF 解析路径后才显示通用错误。
+- 类型检查、完整回归和 Web/Android bundle 验证通过后再提交推送。
+
+## 2026-09-13 公开阅读统计的隐私边界并补齐恢复操作读屏标签
+
+- 隐私弹窗和隐私文档明确说明：阅读统计开关不影响查词、复习；查词次数只在设备上参与推荐排序，不会上传。
+- 正文读取失败时的“重新打开”“返回来源”和空章节的“选择章节”补充无障碍名称，读屏用户可以完成恢复路径。
+- 类型检查、完整回归和 Web bundle 验证通过。
+- Android bundle 在 Hermes 字节码步骤遇到 Windows `spawn EPERM` 时，使用 Expo v57 官方 `--no-bytecode` 回退成功；该结果只作为受限环境的 bundle 证据，仍需正式 APK 与真机验收。
+
+## 2026-09-13 为查词卡片增加明确关闭入口
+
+- 查词卡片原先只能点击背景或使用系统返回关闭；现在在收藏按钮旁增加显式关闭按钮，并提供读屏名称，减少用户回不到正文的困惑。
+
+## 2026-09-13 区分在线查词失败与词典未收录
+
+- 在线增强开启但网络查询失败时，结果原先静默降级为普通兜底，用户容易误以为单词没有释义。
+- 查词结果现在携带在线失败状态，卡片明确显示已使用兜底并提供“点击重试”；关闭在线增强或本地查词结果不受影响。
+
+## 2026-09-13 为正文可查词节点补充读屏语义
+
+- 正文单词原先只有点击回调，读屏用户不一定能发现可查词操作。
+- 可查词节点现在声明为按钮，并提示“双击查看释义和原句”，不改变普通点击查词行为。
+
+## 2026-09-13 修正正文返回来源的读屏标签
+
+- 从生词本打开原文时，阅读器顶部按钮原先仍标为“返回书架”，与实际返回目标不一致。
+- 标签现在根据入口显示“返回生词本”或“返回上一页”，不改变导航行为。
+
+## 2026-09-13 为关键弹窗补充模态无障碍语义
+
+- 设置页隐私、清除数据、关于和恢复确认，以及启动恢复确认弹窗原先没有声明模态视图。
+- 现在读屏焦点会留在当前弹窗，减少用户误触或误读背景页面的风险。
+
+## 2026-09-13 导入索引写入失败时保留当前阅读
+
+- 书籍正文创建成功但书架索引写入失败时，导入原先直接抛错，用户容易重复选择同一个文件。
+- 现在保留内存中的新书并进入阅读，持久化追踪器继续保存最新索引并显示重试提示；应用重启前仍应完成重试或确认可用空间。
+
+## 2026-09-13 统一书架与首页的最近阅读排序
+
+- 书架原先保留导入顺序，阅读多本书后刚打开的书仍可能排在后面。
+- 书架现在按最近打开时间排序，搜索过滤也在排序之后执行，方便回到最近阅读上下文。
+
+## 2026-09-13 在首页入口公开阅读统计控制
+
+- 首页底部隐私提示原先只说明正文留在设备，未提及阅读统计可以关闭。
+- 现在同时说明正文与进度的本地保存，以及“设置中关闭阅读统计”的入口；在线增强联网范围继续保留。
+
+## 2026-09-13 补齐空书架首页起点
+
+- 删除体验书或恢复空备份后，首页原先没有顶部的明确下一步，用户需要滚动到最近书页区域才看到导入卡。
+- 空书架现在在首页顶部显示导入第一本书的行动入口；已有书籍时不改变继续阅读布局。
+
+## 2026-09-13 修复想读筛选的空状态出口
+
+- 发现页在“只看想读”模式下取消最后一本书后，原先筛选按钮会消失，用户无法回到完整推荐。
+- 现在保留“全部”切换按钮，并在空状态中提示用户继续浏览。
+
+## 2026-09-13 让首页明确给出到期复习下一步
+
+- 到期词原先只显示在“待掌握词”数字卡片里，用户需要自己判断下一步；首页现在在有到期词时显示行动卡，直接进入复习并说明回到原句的收益。
+- 没有到期词时不显示额外卡片，继续阅读入口保持原有层级。
+
+## 2026-09-13 增加阅读统计开关
+
+- 隐私审查发现用户无法停止新增阅读分钟、连续天数和趋势记录，产品文档已有的关闭能力没有落地。
+- 设置页新增“记录阅读统计”开关；关闭后不再写入这些统计，阅读进度、生词和书籍功能继续工作，首页明确显示统计已关闭；已有统计不会被静默删除。
+- 备份校验覆盖开关字段，兼容未包含该字段的旧备份（默认开启）。
+- 类型检查、完整回归和 Web bundle 验证通过后推送。
+
+## 2026-09-13 对齐导入保存阶段的取消行为
+
+- 导入进入保存阶段后，原先仍可点击取消；此时索引写入可能已经开始，界面承诺与实际结果不一致。
+- 现在保存期间按钮显示“正在保存…”并禁用取消，解析阶段仍可正常取消，降低用户丢失或误判导入结果的风险。
+- 类型检查、完整回归和 Web bundle 验证通过后推送。
+
+## 2026-09-13 修正导入耗时与 OCR 隐私文案
+
+- 导入浮层此前把从选择文件开始累计的总耗时写成“当前阶段已用时”，容易让用户错误估计解析阶段剩余时间。
+- 扫描 PDF 提示此前称 OCR“完全在本机”，没有说明系统服务可能发送运行指标；现在明确页面文字在本机处理且不会上传到书语服务器，同时保留系统服务边界。
+- 相关文案变更通过类型检查、完整回归和 Web bundle 验证。
+
+## 2026-09-13 保留已选英语音色
+
+- 设置页原先只显示前五个可用音色；用户选中靠后的系统音色后再次打开设置，选中项可能消失，无法确认当前配置。
+- 现在始终保留当前保存的音色项，同时维持常用音色列表的紧凑长度。
+- 类型检查和完整回归通过；该改动属于设置列表逻辑，随后继续复核 bundle。
+
+## 2026-09-13 朗读失败反馈与连续播放保护
+
+- 阅读器、生词本和复习页原先会吞掉朗读异常，用户点击后没有声音也没有下一步。现在失败会在当前页面显示可关闭的提示，说明检查设备音量或系统英语音色。
+- 系统朗读改为逐片段等待完成并接收 Expo Speech 的错误回调；快速连续点击或离开页面时，旧请求不会继续把长文本排入队列。
+- 隐私说明同步区分 Android 随包 Piper 离线音色与系统音色；未声称系统音色一定离线。
+- 验证范围：类型检查、完整回归、Web bundle；Android bundle 将在提交前复核。真实设备音量、系统 TTS 引擎和随包音色仍需按 Android 验收清单验证。
+
+## 2026-09-13 统计迁移、日历边界与真实趋势
+
+- 旧版上一日的统计在隔天升级、空历史或部分历史场景下仍能按原日期恢复；同日继续阅读不重复计入旧总量。累计、今日、趋势统一使用同一套统计计算。
+- 历史清理改按最近 90 个日历日，修复只截取 90 条记录而保留多年旧数据的问题。保留累计总量；设备时钟回退时保留已有未来日期记录，展示仅取截至当天的 7 天。
+- 连续天数和趋势日期按日历推算，兼容夏令时、跨月和跨年。首页每分钟、回到前台及重新聚焦时刷新日期。
+- 趋势区分无记录与 0 分钟，移除虚假最小柱高，显示日期、数值和独立读屏标签；标题明确为近 7 天。
+- 验证通过：类型检查、完整回归（含备份恢复的 20 个中断边界）、上海/纽约双时区统计测试、Web/Android bundle 导出；用隔离数据检查了 390/320 像素宽度下的趋势及空状态。
+- 可复现界面：Web 导出后运行 `node scripts/prepare-reader-preview.mjs`，在隔离的 `127.0.0.1:4174` 预览 `reader-recovery-test.html?case=stats` 或 `case=stats-empty`。真实 Android 前后台切换与读屏验收仍待设备验证。
+
+## 2026-09-13 首页统计跨日自动刷新
+
+- 首页停留前台跨过午夜时，今日分钟、连续天数和 7 天趋势原先可能要等手动切页才更新。
+- 现在首页每分钟刷新一次时钟，并让目标、到期复习和趋势共用同一时间点计算，前台跨日后在下一次刷新时更新。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 修正阅读趋势读屏层级
+
+- 趋势卡片父容器设为可访问时，部分 iOS 读屏会合并子节点，导致每天的分钟数无法逐项读取。
+- 移除父容器的可访问聚合，只让每个日期柱独立暴露日期和分钟数，保留标题与总计文本。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 阅读趋势兼容旧版今日统计
+
+- 升级前已有今日阅读记录的用户，首次查看新趋势时原先会看到空柱；升级后继续阅读也可能漏掉此前的今日分钟。
+- 趋势展示和新历史写入现在都会继承旧版 `todayMinutes / todayWords`，保持升级前后的当日统计连续。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 补充非法趋势日期回归
+
+- 为阅读趋势日期校验补充备份回归：不存在的日期（如 2 月 30 日）必须拒绝恢复。
+- 保持旧版没有历史字段的备份可正常读取，防止统计结构升级破坏兼容性。
+- 类型检查、完整回归和差异检查通过后再推送。
+
+## 2026-09-13 阅读趋势补充读屏摘要
+
+- 7 天趋势卡片原先只有视觉柱状图，读屏用户无法知道每天的阅读分钟。
+- 卡片和每个日期柱现在提供日期、分钟数和 7 天总计的无障碍摘要。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 阅读历史日期校验更严格
+
+- 7 天趋势引入的本地历史日期原先只校验 `YYYY-MM-DD` 外形，不会拒绝不存在的日历日期。
+- 备份和启动校验现在同时验证日期真实存在，并补充跨月测试夹具，避免异常历史污染趋势展示。
+- 类型检查、完整回归和差异检查通过后再推送。
+
+## 2026-09-13 首页加入 7 天阅读趋势
+
+- 首页原先只展示今日分钟和连续天数，用户无法判断最近一周的阅读节奏。
+- 新增本地 7 天分钟趋势卡片；阅读记录按天累加并最多保留 90 天，旧版本没有历史字段时仍可正常启动和恢复。
+- 类型检查修正后，统计回归、完整测试和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 README 连接 Android 真机验收
+
+- Android 验收清单已创建，但 README 的验证入口原先没有链接，发布流程容易跳过真实设备检查。
+- 现在主验证说明直接链接 [ANDROID_ACCEPTANCE.md](ANDROID_ACCEPTANCE.md)，并明确 Web / bundle 验证不能替代 APK 真机验收。
+- 文档差异检查通过后再推送。
+
+## 2026-09-13 隐私文档补充 Web 词典边界
+
+- 隐私文档原先将 ECDICT 本地查询写成全平台能力，没有明确 Web 预览不加载随包 SQLite 词典。
+- 现在明确区分正式安装包与 Web 预览的词典来源，并与设置页、阅读器查词卡片保持一致。
+- 文档差异检查通过后再推送。
+
+## 2026-09-13 Web 查词卡片说明词典差异
+
+- 设置页已经说明 Web 预览不加载随包 SQLite 词典，但阅读器查词卡片仍可能让用户把基础兜底误解为词典缺词。
+- 查词卡片现在直接标注 Web 预览的词典边界，并区分在线补充释义与基础兜底结果；正式安装包继续显示 ECDICT 本地词典来源。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
+## 2026-09-13 导入阶段反馈更清晰
+
+- 长文件导入原先始终显示“正在整理书页”，用户无法判断是在读取文件、解析章节还是保存书籍。
+- 现在显示准备选择、读取、解析和保存阶段，并保留耗时与取消入口；OCR 继续显示逐页进度。
+- 类型检查、完整回归和 Web / Android bundle 导出通过后再推送。
+
 ## 2026-09-13 首页学习指标可直接行动
 
 - 首页“待掌握词”原先只有统计展示，用户看到需要复习的词后还要自己寻找生词页。
@@ -358,3 +907,161 @@
 - 在真机上验证文件选择、空间不足、恢复时退出应用和再次启动的完整流程。
 - 处理大文件导入的预计时间、后台恢复和失败详情。
 - 真机验证旋转屏幕、长章节、多页生词来源跳转和后台切换；尚未完成原生界面验收。
+
+## 2026-09-13 · 查词收藏结果反馈
+
+- 用户在正文查词卡片收藏生词后，原先没有卡片内结果反馈，保存异常也会被静默吞掉，容易误以为已经可靠写入。
+- 新增保存中、已加入生词本和设备保存失败三种即时状态，并为读屏用户同步更新按钮名称与禁用状态；失败时说明本次会话仍可见，但需要稍后重试设备保存。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 小屏查词卡片可滚动
+
+- 长原句、整句翻译和来源提示可能让查词卡片超过小屏高度，底部的关闭或重试操作因此不可见。
+- 查词卡片正文现在限制最大高度并支持垂直滚动，保留顶部收藏与关闭操作，长内容仍能完整访问。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 书架编辑防误丢
+
+- 书架编辑弹层原先点击背景或系统返回会直接关闭，未保存的书名/作者输入会丢失；保存失败信息也只显示在弹层背后。
+- 有未保存修改时要求明确选择保存或取消，保存中锁定两个动作，失败信息直接显示在编辑弹层并保留输入内容。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 推荐收藏结果反馈
+
+- 推荐详情页收藏“想读”原先只有图标变化，保存失败时用户无法判断是否需要再次处理。
+- 新增加入/移除成功提示、设备保存失败说明，以及收藏按钮的选中语义；提示会保留当前会话结果并指向稍后重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 发现页筛选无障碍状态
+
+- 发现页兴趣、想读筛选、等级浏览和推荐难度反馈此前只有视觉选中样式，读屏用户无法确认当前状态。
+- 为相关按钮补充 `accessibilityState.selected`，并同步推荐卡片和目录列表中的收藏按钮。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 关键动作禁用状态
+
+- 排版尚未完成时的翻页/朗读按钮，以及复习写入期间的两个提交按钮，原先只有视觉或原生禁用状态，读屏用户无法确认原因。
+- 为这些关键动作补充 `accessibilityState.disabled`，让辅助技术与实际交互状态保持一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 其他状态无障碍语义
+
+- 导入取消、生词掌握切换和设置页不可操作项此前缺少对应的读屏禁用/勾选状态。
+- 为这些控件补充 `accessibilityState`，让辅助技术可以判断操作是否仍在进行，以及词条是否已掌握。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 开源入口失败反馈
+
+- 设置页的开源项目入口直接调用系统浏览器，无法打开时没有任何页面内反馈。
+- 增加打开失败提示和关闭入口，用户能知道链接未能打开并稍后重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 生词掌握操作防连点
+
+- 生词本中的“标记已掌握/学习中”按钮原先没有提交锁，快速连点可能在串行保存队列中反复切换同一词条。
+- 增加单条词的提交锁、处理中标签和读屏禁用状态，完成后再允许下一次切换。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 书架确认弹层读屏隔离
+
+- 为书架编辑、管理、删除以及生词移除确认弹层补充 `accessibilityViewIsModal`，避免读屏焦点穿透到背景列表。
+- 目标：让删除、编辑等高影响操作的确认范围清晰，降低误操作风险。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 设置选项状态反馈
+
+- 字号调节达到 16px 或 25px 边界时，原先仍可点击但不会改变；阅读目标、主题和英语音色的选择仅有视觉高亮。
+- 为字号步进补充边界禁用状态和视觉反馈，为目标、主题、音色补充读屏选中状态，减少无效点击和当前值不确定。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 阅读器字号边界反馈
+
+- 阅读器排版弹层的字号按钮原先在 16px 或 25px 边界仍可点击，但不会产生变化。
+- 补充边界禁用、半透明视觉反馈和读屏状态，保持阅读器与设置页的交互规则一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 想读保存防连点
+
+- 发现页和推荐详情的“加入/移出想读”操作原先没有提交锁，快速点击可能在连续保存时反复切换。
+- 增加条目级提交锁、处理中视觉反馈和读屏禁用状态，保持推荐收藏结果稳定。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 删除操作处理中反馈
+
+- 书籍和生词删除确认后原先立即关闭弹层，正文清理或本地写入较慢时无法判断是否仍在处理。
+- 增加删除提交锁、处理中文案、取消锁定和读屏禁用状态，避免重复删除和误操作。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 水平测试退出保护
+
+- 水平测试进行中点关闭或系统返回原先会直接离开，已完成的作答也会丢失。
+- 增加退出确认弹层，并拦截未完成测试的系统返回；用户可继续测试或明确放弃当前作答。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 复习完成返回上下文
+
+- 复习可从首页或生词本进入，但完成页原先固定显示“返回生词本”，首页入口会让用户返回位置产生误解。
+- 记录复习入口并让完成页返回对应页面，同时同步按钮文案和读屏标签。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 阅读弹层标题语义
+
+- 查词卡片、生词目录和阅读排版弹层原先缺少标题语义，读屏用户进入后需要遍历控件才能理解上下文。
+- 为三个弹层的标题补充 `accessibilityRole="header"`，让辅助技术可以直接定位当前内容。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
+## 2026-09-13 · 删除索引崩溃窗口
+
+- 删除书籍时书架、生词和阅读记录原先并行写入；进程可能在部分索引成功后退出，下一次启动看到生词指向已不存在的书籍并停在数据损坏页。
+- 现在先保存生词和阅读记录，确认两个依赖索引完成后再保存书架，最后清理正文；中途退出最多留下未完成的删除，不会破坏启动所需的引用一致性。
+- 增加书籍删除边界验证，覆盖各索引写入失败、正文清理失败和重试后的新数据保护。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；完整发布前仍会继续执行 Web 与 Android bundle 导出。
+
+## 2026-09-13 · 清除数据状态提示
+
+- 清除全部本地数据时应用会暂时回到启动页，但原先仍显示“正在读取本地书架”，无法让用户确认清除操作是否仍在进行。
+- 增加 `reset` 存储活动状态，启动页和读屏标签现在明确显示“正在清除本地数据，请保持应用打开”。
+- 清除完成或失败后都会释放状态，避免后续导入、恢复和普通启动读取被错误锁定。
+
+## 2026-09-13 · 空白章节位置校正
+
+- 目录切换到没有段落的章节时，阅读器原先用 `length - 1` 得到 `-1`，并把无效段落索引写入书架。
+- 下次启动的本地数据校验会拒绝这个负数，用户可能被带到数据损坏恢复页。
+- 统一用安全段落索引处理空章节，保存和恢复都回到 `0`；增加空章节阅读位置验证。
+
+## 2026-09-13 · 词典运行时查询降级
+
+- 离线词典初始化失败已有兜底，但运行中 SQLite 查询异常原先会直接显示查词失败，设置页仍显示“已就绪”。
+- 查询异常现在会触发词典不可用状态；当前请求使用基础释义（用户已开启在线增强时仍按授权尝试在线补充），设置页可重试加载词典。
+
+## 2026-09-13 · 词典重试竞态修复
+
+- 查询异常通过异步回调标记词典不可用；用户立即点击重试时，旧回调可能在新加载开始后才执行，错误覆盖恢复状态。
+- 重试现在会取消尚未执行的旧错误回调，确保新一轮词典加载状态不会被上一轮请求改回失败。
+
+## 2026-09-13 · 复习词条正则安全
+
+- 复习卡片原先直接把生词文本拼进挖空正则；经过编辑或恢复的特殊字符词条可能让渲染抛出正则异常。
+- 现在先转义词条再生成挖空模式，并增加特殊字符回归验证，保证恢复数据也能进入复习流程。
+
+## 2026-09-13 · 长 token 翻译分块
+
+- 普通翻译路径遇到没有空格且超过 450 字节的文本时，原先会把超长 token 原样交给服务，URL 或连续字符串可能因此失败。
+- 现在按 UTF-8 字节边界拆分超长 token，并验证分块上限和文本无损拼接。
+- 分块过程改为增量计算字节数，避免极长无空格文本触发重复扫描造成卡顿。
+## 2026-09-13 目标完成后继续阅读
+
+- 首页在今日目标完成、没有到期复习词且仍有当前书籍时，保留“想再读几页吗？”行动卡。
+- 行动卡直接回到当前书籍上次位置，并向读屏用户报告目标已完成和书名。
+- 目的：完成目标后仍给用户一个低压力的下一步，保持阅读连续性。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`

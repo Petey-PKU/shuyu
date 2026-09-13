@@ -5,6 +5,7 @@ import type { ParsedBook } from '../types';
 import { decodeHtmlEntities, htmlToParagraphs } from './markup';
 
 const MAX_EXTRACTED_CHARACTERS = 25_000_000;
+const IMPORT_CANCELLED_MESSAGE = '导入已取消';
 const FONT_OBFUSCATION_ALGORITHMS = new Set([
   'http://www.idpf.org/2008/embedding',
   'http://ns.adobe.com/pdf/enc#RC',
@@ -123,16 +124,25 @@ async function readTocTitles(
   opfPath: string,
   manifestItems: Record<string, string>[],
   files: Map<string, JSZipObject>,
+  isCancelled?: () => boolean,
 ): Promise<Map<string, string>> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
   const titles = new Map<string, string>();
+  throwIfCancelled();
   const navItem = manifestItems.find((item) => item['@_properties']?.split(/\s+/).includes('nav'));
   if (navItem?.['@_href']) {
     const navPath = resolveRelative(opfPath, navItem['@_href']);
     const navFile = findZipFile(files, navPath);
     if (navFile) {
       const source = await navFile.async('string');
+      throwIfCancelled();
       const links = source.matchAll(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi);
-      for (const match of links) addTocTitle(titles, navPath, match[2], match[3]);
+      for (const match of links) {
+        throwIfCancelled();
+        addTocTitle(titles, navPath, match[2], match[3]);
+      }
     }
   }
 
@@ -144,13 +154,18 @@ async function readTocTitles(
     const ncxFile = findZipFile(files, ncxPath);
     if (ncxFile) {
       const parsed = xml.parse(await ncxFile.async('string'))?.ncx?.navMap;
+      throwIfCancelled();
       asArray(parsed?.navPoint).forEach((point) => walkNcxPoints(point, ncxPath, titles));
     }
   }
   return titles;
 }
 
-export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promise<ParsedBook> {
+export async function parseEpub(data: ArrayBuffer, fallbackTitle: string, isCancelled?: () => boolean): Promise<ParsedBook> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
+  throwIfCancelled();
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(data);
@@ -182,7 +197,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promi
     const id = item['@_id'];
     if (id) manifest.set(id, item);
   });
-  const tocTitles = await readTocTitles(opf, normalizedOpfPath, manifestItems, files);
+  const tocTitles = await readTocTitles(opf, normalizedOpfPath, manifestItems, files, isCancelled);
   const spineItems = asArray<Record<string, string>>(opf.spine?.itemref);
   const orderedItems = spineItems
     .map((spine) => manifest.get(spine['@_idref']))
@@ -195,6 +210,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promi
   let extractedCharacters = 0;
 
   for (const item of candidates) {
+    throwIfCancelled();
     const href = item['@_href'];
     if (!href || item['@_properties']?.split(/\s+/).includes('nav')) continue;
     const chapterPath = resolveRelative(normalizedOpfPath, href);
@@ -204,6 +220,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string): Promi
     const chapterFile = findZipFile(files, chapterPath);
     if (!chapterFile) continue;
     const source = await chapterFile.async('string');
+    throwIfCancelled();
     extractedCharacters += source.length;
     if (extractedCharacters > MAX_EXTRACTED_CHARACTERS) {
       throw new Error('EPUB 解压后的正文过大，请按卷拆分后再导入');

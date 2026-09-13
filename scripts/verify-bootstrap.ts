@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { loadAppSnapshot, seedSampleOnce } from '../src/utils/bootstrap';
+import { loadAppSnapshot, recoverPendingImportOnce, seedSampleOnce } from '../src/utils/bootstrap';
 import type { Book, ReadingPreferences, ReadingStats, SavedWord } from '../src/types';
 
 const userBook: Book = { id: 'mine', title: 'My book', author: 'Reader', format: 'txt', createdAt: '2026-09-09', lastOpenedAt: '2026-09-09', currentChapter: 2, currentParagraph: 3, currentOffset: 90, progress: 0.4, totalWords: 1000, chapterCount: 5, accent: '#333' };
 const sampleBook: Book = { ...userBook, id: 'sample', format: 'sample', title: 'Sample' };
-const stats: ReadingStats = { minutes: 120, words: 5000, todayMinutes: 10, todayWords: 100, streak: 3 };
+const stats: ReadingStats = { minutes: 120, words: 5000, todayMinutes: 10, todayWords: 100, todayDate: '2026-09-09', lastReadDate: '2026-09-09', streak: 3, dailyHistory: { '2026-09-08': { minutes: 8, words: 80 }, '2026-09-09': { minutes: 10, words: 100 } } };
 const preferences: ReadingPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper', onlineSentenceTranslation: false };
 const words: SavedWord[] = [{ id: 'word', word: 'quiet', meaning: '安静的', context: 'It was quiet.', bookId: 'mine', bookTitle: 'My book', createdAt: '2026-09-09', mastered: false, reviewCount: 2 }];
 
@@ -57,20 +57,93 @@ async function main() {
   }), /rollback unavailable/);
   assert.equal(readAfterFailedRollback, false, 'An incomplete rollback must not expose a mixed library');
 
+  const pendingBook: Book = { ...userBook, id: 'pending', title: 'Recovered import' };
+  let pendingRaw: string | null = JSON.stringify(pendingBook);
+  let pendingBooks = [userBook];
+  let pendingContent = true;
+  let pendingSaveFailures = 0;
+  const pendingStorage = {
+    loadPendingImport: async () => pendingRaw,
+    clearPendingImport: async () => { pendingRaw = null; },
+    loadBooks: async () => pendingBooks,
+    saveBooks: async (next: Book[]) => { if (pendingSaveFailures > 0) { pendingSaveFailures -= 1; throw new Error('temporary index failure'); } pendingBooks = next; },
+    contentExists: async () => pendingContent,
+  };
+  assert.equal(await recoverPendingImportOnce(pendingStorage), true, 'A pending import reports a successful shelf recovery');
+  assert.deepEqual(pendingBooks, [pendingBook, userBook], 'A pending import is reattached to the shelf when its正文 exists');
+  assert.equal(pendingRaw, null, 'A recovered import marker is cleared after the shelf index is saved');
+  pendingRaw = JSON.stringify(pendingBook);
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'An already indexed import does not report a new recovery');
+  assert.equal(pendingRaw, null, 'A marker for an already indexed book is cleared without duplicating the shelf');
+  pendingBooks = [userBook];
+  pendingRaw = JSON.stringify(pendingBook);
+  pendingContent = false;
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'A missing正文 marker is discarded without reporting a recovery');
+  assert.equal(pendingRaw, null, 'A marker is discarded when the正文 was removed');
+  pendingContent = true;
+  pendingRaw = JSON.stringify(pendingBook);
+  pendingSaveFailures = 1;
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'A failed recovery reports no completed import');
+  assert.equal(pendingRaw !== null, true, 'A failed recovery keeps the marker for the next startup');
+  let transientBookRead = true;
+  await assert.doesNotReject(() => recoverPendingImportOnce({
+    ...pendingStorage,
+    loadBooks: async () => {
+      if (transientBookRead) { transientBookRead = false; throw new Error('temporary shelf read failure'); }
+      return pendingBooks;
+    },
+  }), 'A temporary shelf read failure must not turn pending-import recovery into a startup failure');
+
+  const secondPendingBook: Book = { ...userBook, id: 'pending-two', title: 'Second recovered import' };
+  let multiRaw: string | null = JSON.stringify([pendingBook, secondPendingBook]);
+  let multiBooks = [userBook];
+  const multiStorage = {
+    loadPendingImport: async () => multiRaw,
+    clearPendingImport: async (bookId?: string) => {
+      if (!bookId) { multiRaw = null; return; }
+      const parsed = multiRaw ? JSON.parse(multiRaw) as unknown[] : [];
+      const remaining = parsed.filter((item) => !item || typeof item !== 'object' || !('id' in item) || item.id !== bookId);
+      multiRaw = remaining.length ? JSON.stringify(remaining) : null;
+    },
+    loadBooks: async () => multiBooks,
+    saveBooks: async (next: Book[]) => { multiBooks = next; },
+    contentExists: async () => true,
+  };
+  assert.equal(await recoverPendingImportOnce(multiStorage), true, 'Multiple pending imports are recovered without overwriting one another');
+  assert.deepEqual(multiBooks.map((book) => book.id), ['pending-two', 'pending', 'mine']);
+  assert.equal(multiRaw, null, 'All recovered import markers are cleared individually');
+
   let persistedBooks = [userBook];
   let seeded = false;
   let failIndex = true;
   let failMarker = false;
   let creates = 0;
+  let removedSamples = 0;
   const sampleStorage = {
     isSeeded: async () => seeded,
     create: async () => { creates += 1; return sampleBook; },
     saveBooks: async (books: Book[]) => { if (failIndex) throw new Error('index write failure'); persistedBooks = books; },
+    remove: async (book: Book) => { assert.equal(book.id, sampleBook.id); removedSamples += 1; },
     markSeeded: async () => { if (failMarker) throw new Error('marker write failure'); seeded = true; },
   };
   await assert.rejects(() => seedSampleOnce(persistedBooks, sampleStorage), /index write failure/);
   assert.equal(seeded, false, 'Do not mark initialization complete until the sample is indexed');
+  assert.equal(removedSamples, 1, 'Failed sample indexing must clean up the created content');
   assert.deepEqual(persistedBooks, [userBook]);
+  let partialIndexAttempt = 0;
+  const partialStorage = {
+    ...sampleStorage,
+    saveBooks: async (books: Book[]) => {
+      partialIndexAttempt += 1;
+      if (partialIndexAttempt === 1) {
+        persistedBooks = books;
+        throw new Error('index acknowledgement failure');
+      }
+      persistedBooks = books;
+    },
+  };
+  await assert.rejects(() => seedSampleOnce([userBook], partialStorage), /index acknowledgement failure/);
+  assert.deepEqual(persistedBooks, [userBook], 'A partially acknowledged sample index must roll back to the old shelf');
   failIndex = false;
   failMarker = true;
   await assert.rejects(() => seedSampleOnce(persistedBooks, sampleStorage), /marker write failure/);

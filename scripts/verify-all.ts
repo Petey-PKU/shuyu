@@ -1,6 +1,7 @@
 import './verify-parsers';
 import './verify-pagination';
 import './verify-reading';
+import './verify-reading-stats';
 import './verify-book-content';
 import './verify-review';
 import './verify-bootstrap';
@@ -8,3 +9,6 @@ import './verify-backup';
 import './verify-restore';
 import './verify-persistence';
 import './verify-book-removal';
+import './verify-recommendation';
+import './verify-assessment';
+import './verify-import';

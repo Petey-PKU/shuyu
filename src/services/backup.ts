@@ -27,7 +27,16 @@ export async function writeBackupFile(payload: BackupPayload) {
 
 export async function pickBackupFile() {
   if (Platform.OS === 'web') throw new Error('Web 预览暂不支持恢复本地备份，请使用正式 Android 安装包');
-  const picked = await File.pickFileAsync({ mimeTypes: ['application/json', 'text/json'] });
+  const picked = await (async () => {
+    try {
+      return await File.pickFileAsync({ mimeTypes: ['application/json', 'text/json'] });
+    } catch (error) {
+      const code = (error as { code?: string } | null)?.code;
+      if (code === 'ERR_PICKER_CANCELLED' || code === 'ERR_FILE_PICKING_CANCELLED') return null;
+      throw error;
+    }
+  })();
+  if (!picked) return null;
   if (picked.canceled || !picked.result) return null;
   if (picked.result.size > 140_000_000) throw new Error('备份文件过大，无法在本机安全读取');
   return parseBackupPayload(await picked.result.text());

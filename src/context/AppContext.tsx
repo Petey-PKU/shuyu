@@ -35,6 +35,9 @@ import {
   saveWords,
   restoreBackupData,
   recoverPendingRestore,
+  recoverPendingImport,
+  savePendingImport,
+  clearPendingImport,
 } from '../services/library';
 import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
@@ -42,6 +45,7 @@ import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
 import { persistBookRemoval } from '../utils/bookRemoval';
+import { accumulateReadingStats } from '../utils/readingStats';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -58,7 +62,7 @@ interface AddWordInput {
 
 interface AppContextValue {
   ready: boolean;
-  storageActivity: 'export' | 'restore' | null;
+  storageActivity: 'export' | 'restore' | 'reset' | null;
   storageNotice: string | null;
   dismissStorageNotice: () => void;
   startupError: string | null;
@@ -99,13 +103,6 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-function localDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function confirmScannedPdfOcr(pageCount: number): Promise<boolean> {
   return new Promise((resolve) => {
     let settled = false;
@@ -132,8 +129,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const hydratingRef = useRef(false);
   const resettingRef = useRef(false);
   const importingRef = useRef(false);
-  const storageActivityRef = useRef<'export' | 'restore' | null>(null);
-  const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | null>(null);
+  const storageActivityRef = useRef<'export' | 'restore' | 'reset' | null>(null);
+  const [storageActivity, setStorageActivity] = useState<'export' | 'restore' | 'reset' | null>(null);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
   const [importStatus, setImportStatus] = useState<ImportStatus | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
@@ -148,6 +145,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dailyGoalMinutes: 15,
     theme: 'paper',
     onlineSentenceTranslation: false,
+    readingStatsEnabled: true,
     speechVoice: undefined,
   });
   const preferencesRef = useRef<ReadingPreferences>(preferences);
@@ -183,7 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStartupError(null);
     try {
       const snapshot = await loadAppSnapshot({
-        recoverPendingRestore, loadBooks, loadWords, loadStats, loadPreferences, loadRecommendationState, loadReadingSignals, ensureSampleBook,
+        recoverPendingRestore, recoverPendingImport, loadBooks, loadWords, loadStats, loadPreferences, loadRecommendationState, loadReadingSignals, ensureSampleBook,
       });
       booksRef.current = snapshot.books;
       wordsRef.current = snapshot.words;
@@ -197,6 +195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPreferences(snapshot.preferences);
       setRecommendationState(snapshot.recommendationState);
       setReadingSignals(snapshot.readingSignals);
+      if (snapshot.pendingImportRecovered) setStorageNotice('已恢复上次未完成的导入，书籍已回到书架。');
       setReady(true);
     } catch {
       setStartupError('暂时无法读取本地书架。重试不会清除已有数据；若问题持续，可先重启应用。');
@@ -214,16 +213,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     importingRef.current = true;
     importCancelRequestedRef.current = false;
     const startedAt = Date.now();
-    setImportStatus({ phase: 'parsing', startedAt });
+    let selectedFileName: string | undefined;
+    setImportStatus({ phase: 'parsing', stage: 'selecting', startedAt });
     try {
       const parsed = await pickAndParseBook({
         isCancelled: () => importCancelRequestedRef.current,
+        onFileSelected: (fileName) => {
+          selectedFileName = fileName;
+          setImportStatus((current) => current ? { ...current, fileName } : current);
+        },
+        onImportStage: (stage) => setImportStatus((current) => current ? { ...current, stage } : current),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
           const confirmed = await confirmScannedPdfOcr(pageCount);
           if (confirmed) {
-            setImportStatus({ phase: 'ocr', startedAt, currentPage: 0, totalPages: pageCount, skippedPages: 0 });
+            setImportStatus({ phase: 'ocr', fileName: selectedFileName, startedAt, currentPage: 0, totalPages: pageCount, skippedPages: 0 });
           }
           return confirmed;
         },
@@ -242,16 +247,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         },
       });
       if (!parsed || importCancelRequestedRef.current) return null;
+      setImportStatus((current) => current ? { ...current, stage: 'saving' } : current);
       const { book } = await createBook(parsed);
+      await savePendingImport(book).catch(() => undefined);
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
+        await clearPendingImport(book.id).catch(() => undefined);
         return null;
       }
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
-      await persist('books', '书架', () => saveBooks(next), () => saveBooks(booksRef.current));
+      const persistImportedBook = async () => {
+        await saveBooks(next);
+        await clearPendingImport(book.id);
+      };
+      const retryImportedBook = async () => {
+        await saveBooks(booksRef.current);
+        await clearPendingImport(book.id);
+      };
+      try {
+        await persist('books', '书架', persistImportedBook, retryImportedBook);
+      } catch {
+        // Keep the imported book available for immediate reading. The
+        // persistence tracker retains the latest index and exposes a retry
+        // banner, so the user does not need to import the same file again.
+      }
       return book;
+    } catch (error) {
+      if (error instanceof Error && error.message === '导入已取消') return null;
+      throw error;
     } finally {
       importingRef.current = false;
       importCancelRequestedRef.current = false;
@@ -261,14 +286,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const cancelImport = useCallback(() => {
-    if (!importingRef.current) return;
+    if (!importingRef.current || importStatus?.stage === 'saving') return;
     importCancelRequestedRef.current = true;
     const cancel = ocrCancelRef.current;
     setImportStatus((current) => current?.phase === 'ocr'
       ? { ...current, cancelling: true }
       : current ? { ...current, cancelling: true } : current);
     if (cancel) cancel();
-  }, []);
+  }, [importStatus?.stage]);
 
   const updateProgress = useCallback(async (bookId: string, chapter: number, paragraph: number, progress: number, offset?: number) => {
     if (storageActivityRef.current || resettingRef.current) return;
@@ -427,33 +452,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
-    if (minutes <= 0 && wordsRead <= 0) return;
+    if (preferencesRef.current.readingStatsEnabled === false) return;
     const currentStats = statsRef.current;
-    const today = localDateKey(new Date());
-    let streak = currentStats.streak;
-    if (currentStats.lastReadDate !== today) {
-      const yesterday = localDateKey(new Date(Date.now() - 86_400_000));
-      streak = currentStats.lastReadDate === yesterday ? currentStats.streak + 1 : 1;
-    }
-    const sameDay = currentStats.todayDate === today;
-    const next = {
-      minutes: currentStats.minutes + Math.max(0, minutes),
-      words: currentStats.words + Math.max(0, wordsRead),
-      todayMinutes: (sameDay ? currentStats.todayMinutes : 0) + Math.max(0, minutes),
-      todayWords: (sameDay ? currentStats.todayWords : 0) + Math.max(0, wordsRead),
-      todayDate: today,
-      streak,
-      lastReadDate: today,
-    };
+    const next = accumulateReadingStats(currentStats, minutes, wordsRead);
+    if (next === currentStats) return;
+    const addedMinutes = next.minutes - currentStats.minutes;
+    const addedWords = next.words - currentStats.words;
     statsRef.current = next;
     setStats(next);
     const currentSignals = readingSignalsRef.current;
     const currentSignal = currentSignals.find((signal) => signal.bookId === bookId);
     const nextSignals = currentSignal
       ? currentSignals.map((signal) => signal.bookId === bookId
-        ? { ...signal, minutes: signal.minutes + Math.max(0, minutes), wordsRead: signal.wordsRead + Math.max(0, wordsRead) }
+        ? { ...signal, minutes: signal.minutes + addedMinutes, wordsRead: signal.wordsRead + addedWords }
         : signal)
-      : [...currentSignals, { bookId, lookups: 0, minutes: Math.max(0, minutes), wordsRead: Math.max(0, wordsRead) }];
+      : [...currentSignals, { bookId, lookups: 0, minutes: addedMinutes, wordsRead: addedWords }];
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
     await persist('reading-stats', '阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {
@@ -464,8 +477,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const resetAll = useCallback(async () => {
     if (resettingRef.current || importingRef.current || storageActivityRef.current) return;
     resettingRef.current = true;
+    storageActivityRef.current = 'reset';
+    setStorageActivity('reset');
     setReady(false);
     setStartupError(null);
+    setStorageNotice(null);
     try {
       await persistence.waitForIdle();
       await clearAllLocalData();
@@ -477,7 +493,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const emptyStats = { minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 };
       statsRef.current = emptyStats;
       setStats(emptyStats);
-      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: false, speechVoice: undefined };
+      const emptyPreferences = { fontSize: 19, lineHeight: 32, dailyGoalMinutes: 15, theme: 'paper' as const, onlineSentenceTranslation: false, readingStatsEnabled: true, speechVoice: undefined };
       const emptyRecommendations = { preferredGenres: [], savedBookIds: [], feedback: {} };
       preferencesRef.current = emptyPreferences;
       recommendationStateRef.current = emptyRecommendations;
@@ -490,6 +506,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setStartupError('清除数据未能完成。请重新读取当前数据，确认书架状态后再操作。');
     } finally {
       resettingRef.current = false;
+      storageActivityRef.current = null;
+      setStorageActivity(null);
     }
   }, [hydrate, persistence]);
 
@@ -522,6 +540,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStorageActivity('restore');
     setReady(false);
     setStartupError(null);
+    setStorageNotice(null);
     try {
       await persistence.waitForIdle();
       const restored = await restoreBackupData(payload);
@@ -543,7 +562,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       // Re-read only after the persisted rollback has completed; otherwise stay on recovery screen.
       await hydrate();
-      setStorageNotice(`恢复未完成：${error instanceof Error ? error.message : '原有书架已保留，请检查备份文件后重试。'}`);
       throw error;
     } finally {
       storageActivityRef.current = null;

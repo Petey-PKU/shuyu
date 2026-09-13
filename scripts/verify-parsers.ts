@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { parseEpub } from '../src/services/epub';
 import { htmlToParagraphs } from '../src/services/markup';
-import { assertDrmFreeKindleFile, inspectKindleFile } from '../src/services/mobi';
+import { assertDrmFreeKindleFile, formatKindleParseFailure, inspectKindleFile } from '../src/services/mobi';
 import { parseExtractedPdfText, pdfNeedsOcr, PdfNeedsOcrError } from '../src/services/pdfText';
+import { formatPdfExtractionError } from '../src/services/pdfErrors';
 import { splitTranslationText } from '../src/services/translation';
 import { splitPlainText } from '../src/utils/text';
 
@@ -41,6 +42,12 @@ async function verifyEpub() {
   assert.equal(book.chapters.length, 1);
   assert.equal(book.chapters[0].title, 'The First Light');
   assert.match(book.chapters[0].paragraphs.join(' '), /quiet & warm/);
+  let cancellationChecks = 0;
+  await assert.rejects(
+    () => parseEpub(data, 'Fallback', () => cancellationChecks++ > 0),
+    /导入已取消/,
+    'EPUB parsing must observe cancellation inside the chapter loop',
+  );
 }
 
 async function verifyEpubCompatibility() {
@@ -91,6 +98,8 @@ function verifyMarkupAndPdf() {
   assert.throws(() => parseExtractedPdfText('1\n2\n3', 'Scan'), PdfNeedsOcrError);
   assert.equal(pdfNeedsOcr('A short metadata sentence with a handful of readable English words.', 100), true);
   assert.equal(pdfNeedsOcr(pdf.chapters[0].paragraphs.join(' '), 1), false);
+  assert.equal(formatPdfExtractionError('PDF_LOAD_ERROR'), '无法读取 PDF 文件，文件可能已移动或访问权限已失效。请重新选择后重试');
+  assert.equal(formatPdfExtractionError('PDF_EXTRACTION_ERROR'), '无法读取 PDF 正文。请确认文件仍可访问且未被其他应用占用，然后重试');
 }
 
 function verifyTranslationChunking() {
@@ -115,6 +124,7 @@ function verifyKindleDrmGuard() {
 
   view.setUint16(108, 2, false);
   assert.throws(() => assertDrmFreeKindleFile(file, 'kf8'), /DRM/);
+  assert.equal(formatKindleParseFailure('kf8'), '无法解析 KF8 文件。文件可能损坏、扩展名不正确，或包含暂不支持的固定版式；请确认文件无 DRM 且为可重排文字内容后重试');
 }
 
 async function main() {
