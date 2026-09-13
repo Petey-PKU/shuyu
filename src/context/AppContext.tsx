@@ -169,9 +169,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPersistenceRetrying(state.retrying);
   }));
   const booksWriteQueue = useRef(createSerialWriteQueue());
+  const readingWriteQueue = useRef(createSerialWriteQueue());
   const persist = persistence.persist;
   const saveBooksSerial = useCallback((snapshot: Book[]) => (
     booksWriteQueue.current.enqueue(() => saveBooks(snapshot))
+  ), []);
+  const saveSignalsSerial = useCallback((snapshot: ReadingSignal[]) => (
+    readingWriteQueue.current.enqueue(() => saveReadingSignals(snapshot))
+  ), []);
+  const saveReadingStateSerial = useCallback((snapshot: ReadingStats, signals: ReadingSignal[]) => (
+    readingWriteQueue.current.enqueue(() => Promise.all([saveStats(snapshot), saveReadingSignals(signals)]).then(() => undefined))
   ), []);
 
   const retryPersistence = useCallback(async () => {
@@ -457,8 +464,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 1, wordsRead: 0, minutes: 0 }];
     readingSignalsRef.current = next;
     setReadingSignals(next);
-    await persist('reading-signals', '阅读记录', () => saveReadingSignals(next), () => saveReadingSignals(readingSignalsRef.current));
-  }, [persist]);
+    await persist('reading-signals', '阅读记录', () => saveSignalsSerial(next), () => saveSignalsSerial(readingSignalsRef.current));
+  }, [persist, saveSignalsSerial]);
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
@@ -479,10 +486,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 0, minutes: addedMinutes, wordsRead: addedWords }];
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
-    await persist('reading-stats', '阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {
-      await Promise.all([saveStats(statsRef.current), saveReadingSignals(readingSignalsRef.current)]);
+    await persist('reading-stats', '阅读统计', () => saveReadingStateSerial(next, nextSignals), async () => {
+      await saveReadingStateSerial(statsRef.current, readingSignalsRef.current);
     });
-  }, [persist]);
+  }, [persist, saveReadingStateSerial]);
 
   const resetAll = useCallback(async () => {
     if (resettingRef.current || importingRef.current || storageActivityRef.current) return;
