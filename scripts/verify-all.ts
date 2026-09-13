@@ -4,6 +4,7 @@ import './verify-reading';
 import './verify-reading-stats';
 import './verify-book-content';
 import './verify-review';
+import './verify-saved-words';
 import './verify-bootstrap';
 import './verify-backup';
 import './verify-restore';

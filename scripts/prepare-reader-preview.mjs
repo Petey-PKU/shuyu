@@ -17,11 +17,13 @@ const fixtureScript = String.raw`
     { id: 'fixture_front', title: '前言（空白页）', paragraphs: [], wordCount: 0 },
     { id: 'fixture_body', title: '可以继续阅读', paragraphs: ['A quiet room makes space for a new story.'], wordCount: 10 },
   ];
-  const content = { id, title: '阅读恢复测试', chapters: mode === 'blank' ? chapters : chapters.slice(1) };
+  const content = { id, title: '阅读恢复测试', chapters: mode === 'blank' ? chapters : mode === 'cross-book' ? [chapters[1],
+    { id: 'fixture_next', title: '下一章', paragraphs: ['The story continues tomorrow.'], wordCount: 4 },
+  ] : chapters.slice(1) };
   const now = new Date().toISOString();
   const book = { id, title: content.title, author: '本地测试数据', format: 'txt',
     createdAt: now, lastOpenedAt: now, currentChapter: 0, currentParagraph: 0,
-    progress: mode === 'completed' ? 1 : 0, totalWords: 10, chapterCount: content.chapters.length, accent: '#826E54' };
+    progress: mode === 'completed' ? 1 : 0, totalWords: mode === 'cross-book' ? 14 : 10, chapterCount: content.chapters.length, accent: '#826E54' };
   localStorage.setItem('@shuyu/books', JSON.stringify([book]));
   localStorage.setItem('@shuyu/words', '[]');
   localStorage.setItem('@shuyu/stats', JSON.stringify({ minutes: 0, words: 0, todayMinutes: 0, todayWords: 0, streak: 0 }));
@@ -44,6 +46,16 @@ const fixtureScript = String.raw`
   localStorage.setItem('@shuyu/sample-seeded', 'true');
   localStorage.setItem('@shuyu/reader-tap-hint-seen', 'true');
   localStorage.setItem(contentKey, JSON.stringify(content));
+  if (mode === 'cross-book') {
+    const secondBook = { ...book, id: 'reader_fixture_second', title: '相同原句的第二本书' };
+    localStorage.setItem('@shuyu/books', JSON.stringify([book, secondBook]));
+    localStorage.setItem('@shuyu/content/' + secondBook.id, JSON.stringify({ ...content, id: secondBook.id, title: secondBook.title }));
+    localStorage.setItem('@shuyu/words', JSON.stringify([{
+      id: 'word_fixture_first', word: 'quiet', meaning: '安静的', context: chapters[1].paragraphs[0],
+      bookId: book.id, bookTitle: book.title, chapterIndex: 0, paragraphIndex: 0,
+      createdAt: now, mastered: false, reviewCount: 0,
+    }]));
+  }
   const originalGetItem = Storage.prototype.getItem;
   const originalSetItem = Storage.prototype.setItem;
   let attempts = 0;
@@ -69,4 +81,4 @@ const fixtureScript = String.raw`
 `;
 writeFileSync(resolve(directory, 'reader-recovery-test.html'), html.replace('<head>', '<head><script>' + fixtureScript + '</script>'));
 console.log('Prepared isolated reader preview: http://127.0.0.1:4174/reader-recovery-test.html?case=retry');
-console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail, completed, stats, stats-empty');
+console.log('Cases: retry, missing, corrupt, empty, mismatch, blank, writefail, completed, stats, stats-empty, cross-book');

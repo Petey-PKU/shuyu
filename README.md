@@ -88,6 +88,16 @@ npm run export:android
 
 同进程测试还覆盖备份结构校验及恢复中断后的回滚。恢复会先将正文写入独立副本，再更新书架；未提交的恢复由启动流程还原原索引。真实设备的文件权限、空间不足和进程退出场景仍需安装包验收。
 
+跨书籍收藏另有可选浏览器回归：本机需能解析 `playwright` 包（或通过 `NODE_PATH` 指向已有安装）并安装 Edge。先执行以下命令，在另一个终端运行 `node scripts/verify-reader-bookmarks.mjs`；Chrome 可设置 `PLAYWRIGHT_CHANNEL=chrome`。
+
+```bash
+npx expo export --platform web --output-dir .cache/web-preview
+node scripts/prepare-reader-preview.mjs
+python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
+```
+
+测试使用独立浏览器上下文与合成书籍，检查第二本书的收藏按钮、同一本书的重复收藏限制、重新加载后两个来源的保留，以及回到原文后的收藏状态。它会阻止并报告外部网络请求，截图保存在 `.cache/reader-bookmark-check`；结束后停止预览服务器。
+
 在限制子进程数量的环境中，可给 `expo export` 添加 `--max-workers 1`。Android 导出仍需允许启动项目所用的 Hermes 编译器；不要把 Web 导出成功当作 Android 安装包验收。
 
 首次运行 `npm run android` 时会从 sherpa-onnx 官方 Release 下载约 67 MB 的固定 Amy 模型归档，核对 SHA-256 后放入 Android 原生资源；后续构建复用 `.cache/tts-models`。GitHub Actions 会自动执行相同步骤，最终用户无需下载模型或配置服务。

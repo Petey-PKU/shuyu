@@ -29,6 +29,7 @@ import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphI
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
 import { InlineNotice } from '../components/InlineNotice';
 import { formatContentReadFailure } from '../utils/contentErrors';
+import { hasSavedWord } from '../utils/savedWords';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
   pageAtOffset,
@@ -361,8 +362,8 @@ function ReaderSession({ route, navigation }: Props) {
   }, [preferences.speechVoice]);
 
   const isSaved = useMemo(() => selection
-    ? words.some((item) => item.word.toLowerCase() === selection.word.toLowerCase() && item.context === selection.sentence)
-    : false, [selection, words]);
+    ? hasSavedWord(words, { bookId, word: selection.word, context: selection.sentence })
+    : false, [bookId, selection, words]);
 
   const saveSelection = async () => {
     if (!selection || !lookup || !book || isSaved) return;

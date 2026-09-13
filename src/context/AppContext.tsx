@@ -41,6 +41,7 @@ import {
 } from '../services/library';
 import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
+import { hasSavedWord } from '../utils/savedWords';
 import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
@@ -322,8 +323,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addWord = useCallback(async (input: AddWordInput) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === input.bookId)) return;
     const currentWords = wordsRef.current;
-    const existing = currentWords.find((item) => item.bookId === input.bookId && item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
-    if (existing) return;
+    if (hasSavedWord(currentWords, input)) return;
     const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0, nextReviewAt: new Date().toISOString() }, ...currentWords];
     wordsRef.current = next;
     setWords(next);
