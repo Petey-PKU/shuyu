@@ -135,6 +135,8 @@ function ReaderSession({ route, navigation }: Props) {
   const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
+  const [retryingProgress, setRetryingProgress] = useState(false);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
@@ -285,7 +287,9 @@ function ReaderSession({ route, navigation }: Props) {
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
     const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
     if (replay && (chapterIndex > 0 || currentPage > 0)) replayStarted.current = true;
-    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => undefined);
+    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [bookId, chapter, chapterIndex, chapterParagraphStarts, chapterText.length, content, currentPage, pages, updateProgress]);
 
   useEffect(() => {
@@ -430,7 +434,9 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(safeParagraph);
     setCurrentPage(0);
     setChaptersVisible(false);
-    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0).catch(() => undefined);
+    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [book, bookId, content, updateProgress]);
 
   const turnPage = useCallback((direction: -1 | 1) => {
@@ -469,7 +475,19 @@ function ReaderSession({ route, navigation }: Props) {
     setChapterIndex(0);
     setCurrentParagraph(0);
     setCurrentPage(0);
-    if (content && book) void updateProgress(bookId, 0, 0, 0, 0).catch(() => undefined);
+    if (content && book) void updateProgress(bookId, 0, 0, 0, 0)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
+  };
+
+  const retryProgressSave = async () => {
+    if (retryingProgress) return;
+    setRetryingProgress(true);
+    try {
+      if (await retryPersistence()) setProgressSaveError(null);
+    } finally {
+      setRetryingProgress(false);
+    }
   };
 
   if (!book || contentError || !content || !chapter) {
@@ -511,6 +529,7 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
       {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {progressSaveError ? <InlineNotice message={progressSaveError} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => setProgressSaveError(null)} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
