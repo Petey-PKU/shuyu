@@ -10,6 +10,15 @@ interface PendingWrite {
   retry: Write;
 }
 
+export function formatPersistenceFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : '';
+  if (/no space|disk full|quota|storage.*full/i.test(message)) return '设备存储空间可能不足，请清理空间后重试';
+  if (/database is locked|sqlite_busy|busy/i.test(message)) return '设备暂时繁忙，请稍后重试';
+  if (/permission|access denied|not permitted/i.test(message)) return '设备暂时不允许写入，请检查存储权限后重试';
+  if (message && /[\u4e00-\u9fff]/.test(message)) return message;
+  return '设备暂时无法写入，请稍后重试';
+}
+
 /** Keep independent failures until each write succeeds. Retries read the latest app snapshot. */
 export function createPersistenceTracker(onChange: (state: PersistenceState) => void) {
   const pending = new Map<string, PendingWrite>();
@@ -22,7 +31,7 @@ export function createPersistenceTracker(onChange: (state: PersistenceState) => 
   const publish = () => {
     const failures = [...pending.values()];
     const areas = [...new Set(failures.map((failure) => failure.area))];
-    const detail = failures.length === 1 && failures[0].error instanceof Error ? failures[0].error.message : '';
+    const detail = failures.length === 1 ? formatPersistenceFailure(failures[0].error) : '';
     onChange({
       error: areas.length ? `${areas.join('、')}尚未保存${detail ? `：${detail}` : ''}` : null,
       retrying: retryRun !== null,

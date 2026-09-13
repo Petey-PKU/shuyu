@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 归一化本地写入失败提示
+
+- 持久化重试横幅原先会直接拼接底层错误，例如 `disk full` 或 `SQLITE_BUSY`，用户无法据此判断应该清理空间、稍后重试还是检查权限。
+- 现在按存储空间、设备繁忙、写入权限和未知错误提供中文恢复提示；已有中文业务错误继续保留，测试覆盖各类分类和重试竞态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 统一 PDF 读取失败提示
 
 - PDF 原生模块实际可能返回 `PDF_LOAD_ERROR`、`PDF_EXTRACTION_ERROR` 等实现层错误码，原先未知码会把英文底层错误直接传到导入失败提示，用户难以判断下一步。
