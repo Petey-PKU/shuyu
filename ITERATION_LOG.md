@@ -1495,3 +1495,8 @@
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-sample-label`
 - 本地 Playwright：首页和书架均展示“体验书”文案
+## 2026-09-13 统一查词次数的隐私说明
+
+- 首页会展示每本书的查词次数，设置页和隐私文档原先却只说查词次数用于本地推荐排序，用户可能误解为这项记录不会保存在设备。
+- 现在统一说明查词次数会保存在设备，用于显示阅读足迹和本地推荐排序，不会上传；在线翻译的联网边界保持不变。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
