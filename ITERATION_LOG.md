@@ -1145,3 +1145,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 补全首次阅读操作提示
+
+- 首次进入阅读器的提示增加底部朗读和目录入口说明。
+- 提示的无障碍标签同步包含点词、翻页、朗读和目录操作，并保留关闭动作。
+- 目的：让新用户在第一屏发现完整的阅读控制，不必靠试错寻找底部工具。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`

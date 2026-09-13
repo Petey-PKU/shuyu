@@ -505,9 +505,9 @@ function ReaderSession({ route, navigation }: Props) {
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="关闭阅读操作提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
+          <Pressable accessibilityRole="button" accessibilityLabel="阅读提示：点按单词查看释义，左右滑动翻页，底部可以朗读或打开目录；关闭提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
             <Ionicons name="hand-left-outline" size={16} color={colors.accent} />
-            <Text style={styles.tapHintText}>点按单词查看释义，左右滑动翻页</Text>
+            <Text style={styles.tapHintText}>点按单词查义，左右滑动翻页；底部可朗读或打开目录</Text>
             <Ionicons name="close" size={15} color={colors.inkMuted} />
           </Pressable>
         ) : null}
