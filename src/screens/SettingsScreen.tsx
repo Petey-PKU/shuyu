@@ -30,6 +30,7 @@ export function SettingsScreen() {
   const [aboutVisible, setAboutVisible] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupMessageTone, setBackupMessageTone] = useState<'success' | 'error'>('success');
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
@@ -118,19 +119,24 @@ export function SettingsScreen() {
     void savePreferences({ onlineSentenceTranslation: true });
   };
 
+  const showBackupMessage = (message: string, tone: 'success' | 'error' = 'success') => {
+    setBackupMessageTone(tone);
+    setBackupMessage(message);
+  };
+
   const handleExportBackup = async () => {
     if (backupBusy) return;
     if (Platform.OS === 'web') {
-      setBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。');
+      showBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
     setBackupBusy(true);
     try {
       const filename = await exportBackup();
       if (!filename) return;
-      setBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
+      showBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
     } catch (error) {
-      setBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`);
+      showBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`, 'error');
     } finally {
       setBackupBusy(false);
     }
@@ -139,7 +145,7 @@ export function SettingsScreen() {
   const handleRestoreBackup = async () => {
     if (backupBusy) return;
     if (Platform.OS === 'web') {
-      setBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。');
+      showBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
     setBackupBusy(true);
@@ -150,7 +156,7 @@ export function SettingsScreen() {
       setBackupBusy(false);
     } catch (error) {
       setBackupBusy(false);
-      setBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`);
+      showBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`, 'error');
     }
   };
 
@@ -160,8 +166,8 @@ export function SettingsScreen() {
     setRestorePayload(null);
     setBackupBusy(true);
     void restoreBackup(payload)
-      .then(() => setBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
-      .catch((error) => setBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`))
+      .then(() => showBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
+      .catch((error) => showBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`, 'error'))
       .finally(() => setBackupBusy(false));
   };
 
@@ -264,9 +270,9 @@ export function SettingsScreen() {
           </Pressable>
         </View>
         {backupMessage ? (
-          <Pressable accessibilityRole="alert" accessibilityLabel="关闭备份提示" onPress={() => setBackupMessage(null)} style={styles.backupMessage}>
-            <Ionicons name="information-circle-outline" size={17} color={colors.accent} />
-            <Text style={styles.backupMessageText}>{backupMessage}</Text>
+          <Pressable accessibilityRole="alert" accessibilityLabel="关闭备份提示" onPress={() => setBackupMessage(null)} style={[styles.backupMessage, backupMessageTone === 'error' && styles.backupMessageError]}>
+            <Ionicons name={backupMessageTone === 'error' ? 'alert-circle-outline' : 'information-circle-outline'} size={17} color={backupMessageTone === 'error' ? colors.danger : colors.accent} />
+            <Text style={[styles.backupMessageText, backupMessageTone === 'error' && styles.backupMessageErrorText]}>{backupMessage}</Text>
             <Ionicons name="close" size={16} color={colors.inkMuted} />
           </Pressable>
         ) : null}
@@ -411,5 +417,7 @@ const styles = StyleSheet.create({
   onlineConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   resetConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   backupMessage: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 13, backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backupMessageError: { backgroundColor: 'rgba(217,95,89,0.1)' },
   backupMessageText: { flex: 1, color: colors.inkMuted, fontSize: 10, lineHeight: 16 },
+  backupMessageErrorText: { color: colors.danger },
 });
