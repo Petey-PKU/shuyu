@@ -124,16 +124,25 @@ async function readTocTitles(
   opfPath: string,
   manifestItems: Record<string, string>[],
   files: Map<string, JSZipObject>,
+  isCancelled?: () => boolean,
 ): Promise<Map<string, string>> {
+  const throwIfCancelled = () => {
+    if (isCancelled?.()) throw new Error(IMPORT_CANCELLED_MESSAGE);
+  };
   const titles = new Map<string, string>();
+  throwIfCancelled();
   const navItem = manifestItems.find((item) => item['@_properties']?.split(/\s+/).includes('nav'));
   if (navItem?.['@_href']) {
     const navPath = resolveRelative(opfPath, navItem['@_href']);
     const navFile = findZipFile(files, navPath);
     if (navFile) {
       const source = await navFile.async('string');
+      throwIfCancelled();
       const links = source.matchAll(/<a\b[^>]*\bhref\s*=\s*(["'])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi);
-      for (const match of links) addTocTitle(titles, navPath, match[2], match[3]);
+      for (const match of links) {
+        throwIfCancelled();
+        addTocTitle(titles, navPath, match[2], match[3]);
+      }
     }
   }
 
@@ -145,6 +154,7 @@ async function readTocTitles(
     const ncxFile = findZipFile(files, ncxPath);
     if (ncxFile) {
       const parsed = xml.parse(await ncxFile.async('string'))?.ncx?.navMap;
+      throwIfCancelled();
       asArray(parsed?.navPoint).forEach((point) => walkNcxPoints(point, ncxPath, titles));
     }
   }
@@ -187,7 +197,7 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string, isCanc
     const id = item['@_id'];
     if (id) manifest.set(id, item);
   });
-  const tocTitles = await readTocTitles(opf, normalizedOpfPath, manifestItems, files);
+  const tocTitles = await readTocTitles(opf, normalizedOpfPath, manifestItems, files, isCancelled);
   const spineItems = asArray<Record<string, string>>(opf.spine?.itemref);
   const orderedItems = spineItems
     .map((spine) => manifest.get(spine['@_idref']))
