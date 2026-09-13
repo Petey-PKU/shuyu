@@ -24,6 +24,9 @@ for (const dailyHistory of [null, [], { '2026-02-29': { minutes: 1, words: 2 } }
 assert.throws(() => createBackupPayload({ books: [book], contents: {}, words: [], stats, preferences, recommendationState, readingSignals }), /正文无法读取/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, exportedAt: 'invalid' })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, contents: { other: content } })), /书籍与学习记录不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, chapterCount: 2 }] })), /书籍元数据与正文不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, totalWords: 3 }] })), /书籍元数据与正文不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, currentParagraph: 2 }] })), /书籍元数据与正文不匹配/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [{ ...word, bookId: 'missing' }] })), /书籍与学习记录不匹配/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, id: '../escape' }], contents: { '../escape': { ...content, id: '../escape' } }, words: [{ ...word, bookId: '../escape' }], readingSignals: [{ ...readingSignals[0], bookId: '../escape' }] })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, progress: 2 }] })), /有效的书语备份/);

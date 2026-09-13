@@ -108,6 +108,18 @@ export function validateBackupPayload(value: unknown): BackupPayload {
   const bookIds = new Set(parsed.books.map((book) => book.id));
   const wordIds = new Set(parsed.words.map((word) => word.id));
   const contentIds = Object.keys(contents);
+  const metadataMismatch = parsed.books.some((book) => {
+    const content = contents[book.id];
+    if (!content) return false;
+    const totalWords = content.chapters.reduce((sum, chapter) => sum + chapter.wordCount, 0);
+    const chapter = content.chapters[book.currentChapter];
+    return book.chapterCount !== content.chapters.length
+      || book.totalWords !== totalWords
+      || book.currentChapter >= content.chapters.length
+      || !chapter
+      || (chapter.paragraphs.length === 0 ? book.currentParagraph !== 0 : book.currentParagraph >= chapter.paragraphs.length);
+  });
+  if (metadataMismatch) throw new Error('备份中的书籍元数据与正文不匹配');
   if (bookIds.size !== parsed.books.length || wordIds.size !== parsed.words.length || contentIds.length !== parsed.books.length
     || parsed.books.some((book) => contents[book.id]?.id !== book.id)
     || contentIds.some((id) => !bookIds.has(id))
