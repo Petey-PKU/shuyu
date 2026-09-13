@@ -195,6 +195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setPreferences(snapshot.preferences);
       setRecommendationState(snapshot.recommendationState);
       setReadingSignals(snapshot.readingSignals);
+      if (snapshot.pendingImportRecovered) setStorageNotice('已恢复上次未完成的导入，书籍已回到书架。');
       setReady(true);
     } catch {
       setStartupError('暂时无法读取本地书架。重试不会清除已有数据；若问题持续，可先重启应用。');

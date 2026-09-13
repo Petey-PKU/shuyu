@@ -241,7 +241,7 @@ export async function recoverPendingRestore() {
 
 export async function recoverPendingImport() {
   assertWritable();
-  await recoverPendingImportOnce({
+  return recoverPendingImportOnce({
     loadPendingImport: () => AsyncStorage.getItem(KEYS.pendingImport),
     clearPendingImport,
     loadBooks,

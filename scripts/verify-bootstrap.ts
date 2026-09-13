@@ -69,21 +69,21 @@ async function main() {
     saveBooks: async (next: Book[]) => { if (pendingSaveFailures > 0) { pendingSaveFailures -= 1; throw new Error('temporary index failure'); } pendingBooks = next; },
     contentExists: async () => pendingContent,
   };
-  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(await recoverPendingImportOnce(pendingStorage), true, 'A pending import reports a successful shelf recovery');
   assert.deepEqual(pendingBooks, [pendingBook, userBook], 'A pending import is reattached to the shelf when its正文 exists');
   assert.equal(pendingRaw, null, 'A recovered import marker is cleared after the shelf index is saved');
   pendingRaw = JSON.stringify(pendingBook);
-  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'An already indexed import does not report a new recovery');
   assert.equal(pendingRaw, null, 'A marker for an already indexed book is cleared without duplicating the shelf');
   pendingBooks = [userBook];
   pendingRaw = JSON.stringify(pendingBook);
   pendingContent = false;
-  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'A missing正文 marker is discarded without reporting a recovery');
   assert.equal(pendingRaw, null, 'A marker is discarded when the正文 was removed');
   pendingContent = true;
   pendingRaw = JSON.stringify(pendingBook);
   pendingSaveFailures = 1;
-  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(await recoverPendingImportOnce(pendingStorage), false, 'A failed recovery reports no completed import');
   assert.equal(pendingRaw !== null, true, 'A failed recovery keeps the marker for the next startup');
   let transientBookRead = true;
   await assert.doesNotReject(() => recoverPendingImportOnce({

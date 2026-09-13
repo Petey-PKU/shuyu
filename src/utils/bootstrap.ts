@@ -3,7 +3,7 @@ import { validBook, validPreferences, validRecommendationState, validSignal, val
 
 interface BootstrapStorage {
   recoverPendingRestore?: () => Promise<void>;
-  recoverPendingImport?: () => Promise<void>;
+  recoverPendingImport?: () => Promise<boolean>;
   loadBooks: () => Promise<Book[]>;
   loadWords: () => Promise<SavedWord[]>;
   loadStats: () => Promise<ReadingStats>;
@@ -22,9 +22,9 @@ export interface PendingImportStorage {
 }
 
 /** Recover an imported book whose正文 exists but whose shelf index was not acknowledged. */
-export async function recoverPendingImportOnce(storage: PendingImportStorage) {
+export async function recoverPendingImportOnce(storage: PendingImportStorage): Promise<boolean> {
   const raw = await storage.loadPendingImport();
-  if (!raw) return;
+  if (!raw) return false;
 
   let pending: Book;
   try {
@@ -33,28 +33,30 @@ export async function recoverPendingImportOnce(storage: PendingImportStorage) {
     pending = parsed;
   } catch {
     try { await storage.clearPendingImport(); } catch { /* A corrupt marker must not block startup. */ }
-    return;
+    return false;
   }
 
   let books: Book[];
-  try { books = await storage.loadBooks(); } catch { return; }
+  try { books = await storage.loadBooks(); } catch { return false; }
   if (books.some((book) => book.id === pending.id)) {
     try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
-    return;
+    return false;
   }
 
   let contentExists = false;
-  try { contentExists = await storage.contentExists(pending.id); } catch { return; }
+  try { contentExists = await storage.contentExists(pending.id); } catch { return false; }
   if (!contentExists) {
     try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
-    return;
+    return false;
   }
 
   try {
     await storage.saveBooks([pending, ...books]);
     await storage.clearPendingImport();
+    return true;
   } catch {
     // Keep the marker so a later startup can retry without losing the import.
+    return false;
   }
 }
 
@@ -80,14 +82,14 @@ function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, p
 /** Publish a complete snapshot only after every persisted data group is readable. */
 export async function loadAppSnapshot(storage: BootstrapStorage) {
   await storage.recoverPendingRestore?.();
-  await storage.recoverPendingImport?.();
+  const pendingImportRecovered = await storage.recoverPendingImport?.() ?? false;
   const [books, words, stats, preferences, recommendationState, readingSignals] = await Promise.all([
     storage.loadBooks(), storage.loadWords(), storage.loadStats(), storage.loadPreferences(),
     storage.loadRecommendationState(), storage.loadReadingSignals(),
   ]);
   validateLocalSnapshot(books, words, stats, preferences, recommendationState, readingSignals);
   const seededBooks = await storage.ensureSampleBook(books);
-  return { books: seededBooks, words, stats, preferences, recommendationState, readingSignals };
+  return { books: seededBooks, words, stats, preferences, recommendationState, readingSignals, pendingImportRecovered };
 }
 
 interface SampleStorage {
