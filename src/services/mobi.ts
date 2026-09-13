@@ -9,6 +9,7 @@ import {
 } from '@lingo-reader/mobi-parser';
 import type { BookFormat, ParsedBook } from '../types';
 import { countWords } from '../utils/text';
+import { splitChapterSections } from '../utils/chapterSections';
 import { htmlToParagraphs } from './markup';
 
 const MAX_EXTRACTED_CHARACTERS = 25_000_000;
@@ -192,13 +193,13 @@ async function parseKindleBook(
         const parsed = htmlToParagraphs(section);
         const wordCount = countWords(parsed.paragraphs.join(' '));
         if (wordCount < 3) continue;
-        chapters.push({
+        chapters.push(...splitChapterSections({
           title: sectionIndex === 0
             ? tocTitles.get(spineItem.id) || parsed.title || '开始阅读'
             : parsed.title || tocTitles.get(spineItem.id) || `第 ${chapters.length + 1} 章`,
           paragraphs: parsed.paragraphs,
           wordCount,
-        });
+        }));
       }
     }
 

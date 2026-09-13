@@ -1535,3 +1535,215 @@
 - 产品走查发现等级已保存但草稿删除失败时没有清理入口；同时故障回归发现确认放弃成功后仍被保存操作锁拦截，停留在原题目页。
 - 结果页和测试页现在都提供“重试清理”；删除失败会保留结果或当前作答。确认放弃在发出返回导航前释放同步锁，系统返回不会被自己的保存状态阻止。
 - 验证：`npm run typecheck`、`npm run test:in-process`、八场景水平测试浏览器故障回归、Web 导出、`git diff --check`。
+
+## 2026-09-13 保护复习提交中的退出与系统返回
+
+- 复习答案写入期间原先仍可点击关闭或使用系统返回，可能在保存结果尚未确认时离开；失败后的保护只覆盖页面内关闭按钮。
+- 现在提交期间退出入口明确显示保存中并锁定；写入失败后，系统返回和页面关闭都会进入“重试保存 / 稍后处理”，稍后离开会保留全局重试状态。
+- 新增 `scripts/verify-review-recovery.mjs`，模拟到期词、复习结果写入失败、系统退出确认、全局重试和最终落盘，验证无运行时错误且不发起外部请求。
+- 验证：`npm run typecheck`、`npm run test:in-process`、水平测试八场景回归、复习恢复浏览器回归、Web 导出、Android 无字节码 bundle 导出、`git diff --check`。
+
+## 2026-09-13 修正窄屏体验书封面标题
+
+- 产品走查发现首页体验书的紧凑封面在 390px 手机宽度会把 `Observatory` 断成末尾孤立字母，用户无法稳定识别书名。
+- 紧凑封面标题改为最多两行、较小字号并使用尾部省略，长书名保持可读且不溢出封面。
+- 验证：`npm run typecheck`、最新 Web bundle 导出和 390px 隔离浏览器截图核验、`git diff --check`。
+
+## 2026-09-13 增加普通电子书导入阶段反馈
+
+- 产品走查发现 TXT、EPUB、MOBI 等普通导入在大型文件处理时只有泛化的耗时说明，用户难以判断应用是否卡住。
+- 导入弹层现在根据选择、读取、解析和保存阶段显示下一步说明；取消时明确告知已读取内容不会加入书架。新增阶段文案纯逻辑验证，避免后续改动丢失阶段含义。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。Android 真机导入速度和取消时序仍需验收清单验证。
+
+## 2026-09-13 串行化阅读进度快照写入
+
+- 产品走查发现快速翻页会为每一页发起一次完整书架快照写入；底层写入完成顺序不受调用顺序保证，极端情况下旧位置可能覆盖用户刚读到的新位置。
+- 新增本地串行写入队列，阅读进度、导入后的书架索引、书籍编辑和删除流程共享书架写入顺序；失败后队列仍能继续处理后续快照，重试仍读取最新内存状态。
+- 新增 `scripts/verify-serial-write.ts`，覆盖顺序、失败恢复和空闲等待。
+
+验证：
+
+- `npm run typecheck`
+- `node scripts/run-verifier.mjs scripts/verify-serial-write.ts`
+- `npm run test:in-process`
+- `git diff --check`
+- Web 与 Android 无字节码 bundle 导出
+
+## 2026-09-13 增加 Android 随包资源预检
+
+- 发布前静态检查现在确认 ECDICT Core、Piper 离线音色模型及其元数据仍在 Android 工程中，并确认 Manifest 保持关闭系统备份和移除旧版宽泛存储权限。
+- 资源缺失或隐私配置回退会在生成正式安装包前失败，避免用户安装后才发现离线查词/朗读不可用或本地书籍进入系统备份。
+- 新增 `scripts/verify-android-assets.ts`；模型检查安排在 CI 下载模型后执行，干净 checkout 不会在资源准备前误失败。
+
+验证：
+
+- `npm test`
+- `npm run test:android-assets`
+- `npm run typecheck`
+- `python scripts/verify_dictionary.py`
+- `git diff --check`
+
+## 2026-09-13 校验 Android 发布版本一致性
+
+- 发布预检现在核对 `package.json`、`app.json` 和 Android Gradle 的版本名称，并确认 `versionCode` 为有效正整数。
+- 版本只更新一处时会在打包前失败，避免用户安装升级时被系统拒绝，或下载文件名与应用内版本不一致。
+
+验证：
+
+- `npm run test:android-assets`
+- `npm test`
+- `npm run typecheck`
+- `git diff --check`
+
+## 2026-09-13 让设置页版本号跟随应用配置
+
+- 设置页关于信息原先硬编码 `1.3.1`，版本升级后可能误导用户判断当前安装版本。
+- 现在直接读取 `app.json` 的版本字段，与 Android 发布预检使用同一来源。
+
+验证：
+
+- `npm run typecheck`
+- `npm test`
+- `git diff --check`
+
+## 2026-09-13 提前展示首次使用隐私边界
+
+- 首页隐私说明原先只在长页面底部，首次用户看到体验书和导入入口时不一定会继续滚动。
+- 尚未导入自有书籍时，现在在体验书/空书架入口附近显示简短说明：正文、进度和查词次数留在设备，在线增强需主动开启。
+- 已有自有书籍的日常首页不增加重复说明，保持阅读入口紧凑。
+
+验证：
+
+- `npm run typecheck`
+- `npm test`
+- Web 导出
+- `git diff --check`
+
+## 2026-09-13 修正窄屏首页书名断词
+
+- 320px 宽度下首页体验书主卡原先会把 `Observatory` 拆成两行，出现孤立的 `ry`，影响首次用户识别书名。
+- 现在窄屏主卡使用较小字号和行高，长书名按完整单词换行；常规宽度保持原有视觉层级。
+
+验证：
+
+- `npm run typecheck`
+- `npm test`
+- Web 导出
+- 320px 浏览器截图检查
+- `git diff --check`
+
+## 2026-09-13 修正窄屏书架封面书名断词
+
+- 产品走查发现首页主卡修复后，书架 320px 双列封面仍会把 `The Quiet Observatory` 拆出孤立的 `y`，用户在书架中可能误读当前书名。
+- `BookCover` 现在根据封面宽度自动收紧标题字号、行高和最大行数；常规宽度与紧凑首页封面保持原有层级。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- Web 导出
+- 320px 浏览器截图检查
+- `git diff --check`
+
+## 2026-09-13 串行化查词与阅读统计写入
+
+- 产品走查发现查词记录和阅读分钟统计都写入本地阅读信号；查词与定时统计刷新并发时，旧快照可能覆盖新计数，首页足迹和趋势会短暂或持久地少记一次。
+- 查词记录、阅读统计及各自重试现在共享串行写入队列，统计快照仍会同时保存总统计与书籍信号，保证两份数据按同一顺序落盘。
+- 复用串行写入回归，覆盖失败后继续写入和队列空闲等待。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- Web 与 Android 无字节码 bundle 导出
+
+## 2026-09-13 限制长篇章节的单次排版规模
+
+- 产品走查发现无章节 TXT，以及部分 EPUB/MOBI 的超长章节，会让阅读器一次性测量过大的正文，首次打开可能出现明显等待或内存峰值。
+- TXT、EPUB 和 MOBI/KF8 解析现在会在约 5,000 个英文词或 30,000 个字符处按段落拆分；过长段落也会先按句子和词边界切开，续段使用“（续 2）”等标题，阅读顺序和词数保持不变。
+- 解析回归新增长篇 TXT 分段、词数守恒和续段标题检查。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- Web 与 Android 无字节码 bundle 导出
+
+## 2026-09-13 由用户确认读完，保留末页阅读空间
+
+- 真实浏览器复现：只有一页的短书首次打开就写入 100% 并弹出“这本书读完了”，正文尚未阅读便被完成弹层遮住；多页书也会在刚翻到最后一页时提前结束。
+- 普通阅读现在保存当前页起点，底部末页提供“读完这本书”按钮，点击后才确认完成。已经完成的旧记录继续保留，重新打开或重新排版不会自动弹窗或取消完成；主动重读会重置进度。
+- 完成状态保存失败时，完成弹层直接提供重试，并可选择“继续查看书页”。弹层按可用屏幕高度滚动，320px 下错误说明和操作可达。
+- 新增隔离浏览器回归，覆盖一页短书、390/320px、多页末页、最后空章、刷新、重新排版、两种重读入口和写入失败恢复；外部网络请求均被拦截并检查。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-reader-completion.mjs`
+- `node scripts/verify-reader-bookmarks.mjs`
+- Web 与 Android 无字节码 bundle 导出
+- 320px 初始书页和保存失败弹层截图检查
+- `git diff --check`
+
+## 2026-09-13 让长原句复习操作保持可达
+
+- 产品走查发现复习卡片把整句原文、释义和翻译都放在可伸缩卡片中；长原句会把底部“记住了”和“再看看”按钮推到屏幕外，用户无法完成本轮复习。
+- 复习卡片内容现在独立滚动，底部答案操作固定在卡片外层；普通短句的视觉布局保持不变。
+- 复习恢复回归改用长原句，检查 390px 和 `REVIEW_WIDTH=320` 窄屏下操作按钮仍在视口内，并继续覆盖写入失败、系统返回、稍后离开和全局重试。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-review-recovery.mjs`
+- `REVIEW_WIDTH=320 node scripts/verify-review-recovery.mjs`
+- Web 导出
+- `git diff --check`
+
+## 2026-09-13 让小屏隐私说明可完整阅读
+
+- 产品走查发现设置页隐私弹层在 320px 高度下内容超过视口，顶部标题可能被裁掉，底部“知道了”也没有滚动提示。
+- 隐私说明现在限制在屏幕内并支持滚动，开头显示“可上下滚动查看完整说明”；在线翻译确认弹层也共享屏幕高度约束，隐私和联网边界说明保持可达。
+- 新增设置页浏览器回归，覆盖 320px/390px、滚动到关闭按钮、拒绝开启在线增强、开关状态保持关闭和外部网络请求拦截。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-settings-privacy.mjs`
+- `SETTINGS_WIDTH=390 node scripts/verify-settings-privacy.mjs`
+- Web 导出
+- `git diff --check`
+
+## 2026-09-13 让 Web 导入进度显示真实文件名
+
+- 产品走查发现 Web 文件选择器返回的文件名保存在 `asset.file.name`，导入服务只读取 `asset.name`；用户在长文件导入期间只能看到“正在解析章节”，无法确认当前处理的是哪份文件。
+- 导入服务现在同时读取 Web `File` 对象的文件名，进度弹层会沿用该名称并在窄屏中省略中间部分；取消入口和阶段提示保持可用。
+- 文件选择、读取和解析阶段的状态更新现在会合并文件名，并在异步回调先后顺序变化时保留“未命名书籍”兜底，避免用户只看到无上下文的进度提示。
+- 新增隔离浏览器回归，用长文件名覆盖 320px/390px 视口，检查文件名来源契约、取消操作和离线请求边界。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-import-progress.mjs`
+- `IMPORT_WIDTH=390 node scripts/verify-import-progress.mjs`
+- Web 导出
+- `git diff --check`
+
+## 2026-09-13 统一关于页面版本号
+
+- 产品走查发现设置列表已经动态读取 `app.json` 版本，但“关于书语”详情弹层仍写死旧版本 `1.3.1`，升级后会造成用户判断错误。
+- 详情弹层现在复用同一 `appVersion` 常量；设置页回归同时检查 320px、390px 下隐私、在线同意和配置版本号。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-settings-privacy.mjs`
+- `SETTINGS_WIDTH=390 node scripts/verify-settings-privacy.mjs`
+- Web 导出
+- `git diff --check`

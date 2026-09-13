@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -32,6 +32,7 @@ function formatMinutes(minutes: number) {
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { books, stats, words, preferences, readingSignals, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -109,6 +110,15 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable accessibilityRole="button" accessibilityLabel="导入自己的英文书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
         </View>
       ) : null}
+      {isSampleOnly || !current ? (
+        <View style={styles.privacyNote}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.privacyTitle}>先了解数据边界</Text>
+            <Text style={styles.privacyBody}>书籍正文与阅读进度留在设备；查词次数也只保存在设备，不会上传。在线增强需要你主动开启。</Text>
+          </View>
+        </View>
+      ) : null}
       {!current ? (
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeIcon}><Ionicons name="library-outline" size={20} color={colors.accent} /></View>
@@ -126,7 +136,7 @@ export function HomeScreen({ navigation }: Props) {
           <View style={styles.heroCopy}>
             <View>
               <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : currentStarted ? '继续阅读' : '开始阅读'}</Text>
-              <Text numberOfLines={3} style={styles.heroTitle}>{current.title}</Text>
+              <Text numberOfLines={3} style={[styles.heroTitle, width < 350 && styles.heroTitleNarrow]}>{current.title}</Text>
               <Text numberOfLines={1} style={styles.heroAuthor}>{current.author}</Text>
             </View>
             <View>
@@ -258,13 +268,6 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.privacyNote}>
-        <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；查词次数也只保存在设备，用于显示阅读足迹和本地推荐排序，不会上传；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
-        </View>
-      </View>
     </ScrollView>
   );
 }
@@ -287,6 +290,7 @@ const styles = StyleSheet.create({
   heroCover: { width: 116, justifyContent: 'center', transform: [{ rotate: '4deg' }, { translateX: 6 }] },
   heroEyebrow: { color: colors.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 11 },
   heroTitle: { color: '#FBF9F3', fontFamily: typography.serif, fontSize: 27, lineHeight: 31, fontWeight: '700', letterSpacing: -0.7 },
+  heroTitleNarrow: { fontSize: 20, lineHeight: 24, letterSpacing: -0.3 },
   heroAuthor: { color: 'rgba(255,255,255,0.52)', fontSize: 12, marginTop: 8 },
   progressTrack: { width: '100%', height: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 4, backgroundColor: colors.accent },

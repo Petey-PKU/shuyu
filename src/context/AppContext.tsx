@@ -48,6 +48,7 @@ import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
 import { persistBookRemoval } from '../utils/bookRemoval';
 import { accumulateReadingStats } from '../utils/readingStats';
+import { createSerialWriteQueue } from '../utils/serialWrite';
 import { pickBackupFile, writeBackupFile } from '../services/backup';
 
 interface AddWordInput {
@@ -167,7 +168,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPersistenceError(state.error);
     setPersistenceRetrying(state.retrying);
   }));
+  const booksWriteQueue = useRef(createSerialWriteQueue());
+  const readingWriteQueue = useRef(createSerialWriteQueue());
   const persist = persistence.persist;
+  const saveBooksSerial = useCallback((snapshot: Book[]) => (
+    booksWriteQueue.current.enqueue(() => saveBooks(snapshot))
+  ), []);
+  const saveSignalsSerial = useCallback((snapshot: ReadingSignal[]) => (
+    readingWriteQueue.current.enqueue(() => saveReadingSignals(snapshot))
+  ), []);
+  const saveReadingStateSerial = useCallback((snapshot: ReadingStats, signals: ReadingSignal[]) => (
+    readingWriteQueue.current.enqueue(() => Promise.all([saveStats(snapshot), saveReadingSignals(signals)]).then(() => undefined))
+  ), []);
 
   const retryPersistence = useCallback(async () => {
     if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return false;
@@ -222,9 +234,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isCancelled: () => importCancelRequestedRef.current,
         onFileSelected: (fileName) => {
           selectedFileName = fileName;
-          setImportStatus((current) => current ? { ...current, fileName } : current);
+          setImportStatus((current) => current
+            ? { ...current, fileName: fileName || current.fileName || '未命名书籍' }
+            : { phase: 'parsing', stage: 'reading', startedAt, fileName: fileName || '未命名书籍' });
         },
-        onImportStage: (stage) => setImportStatus((current) => current ? { ...current, stage } : current),
+        onImportStage: (stage) => setImportStatus((current) => current
+          ? { ...current, stage, fileName: current.fileName ?? selectedFileName ?? '未命名书籍' }
+          : { phase: 'parsing', stage, startedAt, fileName: selectedFileName ?? '未命名书籍' }),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
@@ -265,11 +281,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       booksRef.current = next;
       setBooks(next);
       const persistImportedBook = async () => {
-        await saveBooks(next);
+        await saveBooksSerial(next);
         await clearPendingImport(book.id);
       };
       const retryImportedBook = async () => {
-        await saveBooks(booksRef.current);
+        await saveBooksSerial(booksRef.current);
         await clearPendingImport(book.id);
       };
       try {
@@ -289,7 +305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ocrCancelRef.current = null;
       setImportStatus(null);
     }
-  }, [persist]);
+  }, [persist, saveBooksSerial]);
 
   const cancelImport = useCallback(() => {
     if (!importingRef.current || importStatus?.stage === 'saving') return;
@@ -311,8 +327,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : book);
     booksRef.current = next;
     setBooks(next);
-    await persist('books', '阅读进度', () => saveBooks(next), () => saveBooks(booksRef.current));
-  }, [persist]);
+    await persist('books', '阅读进度', () => saveBooksSerial(next), () => saveBooksSerial(booksRef.current));
+  }, [persist, saveBooksSerial]);
 
   const addWord = useCallback(async (input: AddWordInput) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === input.bookId)) return;
@@ -369,9 +385,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       books: booksRef.current,
       words: wordsRef.current,
       readingSignals: readingSignalsRef.current,
-    }, { saveBooks, saveWords, saveReadingSignals, deleteBookContent });
+    }, { saveBooks: saveBooksSerial, saveWords, saveReadingSignals, deleteBookContent });
     await persist(`delete-book:${bookId}`, '书籍删除', writeRemoval, writeRemoval);
-  }, [persist]);
+  }, [persist, saveBooksSerial]);
 
   const updateBookMetadata = useCallback(async (bookId: string, title: string, author: string) => {
     if (storageActivityRef.current || resettingRef.current) return;
@@ -387,10 +403,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     wordsRef.current = nextWords;
     setBooks(next);
     setWords(nextWords);
-    await persist('book-metadata', '书籍信息', () => Promise.all([saveBooks(next), saveWords(nextWords)]).then(() => undefined), async () => {
-      await Promise.all([saveBooks(booksRef.current), saveWords(wordsRef.current)]);
+    await persist('book-metadata', '书籍信息', () => Promise.all([saveBooksSerial(next), saveWords(nextWords)]).then(() => undefined), async () => {
+      await Promise.all([saveBooksSerial(booksRef.current), saveWords(wordsRef.current)]);
     });
-  }, [persist]);
+  }, [persist, saveBooksSerial]);
 
   const updatePreferences = useCallback(async (next: Partial<ReadingPreferences>) => {
     if (storageActivityRef.current || resettingRef.current) return;
@@ -452,8 +468,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 1, wordsRead: 0, minutes: 0 }];
     readingSignalsRef.current = next;
     setReadingSignals(next);
-    await persist('reading-signals', '阅读记录', () => saveReadingSignals(next), () => saveReadingSignals(readingSignalsRef.current));
-  }, [persist]);
+    await persist('reading-signals', '阅读记录', () => saveSignalsSerial(next), () => saveSignalsSerial(readingSignalsRef.current));
+  }, [persist, saveSignalsSerial]);
 
   const addReadingMinutes = useCallback(async (bookId: string, minutes: number, wordsRead: number) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === bookId)) return;
@@ -474,10 +490,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : [...currentSignals, { bookId, lookups: 0, minutes: addedMinutes, wordsRead: addedWords }];
     readingSignalsRef.current = nextSignals;
     setReadingSignals(nextSignals);
-    await persist('reading-stats', '阅读统计', () => Promise.all([saveStats(next), saveReadingSignals(nextSignals)]).then(() => undefined), async () => {
-      await Promise.all([saveStats(statsRef.current), saveReadingSignals(readingSignalsRef.current)]);
+    await persist('reading-stats', '阅读统计', () => saveReadingStateSerial(next, nextSignals), async () => {
+      await saveReadingStateSerial(statsRef.current, readingSignalsRef.current);
     });
-  }, [persist]);
+  }, [persist, saveReadingStateSerial]);
 
   const resetAll = useCallback(async () => {
     if (resettingRef.current || importingRef.current || storageActivityRef.current) return;

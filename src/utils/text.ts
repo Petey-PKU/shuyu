@@ -1,3 +1,5 @@
+import { splitChapterSections } from './chapterSections';
+
 export interface TextToken {
   value: string;
   word: boolean;
@@ -77,7 +79,8 @@ export function splitPlainText(text: string, fallbackTitle: string) {
         wordCount: countWords(body),
       };
     })
-    .filter((chapter) => chapter.wordCount > 0);
+    .filter((chapter) => chapter.wordCount > 0)
+    .flatMap((chapter) => splitChapterSections(chapter));
 
   return normalizedChapters;
 }

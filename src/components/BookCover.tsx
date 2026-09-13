@@ -11,10 +11,11 @@ interface Props {
 
 export function BookCover({ book, width = 126, compact = false }: Props) {
   const height = Math.round(width * 1.45);
+  const narrow = width < 140;
   return (
     <View style={[styles.cover, shadows.card, { width, height, backgroundColor: book.accent }]}>
       <View style={styles.rule} />
-      <Text numberOfLines={compact ? 3 : 4} style={[styles.title, compact && styles.compactTitle]}>{book.title}</Text>
+      <Text numberOfLines={compact ? 2 : narrow ? 3 : 4} ellipsizeMode="tail" style={[styles.title, compact && styles.compactTitle, narrow && !compact && styles.narrowTitle]}>{book.title}</Text>
       <View style={styles.bottom}>
         <Text numberOfLines={1} style={styles.author}>{book.author}</Text>
         <Text style={styles.mark}>书语</Text>
@@ -39,7 +40,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.35,
   },
-  compactTitle: { fontSize: 17, lineHeight: 21 },
+  compactTitle: { fontSize: 15, lineHeight: 19 },
+  narrowTitle: { fontSize: 16, lineHeight: 19, letterSpacing: -0.25 },
   bottom: { gap: 8 },
   author: { color: 'rgba(255,255,255,0.78)', fontSize: 11 },
   mark: { color: 'rgba(255,255,255,0.45)', fontSize: 9, fontWeight: '800', letterSpacing: 1.8 },

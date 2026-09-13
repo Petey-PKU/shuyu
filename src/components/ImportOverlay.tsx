@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ImportStatus } from '../types';
+import { importStageDescription } from '../utils/importStatus';
 import { colors, radii, typography } from '../theme';
 
 interface Props {
@@ -87,7 +88,7 @@ export function ImportOverlay({ status, onCancel }: Props) {
             </>
           ) : (
             <>
-              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>文件只在本机读取和解析，原文不会上传。已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
+              <Text style={styles.body}>{status?.cancelling ? '正在取消导入，请稍候…' : <>文件只在本机读取和解析，原文不会上传。{importStageDescription(status?.stage)} 已用时 {elapsedLabel}；大型文件可能需要更久，请保持应用在前台。</>}</Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="取消电子书导入"

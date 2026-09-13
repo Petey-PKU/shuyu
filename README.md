@@ -21,10 +21,12 @@ v1.3.1 重点加入真实文字布局分页、左右点击与滑动翻页、字�
 ## 已实现
 
 - 导入 UTF-8 编码的 `.txt`、无 DRM 的 `.epub` / `.mobi` / `.azw3` / `.kf8`，以及数字文本型或英文扫描版 `.pdf`
+- 普通电子书导入会显示读取、提取章节、整理排版和保存正文的当前阶段，大文件处理时也会明确取消边界
 - EPUB 2/3 目录、书名、作者和正文解析，并兼容常见路径编码、大小写差异与字体混淆
 - MOBI 7 与 AZW3/KF8 目录、元数据和正文解析；Android 文件选择器对缺失或错误的 AZW3 MIME 类型进行扩展名与 `BOOKMOBI` 文件头识别，并在 KF8/MOBI 解析路径间安全回退
 - PDF 优先本地提取文本层，Android 扫描版自动提示并逐页离线 OCR；TXT/PDF 自动识别英文 `Chapter / Part / Book` 分章
 - 本地书架、阅读进度和最近阅读
+- 阅读进度记录当前页起点；到达末页后可点击“读完这本书”确认完成，一页短书不会刚打开就遮住正文或自动记为已读完
 - 设置中可将书籍正文、进度、生词、统计和偏好导出为本地 JSON 备份，并在另一台正式安装包中恢复
 - 书架支持编辑导入书籍的书名与作者
 - 纸张、明亮、夜间三种阅读主题，字号和行高调节；阅读器用当前段落即时预览，确认后按当前位置重新分页
@@ -99,6 +101,14 @@ python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
 测试使用独立浏览器上下文与合成书籍，检查第二本书的收藏按钮、同一本书的重复收藏限制、重新加载后两个来源的保留，以及回到原文后的收藏状态。它会阻止并报告外部网络请求，截图保存在 `.cache/reader-bookmark-check`；结束后停止预览服务器。
 
 水平测试恢复也有可选浏览器回归。使用同一个本地 Web 预览服务器和 Playwright 安装，在 Node.js 24 中运行 `node scripts/run-verifier.mjs scripts/verify-assessment-recovery.mjs`。此测试无需准备书籍夹具，会在独立浏览器上下文中模拟草稿、等级写入和草稿删除失败，检查结果页两种重试入口、刷新恢复、放弃、重新测试及小屏操作。外部网络请求会被阻止，截图保存在 `.cache/assessment-recovery-check`。它验证 Web 存储故障处理，不能替代 Android 真机的异步存储和系统返回验收。
+
+复习结果的保存恢复也可运行 `node scripts/run-verifier.mjs scripts/verify-review-recovery.mjs`。脚本在隔离浏览器中注入一个带长原句的到期词，模拟“记住了”写入失败，检查窄屏/普通宽度下答案操作可达、系统返回的“稍后处理”、全局重试和最终落盘；设置 `REVIEW_WIDTH=320` 可额外执行 320px 检查。它同样阻止外部网络请求，不能替代 Android 系统返回键验收。
+
+阅读完成流程可运行 `node scripts/verify-reader-completion.mjs`，使用同一个预览服务器且无需额外夹具。它覆盖一页短书首次打开、多页末页、末尾空章、主动确认完成、重载、重新排版、从头重读和完成状态保存失败后的重试；截图保存在 `.cache/reader-completion-check`。
+
+设置隐私路径可运行 `node scripts/verify-settings-privacy.mjs`，或设置 `SETTINGS_WIDTH=390` 运行普通手机宽度回归。它检查 320px/390px 下隐私说明滚动到“知道了”、在线翻译确认的拒绝状态和无外部请求。
+
+导入进度路径可运行 `node scripts/verify-import-progress.mjs`，或设置 `IMPORT_WIDTH=390` 运行普通手机宽度回归。它用长文件名模拟 Web 文件选择，检查导入服务保留真实文件名来源、取消入口保持可见，并阻止外部网络请求。
 
 在限制子进程数量的环境中，可给 `expo export` 添加 `--max-workers 1`。Android 导出仍需允许启动项目所用的 Hermes 编译器；不要把 Web 导出成功当作 Android 安装包验收。
 

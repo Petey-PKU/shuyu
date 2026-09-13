@@ -12,11 +12,12 @@ import type { BackupPayload } from '../types';
 import { InlineNotice } from '../components/InlineNotice';
 import { formatBackupOperationError } from '../utils/backupErrors';
 
+const appVersion = (require('../../app.json') as { expo?: { version?: string } }).expo?.version ?? '未知';
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
   { icon: 'shield-checkmark-outline', title: '隐私说明', caption: '原文默认只保存在本地' },
   { icon: 'logo-github', title: '开源项目', caption: 'GPL-3.0-only · 欢迎贡献' },
-  { icon: 'information-circle-outline', title: '关于书语', caption: '版本 1.3.1' },
+  { icon: 'information-circle-outline', title: '关于书语', caption: `版本 ${appVersion}` },
 ] as const;
 
 export function SettingsScreen() {
@@ -298,6 +299,7 @@ export function SettingsScreen() {
       <Modal visible={onlinePromptVisible} transparent animationType="fade" onRequestClose={() => setOnlinePromptVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setOnlinePromptVisible(false)}>
           <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <ScrollView style={styles.infoScroll} contentContainerStyle={styles.infoScrollContent} showsVerticalScrollIndicator={true} accessibilityHint="上下滚动查看完整隐私说明">
             <View style={styles.infoCardHeader}>
               <View style={styles.infoIcon}><Ionicons name="globe-outline" size={20} color={colors.accent} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>开启在线翻译增强？</Text>
@@ -307,6 +309,7 @@ export function SettingsScreen() {
             <Text style={styles.infoBody}>书籍正文、阅读进度和生词仍保存在设备；你可以随时在设置中关闭在线增强。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认开启在线翻译增强" onPress={enableOnlineTranslation} style={styles.onlineConfirm}><Text style={styles.onlineConfirmText}>开启在线增强</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="暂不开启在线翻译增强" onPress={() => setOnlinePromptVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>暂不开启</Text></Pressable>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -314,10 +317,12 @@ export function SettingsScreen() {
       <Modal visible={privacyVisible} transparent animationType="fade" onRequestClose={() => setPrivacyVisible(false)}>
         <Pressable style={styles.infoBackdrop} onPress={() => setPrivacyVisible(false)}>
           <Pressable accessibilityViewIsModal style={styles.infoCard} onPress={(event) => event.stopPropagation()}>
+            <ScrollView style={styles.infoScroll} contentContainerStyle={styles.infoScrollContent} showsVerticalScrollIndicator={true} accessibilityHint="上下滚动查看完整隐私说明">
             <View style={styles.infoCardHeader}>
               <View style={styles.infoIcon}><Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>隐私说明</Text>
             </View>
+            <Text style={styles.infoScrollHint}>可上下滚动查看完整说明</Text>
             <Text style={styles.infoBody}>书籍正文、阅读进度、生词和学习统计默认只保存在此设备。</Text>
             <Text style={styles.infoBody}>如果不想新增阅读分钟、连续天数和趋势记录，可以在上方关闭“记录阅读统计”；已有统计不会被删除。</Text>
             <Text style={styles.infoBody}>这个开关不影响查词和复习；查词次数会保存在设备，用于显示阅读足迹和本地推荐排序，不会上传。</Text>
@@ -326,6 +331,7 @@ export function SettingsScreen() {
             <Text style={styles.infoBody}>整句翻译始终需要你在单词卡片中主动点击“获取整句翻译”；点击后，当前句子可能发送给第三方翻译服务。</Text>
             <Text style={styles.infoBody}>关闭在线翻译增强后，书语不会发起这些在线查词或整句翻译请求。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭隐私说明" onPress={() => setPrivacyVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -352,7 +358,7 @@ export function SettingsScreen() {
             </View>
             <Text style={styles.infoBody}>书语是一款本地优先的英语语境阅读器。</Text>
             <Text style={styles.infoBody}>在书里，学会一门语言。</Text>
-            <Text style={styles.infoBody}>版本 1.3.1 · GPL-3.0-only</Text>
+            <Text style={styles.infoBody}>版本 {appVersion} · GPL-3.0-only</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭关于书语" onPress={() => setAboutVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
           </Pressable>
         </Pressable>
@@ -421,7 +427,10 @@ const styles = StyleSheet.create({
   dangerText: { color: colors.danger, fontSize: 13, fontWeight: '700' },
   footer: { color: '#AAABA6', textAlign: 'center', fontSize: 9, lineHeight: 16, fontWeight: '700', letterSpacing: 1.2, marginTop: 30 },
   infoBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
-  infoCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  infoCard: { width: '100%', maxWidth: 360, maxHeight: '90%', backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22, overflow: 'hidden' },
+  infoScroll: { flexShrink: 1 },
+  infoScrollContent: { flexGrow: 1 },
+  infoScrollHint: { color: colors.accent, fontSize: 10, fontWeight: '800', marginTop: -4, marginBottom: 2 },
   infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 11, marginBottom: 16 },
   infoTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
   infoBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 20, marginTop: 10 },
