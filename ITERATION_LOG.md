@@ -1450,3 +1450,18 @@
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-home-first-read`
 - 本地 Playwright：首页首读文案与第一章引导通过
+
+## 2026-09-13 在水平测试入口前说明答案隐私
+
+- 发现页首次水平测试卡片明确说明答案只保存在本机，不会上传。
+- 已有测试草稿继续入口保留原有“答案不会上传”提示。
+- 目的：让用户在决定开始测试前就知道数据边界，不必先进入测试页面寻找隐私说明。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-discover-privacy`
+- 本地 Playwright：发现页展示“答案只保存在本机，不会上传”且开始按钮可见

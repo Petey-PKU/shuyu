@@ -158,7 +158,7 @@ export function DiscoverScreen({ navigation }: Props) {
           <View style={styles.assessmentIcon}><Ionicons name="sparkles" size={23} color={colors.accent} /></View>
           <Text style={styles.assessmentEyebrow}>先找到舒适起点</Text>
           <Text style={styles.assessmentTitle}>不知道该从哪一本开始？</Text>
-          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
+          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，答案只保存在本机，不会上传；完成后获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={assessmentDraftExists ? '继续水平测试' : '开始水平测试'} onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>{assessmentDraftExists ? '继续水平测试' : '开始水平测试'}</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
         </View>
       ) : (
