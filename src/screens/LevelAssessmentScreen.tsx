@@ -27,6 +27,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [retryingDraft, setRetryingDraft] = useState(false);
   const [retryingProfile, setRetryingProfile] = useState(false);
   const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
@@ -143,6 +144,19 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     }
   };
 
+  const retryDraftSave = async () => {
+    if (retryingDraft || !Object.keys(answers).length) return;
+    setRetryingDraft(true);
+    try {
+      await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(answers));
+      setDraftSaveError(null);
+    } catch {
+      setDraftSaveError('本机暂时无法保存测试进度；当前作答仍可继续，但退出后可能无法恢复。');
+    } finally {
+      setRetryingDraft(false);
+    }
+  };
+
   const restart = () => {
     void AsyncStorage.removeItem(assessmentDraftKey);
     setAnswers({});
@@ -197,7 +211,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
-        {draftSaveError ? <Text accessibilityRole="alert" style={styles.draftWarning}>{draftSaveError}</Text> : null}
+        {draftSaveError ? <InlineNotice message={draftSaveError} actionLabel={Object.keys(answers).length ? retryingDraft ? '保存中…' : '重试保存' : undefined} onAction={Object.keys(answers).length ? () => void retryDraftSave() : undefined} onDismiss={() => setDraftSaveError(null)} style={styles.draftNotice} /> : null}
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
       <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
@@ -218,7 +232,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
   loading: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: colors.inkMuted, fontSize: 12 },
-  draftWarning: { color: colors.accent, fontSize: 11, lineHeight: 17, textAlign: 'center', marginTop: 20 },
+  draftNotice: { marginHorizontal: 0, marginTop: 20 },
   topBar: { height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 5, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },

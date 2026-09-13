@@ -1378,3 +1378,18 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+
+## 2026-09-13 为水平测试草稿失败增加直接重试
+
+- 水平测试草稿读取或保存失败时继续保留当前作答，避免用户因本机存储瞬时异常被迫重做。
+- 在有作答内容时，失败提示直接提供“重试保存”，成功后清除提示；读取失败且尚未有作答时仍只提示风险，避免把空草稿误存为有效进度。
+- 目的：让测试过程中的本地保存异常具备可恢复动作，减少用户对退出后丢失作答的担心。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-draft-retry`
+- 本地浏览器回归：阅读器书签、跨书来源、刷新持久化和离线请求均通过
