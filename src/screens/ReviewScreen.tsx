@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +28,7 @@ export function ReviewScreen({ navigation, route }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [pendingReview, setPendingReview] = useState<{ id: string; mastered: boolean } | null>(null);
+  const [exitVisible, setExitVisible] = useState(false);
   const submittingRef = useRef(false);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
@@ -90,12 +91,20 @@ export function ReviewScreen({ navigation, route }: Props) {
     }
   };
 
+  const requestExit = () => {
+    if (pendingReview) {
+      setExitVisible(true);
+      return;
+    }
+    navigation.goBack();
+  };
+
   const cloze = current.context.replace(new RegExp(`\\b${escapeRegExp(current.word)}\\b`, 'i'), '______');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 18 }]}>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="退出复习" onPress={() => navigation.goBack()} style={styles.close}><Ionicons name="close" size={24} color={colors.ink} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={pendingReview ? '退出复习，结果尚未保存' : '退出复习'} onPress={requestExit} style={styles.close}><Ionicons name="close" size={24} color={colors.ink} /></Pressable>
         <Text style={styles.counter}>{Math.min(reviewedIds.length + 1, total)} / {total}</Text>
         <View style={styles.close} />
       </View>
@@ -125,6 +134,16 @@ export function ReviewScreen({ navigation, route }: Props) {
           <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" accessibilityState={{ disabled: submitting }} onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
         </View>
       ) : null}
+      <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
+        <Pressable style={styles.exitBackdrop} onPress={() => setExitVisible(false)}>
+          <Pressable accessibilityViewIsModal style={styles.exitCard} onPress={(event) => event.stopPropagation()}>
+            <Text accessibilityRole="header" style={styles.exitTitle}>本次结果还没保存</Text>
+            <Text style={styles.exitBody}>当前选择已经保留在本机，但设备还没有确认写入。你可以先重试保存，也可以稍后离开，之后再从页面提示中继续处理。</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="重试保存复习结果" onPress={() => { setExitVisible(false); void retryPendingReview(); }} style={styles.exitPrimary}><Text style={styles.exitPrimaryText}>重试保存</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="稍后处理并退出复习" onPress={() => { setExitVisible(false); navigation.goBack(); }} style={styles.exitCancel}><Text style={styles.exitCancelText}>稍后处理</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -155,6 +174,14 @@ const styles = StyleSheet.create({
   againText: { color: colors.ink, fontSize: 13, fontWeight: '700' },
   knowText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   actionDisabled: { opacity: 0.56 },
+  exitBackdrop: { flex: 1, backgroundColor: 'rgba(20,21,18,0.48)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  exitCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
+  exitTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
+  exitBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  exitPrimary: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  exitPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  exitCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  exitCancelText: { color: colors.inkMuted, fontSize: 12, fontWeight: '800' },
   done: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 38 },
   doneIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   doneTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 30, fontWeight: '700' },
