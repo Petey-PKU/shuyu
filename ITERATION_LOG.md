@@ -1702,3 +1702,18 @@
 - `REVIEW_WIDTH=320 node scripts/verify-review-recovery.mjs`
 - Web 导出
 - `git diff --check`
+
+## 2026-09-13 让小屏隐私说明可完整阅读
+
+- 产品走查发现设置页隐私弹层在 320px 高度下内容超过视口，顶部标题可能被裁掉，底部“知道了”也没有滚动提示。
+- 隐私说明现在限制在屏幕内并支持滚动，开头显示“可上下滚动查看完整说明”；在线翻译确认弹层也共享屏幕高度约束，隐私和联网边界说明保持可达。
+- 新增设置页浏览器回归，覆盖 320px/390px、滚动到关闭按钮、拒绝开启在线增强、开关状态保持关闭和外部网络请求拦截。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-settings-privacy.mjs`
+- `SETTINGS_WIDTH=390 node scripts/verify-settings-privacy.mjs`
+- Web 导出
+- `git diff --check`
