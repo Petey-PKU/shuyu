@@ -51,6 +51,8 @@
     "test:translation": "tsx scripts/verify-translation.ts",
     "test:translation-proxy": "node --test-isolation=none --test translation-proxy/test/gateway.test.mjs",
     "test:dictionary": "python scripts/verify_dictionary.py",
+    "test:web-dictionary": "python scripts/verify_web_dictionary.py",
+    "build:web-dictionary": "python scripts/build_web_dictionary.py",
     "prepare:tts-model": "node scripts/prepare-tts-model.mjs",
     "configure:android-signing": "node scripts/configure-android-signing.mjs",
     "export:android": "expo export --platform android --output-dir dist"

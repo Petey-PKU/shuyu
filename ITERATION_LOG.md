@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 为 Web 预览加入轻量离线词典
+
+- Web 关闭在线增强时原先几乎只能使用内置基础词表，用户在桌面预览中无法获得与正式安装包一致的离线查词体验。
+- 现在 Web 只加载按词频筛选的约 10,000 个本地词条和词形别名，包体增加约 1.1MB；查词卡片、设置和隐私说明会区分“Web 高频词典未收录”与在线补充，正式安装包仍使用完整 SQLite 词典。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 从首页继续最近收藏的词
 
 - 首页原先只展示最近书页和到期复习入口，用户想重新理解刚收藏的词时还要先切到生词本再寻找来源。
