@@ -46,14 +46,14 @@ export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancel
   if (result.canceled) return null;
   const asset = result.assets?.[0];
   if (!asset) throw new Error('未选择有效文件，请重试');
+  const webFile = Platform.OS === 'web' ? (asset.file ?? result.output?.[0]) : undefined;
   const decodedUriName = safeDecodeFileName(asset.uri.split(/[\\/]/).pop() || '');
-  const fileName = asset.name || decodedUriName || '未命名书籍';
+  const fileName = asset.name || webFile?.name || decodedUriName || '未命名书籍';
   const fallbackTitle = cleanFileName(fileName) || '未命名书籍';
   const extension = (fileName.split('.').pop() || '').toLowerCase();
-  const webFile = Platform.OS === 'web' ? asset.file : undefined;
-  pdfOptions.onFileSelected?.(fileName);
   const knownExtension = ['txt', 'epub', 'mobi', 'azw3', 'kf8', 'pdf'].includes(extension);
   pdfOptions.onImportStage?.('reading');
+  pdfOptions.onFileSelected?.(fileName);
 
   if (asset.size && asset.size > 80 * 1024 * 1024) {
     throw new Error('文件超过 80 MB。为避免手机内存不足，请导入更小的书籍文件');

@@ -1718,6 +1718,21 @@
 - Web 导出
 - `git diff --check`
 
+## 2026-09-13 让 Web 导入进度显示真实文件名
+
+- 产品走查发现 Web 文件选择器返回的文件名保存在 `asset.file.name`，导入服务只读取 `asset.name`；用户在长文件导入期间只能看到“正在解析章节”，无法确认当前处理的是哪份文件。
+- 导入服务现在同时读取 Web `File` 对象的文件名，进度弹层会沿用该名称并在窄屏中省略中间部分；取消入口和阶段提示保持可用。
+- 新增隔离浏览器回归，用长文件名覆盖 320px/390px 视口，检查文件名来源契约、取消操作和离线请求边界。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-import-progress.mjs`
+- `IMPORT_WIDTH=390 node scripts/verify-import-progress.mjs`
+- Web 导出
+- `git diff --check`
+
 ## 2026-09-13 统一关于页面版本号
 
 - 产品走查发现设置列表已经动态读取 `app.json` 版本，但“关于书语”详情弹层仍写死旧版本 `1.3.1`，升级后会造成用户判断错误。

@@ -234,9 +234,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         isCancelled: () => importCancelRequestedRef.current,
         onFileSelected: (fileName) => {
           selectedFileName = fileName;
-          setImportStatus((current) => current ? { ...current, fileName } : current);
+          setImportStatus((current) => current
+            ? { ...current, fileName }
+            : { phase: 'parsing', stage: 'reading', startedAt, fileName });
         },
-        onImportStage: (stage) => setImportStatus((current) => current ? { ...current, stage } : current),
+        onImportStage: (stage) => setImportStatus((current) => current
+          ? { ...current, stage, fileName: current.fileName ?? selectedFileName }
+          : { phase: 'parsing', stage, startedAt, fileName: selectedFileName }),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);

@@ -108,6 +108,8 @@ python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
 
 设置隐私路径可运行 `node scripts/verify-settings-privacy.mjs`，或设置 `SETTINGS_WIDTH=390` 运行普通手机宽度回归。它检查 320px/390px 下隐私说明滚动到“知道了”、在线翻译确认的拒绝状态和无外部请求。
 
+导入进度路径可运行 `node scripts/verify-import-progress.mjs`，或设置 `IMPORT_WIDTH=390` 运行普通手机宽度回归。它用长文件名模拟 Web 文件选择，检查导入服务保留真实文件名来源、取消入口保持可见，并阻止外部网络请求。
+
 在限制子进程数量的环境中，可给 `expo export` 添加 `--max-workers 1`。Android 导出仍需允许启动项目所用的 Hermes 编译器；不要把 Web 导出成功当作 Android 安装包验收。
 
 首次运行 `npm run android` 时会从 sherpa-onnx 官方 Release 下载约 67 MB 的固定 Amy 模型归档，核对 SHA-256 后放入 Android 原生资源；后续构建复用 `.cache/tts-models`。GitHub Actions 会自动执行相同步骤，最终用户无需下载模型或配置服务。
