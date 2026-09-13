@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 统一 PDF 读取失败提示
+
+- PDF 原生模块实际可能返回 `PDF_LOAD_ERROR`、`PDF_EXTRACTION_ERROR` 等实现层错误码，原先未知码会把英文底层错误直接传到导入失败提示，用户难以判断下一步。
+- 现在按密码保护、文件失效、损坏/不支持和一般读取失败分级显示中文提示，并给出重新选择、转换或重试方向；解析器测试覆盖原生未公开错误码的降级文案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 修正 Kindle 导入取消提示
 
 - MOBI/KF8 解析在章节边界收到取消后，内部错误原先会被包装成“无法解析文件：导入已取消”，上层无法识别为用户主动停止，可能显示格式失败提示。

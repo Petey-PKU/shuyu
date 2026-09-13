@@ -4,6 +4,7 @@ import { parseEpub } from '../src/services/epub';
 import { htmlToParagraphs } from '../src/services/markup';
 import { assertDrmFreeKindleFile, inspectKindleFile } from '../src/services/mobi';
 import { parseExtractedPdfText, pdfNeedsOcr, PdfNeedsOcrError } from '../src/services/pdfText';
+import { formatPdfExtractionError } from '../src/services/pdfErrors';
 import { splitTranslationText } from '../src/services/translation';
 import { splitPlainText } from '../src/utils/text';
 
@@ -97,6 +98,8 @@ function verifyMarkupAndPdf() {
   assert.throws(() => parseExtractedPdfText('1\n2\n3', 'Scan'), PdfNeedsOcrError);
   assert.equal(pdfNeedsOcr('A short metadata sentence with a handful of readable English words.', 100), true);
   assert.equal(pdfNeedsOcr(pdf.chapters[0].paragraphs.join(' '), 1), false);
+  assert.equal(formatPdfExtractionError('PDF_LOAD_ERROR'), '无法读取 PDF 文件，文件可能已移动或访问权限已失效。请重新选择后重试');
+  assert.equal(formatPdfExtractionError('PDF_EXTRACTION_ERROR'), '无法读取 PDF 正文。请确认文件仍可访问且未被其他应用占用，然后重试');
 }
 
 function verifyTranslationChunking() {
