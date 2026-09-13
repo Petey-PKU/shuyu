@@ -93,6 +93,7 @@ export function LibraryScreen({ navigation }: Props) {
     setDeleteError(null);
     try {
       await removeBook(deleteBook.id);
+      setErrorMessage(null);
       setDeleteBook(null);
     } catch (error) {
       setErrorKind('save');
