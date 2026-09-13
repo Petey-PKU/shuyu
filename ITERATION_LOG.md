@@ -1393,3 +1393,17 @@
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-draft-retry`
 - 本地浏览器回归：阅读器书签、跨书来源、刷新持久化和离线请求均通过
+
+## 2026-09-13 让水平测试退出提示反映真实保存状态
+
+- 当测试草稿保存失败时，退出确认框改为明确提示最近作答可能无法恢复，并建议先重试保存。
+- 草稿保存正常时保留原有的可恢复说明。
+- 目的：避免用户在本机写入失败后误以为退出仍然安全。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-exit-copy`
