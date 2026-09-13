@@ -100,7 +100,7 @@ interface AppContextValue {
   restoreBackup: (payload: BackupPayload) => Promise<void>;
   persistenceError: string | null;
   persistenceRetrying: boolean;
-  retryPersistence: () => Promise<void>;
+  retryPersistence: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -170,8 +170,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const persist = persistence.persist;
 
   const retryPersistence = useCallback(async () => {
-    if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return;
-    await persistence.retryAll();
+    if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return false;
+    return persistence.retryAll();
   }, [persistence]);
 
   const dismissStorageNotice = useCallback(() => setStorageNotice(null), []);

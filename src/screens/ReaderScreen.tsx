@@ -108,7 +108,7 @@ function ReaderSession({ route, navigation }: Props) {
   const sourceTab = returnTo === 'Vocabulary' ? 'Vocabulary' : returnTo === 'Today' ? 'Today' : 'Library';
   const sourceLabel = sourceTab === 'Vocabulary' ? '生词本' : sourceTab === 'Today' ? '今天' : '书架';
   const insets = useSafeAreaInsets();
-  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
+  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup, retryPersistence } = useApp();
   const { lookup: lookupDictionary, translateContext, entryCount, dictionaryLoading, dictionaryUnavailable } = useDictionary();
   const book = books.find((item) => item.id === bookId);
   const bookExists = !!book;
@@ -387,6 +387,14 @@ function ReaderSession({ route, navigation }: Props) {
     }
   };
 
+  const retrySaveSelection = async () => {
+    if (saveFeedback === 'saving') return;
+    const request = lookupRequest.current;
+    setSaveFeedback('saving');
+    const saved = await retryPersistence();
+    if (request === lookupRequest.current) setSaveFeedback(saved ? 'saved' : 'error');
+  };
+
   const openReaderSettings = () => {
     setSettingsDraft({
       fontSize: preferences.fontSize,
@@ -602,7 +610,15 @@ function ReaderSession({ route, navigation }: Props) {
               <Ionicons name="close" size={20} color={colors.inkMuted} />
             </Pressable>
           </View>
-          {saveFeedback !== 'idle' ? <Text accessibilityRole={saveFeedback === 'error' ? 'alert' : undefined} style={[styles.saveFeedback, saveFeedback === 'error' && styles.saveFeedbackError]}>{saveFeedback === 'saving' ? '正在加入生词本…' : saveFeedback === 'error' ? '已加入本次会话，但设备保存失败，请稍后重试保存。' : '已加入生词本'}</Text> : null}
+          {saveFeedback !== 'idle' ? saveFeedback === 'error' ? (
+            <View style={styles.saveFeedbackRow}>
+              <Text accessibilityRole="alert" style={[styles.saveFeedback, styles.saveFeedbackError]}>已加入本次会话，但设备保存失败。</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="重试保存这个单词" onPress={() => void retrySaveSelection()} style={styles.saveRetryButton}>
+                <Ionicons name="refresh" size={14} color={colors.accent} />
+                <Text style={styles.saveRetryText}>重试保存</Text>
+              </Pressable>
+            </View>
+          ) : <Text style={styles.saveFeedback}>{saveFeedback === 'saving' ? '正在加入生词本…' : '已加入生词本'}</Text> : null}
           <ScrollView style={styles.lookupScroll} contentContainerStyle={styles.lookupContent} showsVerticalScrollIndicator>
             {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
               <View style={styles.lookupLoading}>
@@ -765,6 +781,9 @@ const styles = StyleSheet.create({
   saveButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   saveFeedback: { color: colors.accent, fontSize: 10, fontWeight: '700', marginTop: 9 },
   saveFeedbackError: { color: '#A24B35' },
+  saveFeedbackRow: { marginTop: 9, alignItems: 'flex-start' },
+  saveRetryButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5 },
+  saveRetryText: { color: colors.accent, fontSize: 10, fontWeight: '800' },
   sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
   lookupScroll: { flexShrink: 1 },

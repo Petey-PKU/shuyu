@@ -26,11 +26,11 @@ async function main() {
   }));
   await assert.rejects(tracker.persist('preferences', '阅读设置', fail, async () => { saved.push('preferences'); }));
   assert.match(state().error ?? '', /书架、生词、阅读设置/, 'Show every affected area');
-  await tracker.retryAll();
+  assert.equal(await tracker.retryAll(), false, 'A retry reports failure while one pending write remains');
   assert.deepEqual(saved, ['books', 'preferences'], 'One retry failure must not prevent other areas from saving');
   assert.equal(state().error, '生词尚未保存：设备暂时无法写入，请稍后重试', 'Keep and update only the remaining failure');
   failWords = false;
-  await tracker.retryAll();
+  assert.equal(await tracker.retryAll(), true, 'A retry reports success after every pending write settles');
   assert.deepEqual(saved, ['books', 'preferences', 'words']);
   assert.equal(state().error, null);
   assert.equal(state().retrying, false);
