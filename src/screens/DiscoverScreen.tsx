@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHeader } from '../components/PageHeader';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
+import { InlineNotice } from '../components/InlineNotice';
 import { useApp } from '../context/AppContext';
 import { assessmentQuestions } from '../data/assessment';
 import { recommendedBookById, recommendedBooks } from '../data/recommendedBooks';
@@ -60,10 +61,13 @@ export function DiscoverScreen({ navigation }: Props) {
     readingSignals,
     togglePreferredGenre,
     toggleSavedRecommendedBook,
+    retryPersistence,
   } = useApp();
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [savingBookId, setSavingBookId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [retryingSave, setRetryingSave] = useState(false);
   const [assessmentDraftExists, setAssessmentDraftExists] = useState(false);
   const savingBookRef = useRef<string | null>(null);
 
@@ -116,12 +120,22 @@ export function DiscoverScreen({ navigation }: Props) {
     setSavingBookId(bookId);
     try {
       await toggleSavedRecommendedBook(bookId);
+      setSaveError(null);
     } catch {
-      // The app shell exposes the persistence retry banner while keeping the
-      // optimistic recommendation state usable.
+      setSaveError('想读状态已更新到当前会话，但设备尚未保存。');
     } finally {
       savingBookRef.current = null;
       setSavingBookId(null);
+    }
+  };
+
+  const retrySave = async () => {
+    if (retryingSave) return;
+    setRetryingSave(true);
+    try {
+      if (await retryPersistence()) setSaveError(null);
+    } finally {
+      setRetryingSave(false);
     }
   };
 
@@ -137,6 +151,7 @@ export function DiscoverScreen({ navigation }: Props) {
           </Pressable>
         ) : undefined}
       />
+      {saveError ? <InlineNotice message={saveError} actionLabel={retryingSave ? '保存中…' : '重试保存'} onAction={() => void retrySave()} onDismiss={() => setSaveError(null)} /> : null}
 
       {!recommendationState.profile ? (
         <View style={styles.assessmentHero}>
