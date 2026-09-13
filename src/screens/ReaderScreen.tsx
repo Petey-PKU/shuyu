@@ -211,7 +211,8 @@ function ReaderSession({ route, navigation }: Props) {
     if (minutes <= 0 && words <= 0) return;
     sessionMinutesSaved.current = totalMinutes;
     sessionWordsSaved.current = totalWords;
-    void addReadingMinutesRef.current(bookId, minutes, words).catch(() => undefined);
+    void addReadingMinutesRef.current(bookId, minutes, words)
+      .catch(() => setProgressSaveError('阅读统计已在当前会话更新，但设备尚未保存。'));
   }, [bookId]);
 
   useEffect(() => {
