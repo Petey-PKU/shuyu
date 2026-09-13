@@ -141,6 +141,10 @@ async function stopOfflineSpeech() {
   }
 }
 
+async function stopActiveSpeech() {
+  await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
+}
+
 async function speakWithOfflineVoice(text: string, kind: SpeechKind) {
   const engine = await getOfflineEngine();
   const generation = ++offlineGeneration;
@@ -196,10 +200,12 @@ async function speakWithSystemVoice(text: string, kind: SpeechKind, requestedVoi
 export async function speakEnglish(text: string, kind: SpeechKind = 'word', requestedVoice?: string) {
   const normalized = text.replace(/\s+/g, ' ').trim();
   if (!normalized) return undefined;
-  await stopSpeech();
-  // Reserve a unique generation after stopping any previous request. Concurrent
-  // taps must not allow an older request to enqueue another chunk.
+  // Reserve the newest generation before awaiting cancellation. If another tap
+  // arrives while the stop is still in flight, this request becomes stale and
+  // must not start playback after the newer request.
   const generation = ++systemGeneration;
+  await stopActiveSpeech();
+  if (generation !== systemGeneration) return undefined;
   const selectedVoice = requestedVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
   if (selectedVoice === OFFLINE_VOICE_ID) {
     try {
@@ -215,5 +221,5 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
 
 export async function stopSpeech() {
   systemGeneration += 1;
-  await Promise.allSettled([Speech.stop(), stopOfflineSpeech()]);
+  await stopActiveSpeech();
 }
