@@ -1554,3 +1554,17 @@
 - 产品走查发现 TXT、EPUB、MOBI 等普通导入在大型文件处理时只有泛化的耗时说明，用户难以判断应用是否卡住。
 - 导入弹层现在根据选择、读取、解析和保存阶段显示下一步说明；取消时明确告知已读取内容不会加入书架。新增阶段文案纯逻辑验证，避免后续改动丢失阶段含义。
 - 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。Android 真机导入速度和取消时序仍需验收清单验证。
+
+## 2026-09-13 串行化阅读进度快照写入
+
+- 产品走查发现快速翻页会为每一页发起一次完整书架快照写入；底层写入完成顺序不受调用顺序保证，极端情况下旧位置可能覆盖用户刚读到的新位置。
+- 新增本地串行写入队列，阅读进度、导入后的书架索引、书籍编辑和删除流程共享书架写入顺序；失败后队列仍能继续处理后续快照，重试仍读取最新内存状态。
+- 新增 `scripts/verify-serial-write.ts`，覆盖顺序、失败恢复和空闲等待。
+
+验证：
+
+- `npm run typecheck`
+- `node scripts/run-verifier.mjs scripts/verify-serial-write.ts`
+- `npm run test:in-process`
+- `git diff --check`
+- Web 与 Android 无字节码 bundle 导出
