@@ -77,11 +77,40 @@ export async function saveBooks(books: Book[]) {
 }
 
 export async function savePendingImport(book: Book) {
-  await enqueueWrite(KEYS.pendingImport, () => AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(book)));
+  await enqueueWrite(KEYS.pendingImport, async () => {
+    const raw = await AsyncStorage.getItem(KEYS.pendingImport);
+    let pending: Book[] = [];
+    if (raw) {
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        pending = (Array.isArray(parsed) ? parsed : [parsed]).filter((item): item is Book => !!item && typeof item === 'object' && 'id' in item && typeof item.id === 'string');
+      } catch { /* Replace an unreadable marker with the current import. */ }
+    }
+    const next = pending.some((item) => item.id === book.id) ? pending : [...pending, book];
+    await AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(next));
+  });
 }
 
-export async function clearPendingImport() {
-  await enqueueWrite(KEYS.pendingImport, () => AsyncStorage.removeItem(KEYS.pendingImport));
+export async function clearPendingImport(bookId?: string) {
+  await enqueueWrite(KEYS.pendingImport, async () => {
+    if (!bookId) {
+      await AsyncStorage.removeItem(KEYS.pendingImport);
+      return;
+    }
+    const raw = await AsyncStorage.getItem(KEYS.pendingImport);
+    if (!raw) return;
+    let pending: unknown[];
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      pending = Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      await AsyncStorage.removeItem(KEYS.pendingImport);
+      return;
+    }
+    const remaining = pending.filter((item) => !(item && typeof item === 'object' && 'id' in item && item.id === bookId));
+    if (remaining.length) await AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(remaining));
+    else await AsyncStorage.removeItem(KEYS.pendingImport);
+  });
 }
 
 export async function loadWords(): Promise<SavedWord[]> {

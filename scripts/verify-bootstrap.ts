@@ -94,6 +94,25 @@ async function main() {
     },
   }), 'A temporary shelf read failure must not turn pending-import recovery into a startup failure');
 
+  const secondPendingBook: Book = { ...userBook, id: 'pending-two', title: 'Second recovered import' };
+  let multiRaw: string | null = JSON.stringify([pendingBook, secondPendingBook]);
+  let multiBooks = [userBook];
+  const multiStorage = {
+    loadPendingImport: async () => multiRaw,
+    clearPendingImport: async (bookId?: string) => {
+      if (!bookId) { multiRaw = null; return; }
+      const parsed = multiRaw ? JSON.parse(multiRaw) as unknown[] : [];
+      const remaining = parsed.filter((item) => !item || typeof item !== 'object' || !('id' in item) || item.id !== bookId);
+      multiRaw = remaining.length ? JSON.stringify(remaining) : null;
+    },
+    loadBooks: async () => multiBooks,
+    saveBooks: async (next: Book[]) => { multiBooks = next; },
+    contentExists: async () => true,
+  };
+  assert.equal(await recoverPendingImportOnce(multiStorage), true, 'Multiple pending imports are recovered without overwriting one another');
+  assert.deepEqual(multiBooks.map((book) => book.id), ['pending-two', 'pending', 'mine']);
+  assert.equal(multiRaw, null, 'All recovered import markers are cleared individually');
+
   let persistedBooks = [userBook];
   let seeded = false;
   let failIndex = true;

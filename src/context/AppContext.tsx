@@ -252,7 +252,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await savePendingImport(book).catch(() => undefined);
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
-        await clearPendingImport().catch(() => undefined);
+        await clearPendingImport(book.id).catch(() => undefined);
         return null;
       }
       const next = [book, ...booksRef.current];
@@ -260,11 +260,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setBooks(next);
       const persistImportedBook = async () => {
         await saveBooks(next);
-        await clearPendingImport();
+        await clearPendingImport(book.id);
       };
       const retryImportedBook = async () => {
         await saveBooks(booksRef.current);
-        await clearPendingImport();
+        await clearPendingImport(book.id);
       };
       try {
         await persist('books', '书架', persistImportedBook, retryImportedBook);

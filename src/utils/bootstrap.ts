@@ -15,7 +15,7 @@ interface BootstrapStorage {
 
 export interface PendingImportStorage {
   loadPendingImport: () => Promise<string | null>;
-  clearPendingImport: () => Promise<void>;
+  clearPendingImport: (bookId?: string) => Promise<void>;
   loadBooks: () => Promise<Book[]>;
   saveBooks: (books: Book[]) => Promise<void>;
   contentExists: (bookId: string) => Promise<boolean>;
@@ -26,11 +26,12 @@ export async function recoverPendingImportOnce(storage: PendingImportStorage): P
   const raw = await storage.loadPendingImport();
   if (!raw) return false;
 
-  let pending: Book;
+  let pending: Book[];
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!validBook(parsed)) throw new Error('invalid pending import');
-    pending = parsed;
+    const candidates = Array.isArray(parsed) ? parsed : [parsed];
+    pending = candidates.filter(validBook);
+    if (!pending.length) throw new Error('invalid pending import');
   } catch {
     try { await storage.clearPendingImport(); } catch { /* A corrupt marker must not block startup. */ }
     return false;
@@ -38,26 +39,31 @@ export async function recoverPendingImportOnce(storage: PendingImportStorage): P
 
   let books: Book[];
   try { books = await storage.loadBooks(); } catch { return false; }
-  if (books.some((book) => book.id === pending.id)) {
-    try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
-    return false;
-  }
+  let recovered = false;
+  for (const pendingBook of pending) {
+    if (books.some((book) => book.id === pendingBook.id)) {
+      try { await storage.clearPendingImport(pendingBook.id); } catch { /* Retry cleanup on the next startup. */ }
+      continue;
+    }
 
-  let contentExists = false;
-  try { contentExists = await storage.contentExists(pending.id); } catch { return false; }
-  if (!contentExists) {
-    try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
-    return false;
-  }
+    let contentExists = false;
+    try { contentExists = await storage.contentExists(pendingBook.id); } catch { continue; }
+    if (!contentExists) {
+      try { await storage.clearPendingImport(pendingBook.id); } catch { /* Retry cleanup on the next startup. */ }
+      continue;
+    }
 
-  try {
-    await storage.saveBooks([pending, ...books]);
-    await storage.clearPendingImport();
-    return true;
-  } catch {
-    // Keep the marker so a later startup can retry without losing the import.
-    return false;
+    try {
+      books = [pendingBook, ...books];
+      await storage.saveBooks(books);
+      await storage.clearPendingImport(pendingBook.id);
+      recovered = true;
+    } catch {
+      // Keep this and later markers so a future startup can retry without losing imports.
+      return recovered;
+    }
   }
+  return recovered;
 }
 
 function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, preferences: unknown, recommendationState: unknown, readingSignals: unknown) {
