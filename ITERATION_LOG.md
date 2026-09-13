@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 从首页继续最近收藏的词
+
+- 首页原先只展示最近书页和到期复习入口，用户想重新理解刚收藏的词时还要先切到生词本再寻找来源。
+- 现在首页展示最近三个收藏词、释义和所属书籍，并直接跳回保存的章节/段落；没有生词时不增加空模块。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 合并多本中断导入记录
 
 - 待完成导入日志原先只有一个槽位，第一本书索引失败后继续导入第二本会覆盖第一本的恢复信息。

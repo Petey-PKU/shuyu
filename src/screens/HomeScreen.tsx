@@ -45,6 +45,7 @@ export function HomeScreen({ navigation }: Props) {
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
+  const recentWords = [...words].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
   const activeWords = words.filter((word) => !word.mastered).length;
   const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, clock)).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
@@ -208,6 +209,24 @@ export function HomeScreen({ navigation }: Props) {
         </Pressable>
       </ScrollView>
 
+      {recentWords.length ? (
+        <View style={styles.recentWordsSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>最近收藏</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="查看全部生词" onPress={() => navigation.navigate('Vocabulary')}><Text style={styles.link}>查看生词本</Text></Pressable>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.wordRow}>
+            {recentWords.map((word) => (
+              <Pressable key={word.id} accessibilityRole="button" accessibilityLabel={`回到${word.bookTitle}中的${word.word}原文`} onPress={() => navigation.navigate('Reader', { bookId: word.bookId, chapterIndex: word.chapterIndex, paragraphIndex: word.paragraphIndex, returnTo: 'Today' })} style={({ pressed }) => [styles.wordCard, pressed && styles.pressed]}>
+                <Text style={styles.wordCardWord}>{word.word}</Text>
+                <Text numberOfLines={2} style={styles.wordCardMeaning}>{word.meaning}</Text>
+                <Text numberOfLines={1} style={styles.wordCardSource}>{word.bookTitle}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       <View style={styles.privacyNote}>
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
         <View style={{ flex: 1 }}>
@@ -278,6 +297,12 @@ const styles = StyleSheet.create({
   importIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   importTitle: { color: colors.ink, fontWeight: '700', fontSize: 12 },
   importBody: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
+  recentWordsSection: { marginTop: 4 },
+  wordRow: { gap: 10, paddingBottom: 8, paddingRight: 10 },
+  wordCard: { width: 148, minHeight: 106, padding: 14, borderRadius: radii.medium, backgroundColor: colors.surfaceStrong, borderWidth: 1, borderColor: colors.line },
+  wordCardWord: { color: colors.ink, fontFamily: typography.serif, fontSize: 20, fontWeight: '700' },
+  wordCardMeaning: { color: colors.inkMuted, fontSize: 11, lineHeight: 16, marginTop: 5 },
+  wordCardSource: { color: colors.sage, fontSize: 9, fontWeight: '700', marginTop: 8 },
   privacyNote: { marginTop: 30, padding: 18, borderRadius: radii.medium, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'flex-start', gap: 13 },
   privacyTitle: { color: colors.ink, fontWeight: '700', fontSize: 13, marginBottom: 5 },
   privacyBody: { color: colors.inkMuted, fontSize: 11, lineHeight: 17 },
