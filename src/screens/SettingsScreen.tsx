@@ -82,6 +82,7 @@ export function SettingsScreen() {
       return;
     }
     if (title === '开源项目') {
+      setLinkMessage(null);
       void Linking.openURL('https://github.com/Petey-PKU/shuyu').catch(() => setLinkMessage('暂时无法打开开源项目页面，请稍后重试。'));
       return;
     }
@@ -258,7 +259,7 @@ export function SettingsScreen() {
             {'status' in row ? <Text style={styles.readyBadge}>{dictionaryUnavailable ? '重试' : dictionaryLoading ? '加载中' : entryCount ? row.status : 'Web'}</Text> : <Ionicons name="chevron-forward" size={17} color={colors.inkMuted} />}
           </Pressable>
         ))}
-        {linkMessage ? <InlineNotice message={linkMessage} onDismiss={() => setLinkMessage(null)} /> : null}
+        {linkMessage ? <InlineNotice message={linkMessage} actionLabel="重试打开" onAction={() => openInfo('开源项目')} onDismiss={() => setLinkMessage(null)} /> : null}
       </View>
       <Text style={styles.sectionLabel}>本地备份</Text>
       <View style={styles.backupCard}>
