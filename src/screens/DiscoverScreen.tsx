@@ -176,7 +176,7 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => setSaveError('兴趣偏好已在当前会话更新，但设备尚未保存。')); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
