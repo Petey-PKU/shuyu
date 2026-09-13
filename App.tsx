@@ -21,6 +21,7 @@ import { ImportOverlay } from './src/components/ImportOverlay';
 import { InlineNotice } from './src/components/InlineNotice';
 import type { MainTabParamList, RootStackParamList } from './src/navigation/types';
 import { colors, typography } from './src/theme';
+import { formatBackupOperationError } from './src/utils/backupErrors';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tabs = createBottomTabNavigator<MainTabParamList>();
@@ -91,7 +92,7 @@ function AppShell() {
       const payload = await pickBackup();
       if (payload) await restoreBackup(payload);
     } catch (error) {
-      setRecoveryMessage(error instanceof Error ? error.message : '备份恢复未完成，请检查文件后重试。');
+      setRecoveryMessage(formatBackupOperationError(error, '备份恢复未完成，请检查文件后重试。'));
     } finally {
       setRecoveryBusy(false);
     }

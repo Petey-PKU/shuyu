@@ -525,6 +525,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStorageActivity('restore');
     setReady(false);
     setStartupError(null);
+    setStorageNotice(null);
     try {
       await persistence.waitForIdle();
       const restored = await restoreBackupData(payload);
@@ -546,7 +547,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       // Re-read only after the persisted rollback has completed; otherwise stay on recovery screen.
       await hydrate();
-      setStorageNotice(`恢复未完成：${error instanceof Error ? error.message : '原有书架已保留，请检查备份文件后重试。'}`);
       throw error;
     } finally {
       storageActivityRef.current = null;
