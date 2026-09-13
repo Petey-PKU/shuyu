@@ -11,6 +11,7 @@ import { BookCover } from '../components/BookCover';
 import { InlineNotice } from '../components/InlineNotice';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, shadows, typography } from '../theme';
+import { formatImportFailure } from '../utils/importErrors';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Library'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -41,7 +42,7 @@ export function LibraryScreen({ navigation }: Props) {
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
       setErrorKind('import');
-      setErrorMessage(error instanceof Error ? error.message : '请稍后再试');
+      setErrorMessage(formatImportFailure(error, '请稍后再试'));
     }
   };
 

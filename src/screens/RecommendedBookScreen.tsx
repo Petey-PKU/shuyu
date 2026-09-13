@@ -11,6 +11,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { DifficultyFeedback } from '../types';
 import { effectiveReadingScore, genreLabels, recommendationMatchLabel } from '../services/recommendation';
 import { colors, radii, typography } from '../theme';
+import { formatImportFailure } from '../utils/importErrors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'RecommendedBook'>;
 
@@ -66,7 +67,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       setImportError(null);
       if (imported) navigation.replace('Reader', { bookId: imported.id });
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : '请确认文件格式后重试');
+      setImportError(formatImportFailure(error));
     }
   };
 

@@ -28,13 +28,20 @@ function safeDecodeFileName(value: string) {
 }
 
 export async function pickAndParseBook(pdfOptions: PdfImportOptions & { isCancelled?: () => boolean }): Promise<ParsedBook | null> {
-  const result = await DocumentPicker.getDocumentAsync({
-    // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
-    // and validate the extension plus BOOKMOBI signature inside the app.
-    type: '*/*',
-    copyToCacheDirectory: true,
-    multiple: false,
-  });
+  let result: DocumentPicker.DocumentPickerResult;
+  try {
+    result = await DocumentPicker.getDocumentAsync({
+      // Android file providers do not agree on AZW3/KF8 MIME types. Pick broadly
+      // and validate the extension plus BOOKMOBI signature inside the app.
+      type: '*/*',
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code ?? '';
+    if (/CANCEL/i.test(code)) return null;
+    throw error;
+  }
 
   if (result.canceled) return null;
   const asset = result.assets?.[0];

@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 统一电子书选择器失败提示
+
+- 文件选择器遇到权限、空间不足、文件失效或提供器异常时，首页、书架和推荐详情原先会直接展示系统英文错误；部分取消异常也可能进入失败提示。
+- 现在统一给出重新选择、检查权限或清理空间的中文方向，并把带取消码的选择器异常视为正常退出；新增导入错误分类验证。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 统一 Kindle 导入失败提示
 
 - MOBI/KF8 兼容解析全部失败时，原先会把解析器内部英文异常拼入最终提示，用户无法判断应转换格式、确认无 DRM 还是重新选择文件。

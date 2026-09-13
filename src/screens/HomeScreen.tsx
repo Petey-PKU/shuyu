@@ -15,6 +15,7 @@ import { colors, radii, shadows, typography } from '../theme';
 import { isWordDue } from '../utils/review';
 import { localDateKey, shiftDateKey } from '../utils/calendar';
 import { getRecentReadingDays } from '../utils/readingStats';
+import { formatImportFailure } from '../utils/importErrors';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Today'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -76,7 +77,7 @@ export function HomeScreen({ navigation }: Props) {
       setImportError(null);
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : '请确认文件格式后重试');
+      setImportError(formatImportFailure(error));
     }
   };
 
