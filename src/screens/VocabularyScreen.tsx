@@ -36,6 +36,7 @@ export function VocabularyScreen({ navigation }: Props) {
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [retryingSave, setRetryingSave] = useState(false);
   const [updatingWordId, setUpdatingWordId] = useState<string | null>(null);
   const [removingWordId, setRemovingWordId] = useState<string | null>(null);
@@ -85,7 +86,10 @@ export function VocabularyScreen({ navigation }: Props) {
       .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
       .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   };
-  const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
+  const confirmRemove = (id: string, word: string) => {
+    setRemoveError(null);
+    setRemoveTarget({ id, word });
+  };
   const handleToggleMastered = async (wordId: string) => {
     if (updatingWordRef.current) return;
     updatingWordRef.current = wordId;
@@ -105,14 +109,17 @@ export function VocabularyScreen({ navigation }: Props) {
     if (!removeTarget || removingWordId) return;
     const target = removeTarget;
     setRemovingWordId(target.id);
+    setRemoveError(null);
     try {
       await removeWord(target.id);
       setSaveError(null);
+      setRemoveTarget(null);
     } catch {
-      setSaveError('生词已从当前列表移除，但设备尚未保存。');
+      const message = '生词已从当前列表移除，但设备尚未保存。';
+      setSaveError(message);
+      setRemoveError(message);
     } finally {
       setRemovingWordId(null);
-      setRemoveTarget(null);
     }
   };
 
@@ -178,13 +185,14 @@ export function VocabularyScreen({ navigation }: Props) {
           </View>
         )}
       />
-      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => { if (!removingWordId) setRemoveTarget(null); }}>
-        <Pressable style={styles.modalBackdrop} onPress={() => { if (!removingWordId) setRemoveTarget(null); }}>
+      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => { if (!removingWordId) { setRemoveTarget(null); setRemoveError(null); } }}>
+        <Pressable style={styles.modalBackdrop} onPress={() => { if (!removingWordId) { setRemoveTarget(null); setRemoveError(null); } }}>
           <Pressable accessibilityViewIsModal style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.confirmTitle}>移除这个词？</Text>
             <Text style={styles.confirmBody}>“{removeTarget?.word}”会从生词本中删除，但不会影响原书内容。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={removingWordId ? '正在移除生词' : '确认移除生词'} accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => void handleRemove()} style={[styles.confirmDanger, removingWordId && styles.actionDisabled]}><Text style={styles.confirmDangerText}>{removingWordId ? '移除中…' : '移除'}</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => setRemoveTarget(null)} style={[styles.confirmCancel, removingWordId && styles.actionDisabled]}><Text style={styles.confirmCancelText}>取消</Text></Pressable>
+            {removeError ? <Text accessibilityRole="alert" style={styles.removeWarning}>{removeError}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel={removingWordId ? '正在移除生词' : removeError ? '重试移除生词' : '确认移除生词'} accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => void handleRemove()} style={[styles.confirmDanger, removingWordId && styles.actionDisabled]}><Text style={styles.confirmDangerText}>{removingWordId ? '移除中…' : removeError ? '重试移除' : '移除'}</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => { setRemoveTarget(null); setRemoveError(null); }} style={[styles.confirmCancel, removingWordId && styles.actionDisabled]}><Text style={styles.confirmCancelText}>取消</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -235,6 +243,7 @@ const styles = StyleSheet.create({
   confirmCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
   confirmTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
   confirmBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  removeWarning: { color: colors.danger, fontSize: 11, lineHeight: 17, marginTop: 12 },
   confirmDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   confirmDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   confirmCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
