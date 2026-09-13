@@ -1583,6 +1583,18 @@
 - `python scripts/verify_dictionary.py`
 - `git diff --check`
 
+## 2026-09-13 校验 Android 发布版本一致性
+
+- 发布预检现在核对 `package.json`、`app.json` 和 Android Gradle 的版本名称，并确认 `versionCode` 为有效正整数。
+- 版本只更新一处时会在打包前失败，避免用户安装升级时被系统拒绝，或下载文件名与应用内版本不一致。
+
+验证：
+
+- `npm run test:android-assets`
+- `npm test`
+- `npm run typecheck`
+- `git diff --check`
+
 ## 2026-09-13 串行化查词与阅读统计写入
 
 - 产品走查发现查词记录和阅读分钟统计都写入本地阅读信号；查词与定时统计刷新并发时，旧快照可能覆盖新计数，首页足迹和趋势会短暂或持久地少记一次。

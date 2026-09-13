@@ -13,6 +13,14 @@ function requireFile(path: string, minimumBytes?: number) {
 }
 
 function main() {
+  const packageVersion = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version as string;
+  const appVersion = (JSON.parse(readFileSync(resolve(root, 'app.json'), 'utf8')) as { expo?: { version?: string } }).expo?.version;
+  const gradle = readFileSync(resolve(root, 'android/app/build.gradle'), 'utf8');
+  const gradleVersion = gradle.match(/versionName\s+"([^"]+)"/)?.[1];
+  const gradleCode = Number(gradle.match(/versionCode\s+(\d+)/)?.[1]);
+  assert.equal(appVersion, packageVersion, 'app.json and package.json versions must match');
+  assert.equal(gradleVersion, packageVersion, 'Android versionName must match package.json');
+  assert.ok(Number.isInteger(gradleCode) && gradleCode > 0, 'Android versionCode must be a positive integer');
   requireFile(dictionary, 8_000_000);
   requireFile(resolve(modelDirectory, 'en_US-amy-medium.onnx'), 50_000_000);
   requireFile(resolve(modelDirectory, 'en_US-amy-medium.onnx.json'), 100);
