@@ -19,7 +19,7 @@ function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
 
 export function ReviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, preferences, toggleMastered, deferWord } = useApp();
+  const { words, preferences, toggleMastered, deferWord, retryPersistence } = useApp();
   const now = Date.now();
   const [reviewQueueIds] = useState(() => words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).map((word) => word.id));
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
@@ -27,6 +27,7 @@ export function ReviewScreen({ navigation, route }: Props) {
   const [deferredCount, setDeferredCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [pendingReview, setPendingReview] = useState<{ id: string; mastered: boolean } | null>(null);
   const submittingRef = useRef(false);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
@@ -50,23 +51,41 @@ export function ReviewScreen({ navigation, route }: Props) {
     return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词：记住了 {masteredCount} 个，稍后再看 {deferredCount} 个。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
   }
 
+  const completeReview = (id: string, mastered: boolean) => {
+    if (mastered) setMasteredCount((count) => count + 1);
+    else setDeferredCount((count) => count + 1);
+    setReviewedIds((ids) => ids.includes(id) ? ids : [...ids, id]);
+    setPendingReview(null);
+    setRevealed(false);
+  };
+
   const next = async (mastered: boolean) => {
     if (submittingRef.current) return;
+    const currentId = current.id;
     submittingRef.current = true;
     setSubmitting(true);
     try {
       if (mastered) await toggleMastered(current.id);
       else await deferWord(current.id);
+      completeReview(currentId, mastered);
     } catch {
-      // AppContext keeps the optimistic in-memory update and exposes a retry
-      // banner when persistence fails, so do not make the user review this
-      // same card twice while the local write is recoverable.
+      // Keep the card and the chosen answer visible until the local write can
+      // be retried; advancing here would make a failed result look complete.
+      setPendingReview({ id: currentId, mastered });
     } finally {
-      if (mastered) setMasteredCount((count) => count + 1);
-      else setDeferredCount((count) => count + 1);
       submittingRef.current = false;
-      setReviewedIds((ids) => ids.includes(current.id) ? ids : [...ids, current.id]);
-      setRevealed(false);
+      setSubmitting(false);
+    }
+  };
+
+  const retryPendingReview = async () => {
+    if (!pendingReview || submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      if (await retryPersistence()) completeReview(pendingReview.id, pendingReview.mastered);
+    } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -82,6 +101,7 @@ export function ReviewScreen({ navigation, route }: Props) {
       </View>
       <View style={styles.progress}><View style={[styles.progressFill, { width: `${total ? ((reviewedIds.length + 1) / total) * 100 : 0}%` }]} /></View>
       {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {pendingReview ? <InlineNotice message="本次复习结果已保留，但设备尚未保存。" actionLabel={submitting ? '保存中…' : '重试保存'} onAction={() => void retryPendingReview()} /> : null}
       <View style={styles.card}>
         <Text style={styles.eyebrow}>回到原句</Text>
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
@@ -99,7 +119,7 @@ export function ReviewScreen({ navigation, route }: Props) {
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>
       </View>
-      {revealed ? (
+      {revealed && !pendingReview ? (
         <View style={styles.actions}>
           <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="稍后再次复习" accessibilityState={{ disabled: submitting }} onPress={() => void next(false)} style={[styles.action, styles.again, submitting && styles.actionDisabled]}><Ionicons name="refresh" size={19} color={colors.ink} /><Text style={styles.againText}>再看看</Text></Pressable>
           <Pressable disabled={submitting} accessibilityRole="button" accessibilityLabel="标记为已掌握" accessibilityState={{ disabled: submitting }} onPress={() => void next(true)} style={[styles.action, styles.know, submitting && styles.actionDisabled]}><Ionicons name="checkmark" size={20} color="#fff" /><Text style={styles.knowText}>记住了</Text></Pressable>
