@@ -32,6 +32,7 @@ def main():
     payload = {
         'version': 1,
         'source': 'ECDICT Core for Shuyu',
+        'license': 'MIT',
         'entryCount': len(entries),
         'aliasCount': len(aliases),
         'entries': entries,

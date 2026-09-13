@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 保留 Web 词典来源与许可证元数据
+
+- Web 词典生成文件原先只有条目和别名，后续更新时不容易确认来源归属。
+- 现在生成产物明确记录 ECDICT Core 来源和 MIT 许可证，并由校验脚本锁定元数据；不改变查词行为或原生词典资源。
+- 通过 `npm run build:web-dictionary`、`npm run test:web-dictionary`、`npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 显示首页最近收藏的原文位置
 
 - 首页最近收藏卡片原先只显示书名，用户点击前无法确认词条来自哪一章。

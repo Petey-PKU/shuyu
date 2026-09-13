@@ -9,6 +9,7 @@ def main():
     aliases = data['aliases']
     words = {entry[0] for entry in entries}
     assert data['entryCount'] == 10_000
+    assert data['license'] == 'MIT'
     assert len(entries) == data['entryCount'] == len(words)
     assert data['aliasCount'] == len(aliases)
     assert all(len(entry) == 4 and entry[0] == entry[0].lower() for entry in entries)
