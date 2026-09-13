@@ -41,6 +41,7 @@ export function ReviewScreen({ navigation, route }: Props) {
   const nextReviewAt = nextReviewTime(words);
   const returnTo = route.params?.returnTo === 'Today' ? 'Today' : 'Vocabulary';
   const returnLabel = returnTo === 'Today' ? '返回今天' : '返回生词本';
+  const emptyReview = total === 0 && reviewedIds.length === 0;
   const speakWord = (word: string) => {
     setSpeechError(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
@@ -49,7 +50,7 @@ export function ReviewScreen({ navigation, route }: Props) {
   };
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词：记住了 {masteredCount} 个，稍后再看 {deferredCount} 个。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name={emptyReview ? 'sparkles-outline' : 'checkmark'} size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>{emptyReview ? '现在没有到期词' : '本轮已完成'}</Text><Text style={styles.doneBody}>{emptyReview ? '今天没有需要复习的词。继续阅读，在故事中遇见新词后再回来。' : `本轮复习了 ${reviewedIds.length} 个词：记住了 ${masteredCount} 个，稍后再看 ${deferredCount} 个。${nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}`}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
   }
 
   const completeReview = (id: string, mastered: boolean) => {
