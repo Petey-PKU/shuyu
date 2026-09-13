@@ -22,6 +22,11 @@ function localDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
+  if (chapterIndex === undefined || paragraphIndex === undefined) return '';
+  return `第 ${chapterIndex + 1} 章 · 第 ${paragraphIndex + 1} 段`;
+}
+
 export function VocabularyScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { words, preferences, toggleMastered, removeWord } = useApp();
@@ -129,7 +134,7 @@ export function VocabularyScreen({ navigation }: Props) {
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>
               <Pressable accessibilityRole="button" accessibilityLabel={`回到${item.bookTitle}中${item.word}所在原文`} onPress={() => navigation.navigate('Reader', { bookId: item.bookId, chapterIndex: item.chapterIndex, paragraphIndex: item.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
-                <Text style={styles.source}>{item.bookTitle} · {item.reviewCount ? `已复习 ${item.reviewCount} 次` : '待首次复习'}{!item.mastered && item.nextReviewAt && !isWordDue(item.nextReviewAt, now) ? ` · ${reviewDelayLabel(item.nextReviewAt, now)}` : ''}</Text>
+                <Text style={styles.source}>{item.bookTitle}{sourceLocation(item.chapterIndex, item.paragraphIndex) ? ` · ${sourceLocation(item.chapterIndex, item.paragraphIndex)}` : ''} · {item.reviewCount ? `已复习 ${item.reviewCount} 次` : '待首次复习'}{!item.mastered && item.nextReviewAt && !isWordDue(item.nextReviewAt, now) ? ` · ${reviewDelayLabel(item.nextReviewAt, now)}` : ''}</Text>
                 <Ionicons name="arrow-forward" size={12} color={colors.accent} />
               </Pressable>
             </View>

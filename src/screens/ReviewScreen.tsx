@@ -12,6 +12,11 @@ import { escapeRegExp, isWordDue, nextReviewTime, reviewDelayLabel } from '../ut
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Review'>;
 
+function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
+  if (chapterIndex === undefined || paragraphIndex === undefined) return '';
+  return `第 ${chapterIndex + 1} 章 · 第 ${paragraphIndex + 1} 段`;
+}
+
 export function ReviewScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { words, preferences, toggleMastered, deferWord } = useApp();
@@ -86,7 +91,7 @@ export function ReviewScreen({ navigation, route }: Props) {
           <Pressable accessibilityRole="button" accessibilityLabel="查看答案" onPress={() => setRevealed(true)} style={styles.reveal}><Text style={styles.revealText}>轻触查看答案</Text></Pressable>
         )}
         <Pressable accessibilityRole="button" accessibilityLabel={`回到${current.bookTitle}原文`} onPress={() => navigation.navigate('Reader', { bookId: current.bookId, chapterIndex: current.chapterIndex, paragraphIndex: current.paragraphIndex, returnTo })} style={styles.sourceButton}>
-          <Text style={styles.source}>{current.bookTitle} · 回到原文</Text>
+          <Text style={styles.source}>{current.bookTitle}{sourceLocation(current.chapterIndex, current.paragraphIndex) ? ` · ${sourceLocation(current.chapterIndex, current.paragraphIndex)}` : ''} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>
       </View>
