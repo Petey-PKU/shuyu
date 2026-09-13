@@ -42,6 +42,12 @@
 - 现在目录文件读取、目录链接扫描和 NCX 解析边界都会观察取消状态，主动停止能更早结束且不会创建书架条目。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 让 Kindle 目录遍历也可取消
+
+- MOBI/KF8 导入原先会同步遍历整棵 TOC，用户在大型目录期间点击停止要等遍历完成才响应。
+- 现在元数据读取和 TOC 递归遍历都会检查取消信号，主动停止能更早结束并释放解析器。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 防止体验书索引留下坏引用
 
 - 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。

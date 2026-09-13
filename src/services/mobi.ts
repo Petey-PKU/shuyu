@@ -102,8 +102,14 @@ function installObjectUrlFallback() {
   }
 }
 
-function collectTocTitles(parser: KindleTextParser, items: KindleTocItem[], titles: Map<string, string>) {
+function collectTocTitles(
+  parser: KindleTextParser,
+  items: KindleTocItem[],
+  titles: Map<string, string>,
+  throwIfCancelled?: () => void,
+) {
   for (const item of items) {
+    throwIfCancelled?.();
     let resolved: { id: string } | undefined;
     try {
       resolved = parser.resolveHref(item.href);
@@ -112,7 +118,7 @@ function collectTocTitles(parser: KindleTextParser, items: KindleTocItem[], titl
     }
     const label = item.label?.replace(/\s+/g, ' ').trim();
     if (resolved?.id && label && !titles.has(resolved.id)) titles.set(resolved.id, label);
-    if (item.children?.length) collectTocTitles(parser, item.children, titles);
+    if (item.children?.length) collectTocTitles(parser, item.children, titles, throwIfCancelled);
   }
 }
 
@@ -160,9 +166,11 @@ async function parseKindleBook(
     throwIfCancelled();
     assertDrmFreeKindleFile(data, format);
     parser = await initialize(new Uint8Array(data));
+    throwIfCancelled();
     const metadata = parser.getMetadata();
+    throwIfCancelled();
     const tocTitles = new Map<string, string>();
-    collectTocTitles(parser, parser.getToc(), tocTitles);
+    collectTocTitles(parser, parser.getToc(), tocTitles, throwIfCancelled);
 
     const chapters: ParsedBook['chapters'] = [];
     let extractedCharacters = 0;
