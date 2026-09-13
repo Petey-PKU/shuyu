@@ -228,7 +228,7 @@ export function HomeScreen({ navigation }: Props) {
               <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : book.progress > 0 || book.currentChapter > 0 || book.currentParagraph > 0 || (book.currentOffset ?? 0) > 0 ? '继续阅读' : '开始阅读'}《${book.title}》${activityLabel}`} onPress={() => openBook(book)} style={styles.bookItem}>
               <BookCover book={book} width={116} compact />
               <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
-              <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
+              <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format === 'sample' ? '体验书' : book.format.toUpperCase()}</Text>
               {activity && (activity.minutes > 0 || activity.lookups > 0) ? <Text numberOfLines={1} style={styles.bookActivity}>累计 {formatMinutes(activity.minutes)} 分钟 · 查词 {activity.lookups} 次</Text> : null}
             </Pressable>
           );

@@ -166,7 +166,7 @@ export function LibraryScreen({ navigation }: Props) {
             <View style={styles.progressLine}>
               <View style={[styles.progressFill, { width: `${Math.max(2, item.progress * 100)}%`, backgroundColor: item.accent }]} />
             </View>
-            <Text style={styles.detail}>{Math.round(item.progress * 100)}% · {item.chapterCount} 章 · {item.format.toUpperCase()}</Text>
+            <Text style={styles.detail}>{Math.round(item.progress * 100)}% · {item.chapterCount} 章 · {item.format === 'sample' ? '体验书' : item.format.toUpperCase()}</Text>
           </Pressable>
         )}
       />

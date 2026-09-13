@@ -1480,3 +1480,18 @@
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-vocab-empty-action`
 - 本地 Playwright：空生词本无误导箭头、复习卡片禁用且“去今天开始阅读”可见
+
+## 2026-09-13 用用户语言标识内置体验书
+
+- 首页最近书页和书架详情把内部 `SAMPLE` 格式标记改为“体验书”。
+- 用户导入的 TXT、EPUB、MOBI、AZW3、KF8 和 PDF 仍显示对应真实格式。
+- 目的：让首次用户清楚区分应用自带内容和自己导入的书籍，避免把内部标记误解成文件格式。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-sample-label`
+- 本地 Playwright：首页和书架均展示“体验书”文案
