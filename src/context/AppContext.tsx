@@ -42,6 +42,7 @@ import {
 import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
 import { hasSavedWord } from '../utils/savedWords';
+import { mergeOcrImportStatus } from '../utils/importStatus';
 import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
@@ -233,15 +234,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           return confirmed;
         },
-        onOcrProgress: ({ currentPage, totalPages, skippedPages, cancelling }) => {
-          setImportStatus((current) => ({
-            phase: 'ocr',
-            startedAt: current?.startedAt ?? startedAt,
-            currentPage,
-            totalPages,
-            skippedPages,
-            cancelling: current?.cancelling || cancelling,
-          }));
+        onOcrProgress: (progress) => {
+          setImportStatus((current) => mergeOcrImportStatus(current, progress, startedAt));
         },
         registerOcrCancel: (cancel) => {
           ocrCancelRef.current = cancel;
