@@ -38,7 +38,9 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
     importBook,
     toggleSavedRecommendedBook,
     setRecommendedBookFeedback,
+    retryPersistence,
   } = useApp();
+  const [retryingSave, setRetryingSave] = useState(false);
 
   if (!book) {
     return (
@@ -104,6 +106,16 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
     }
   };
 
+  const retrySave = async () => {
+    if (retryingSave) return;
+    setRetryingSave(true);
+    try {
+      if (await retryPersistence()) setSaveNotice(null);
+    } finally {
+      setRetryingSave(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 34 }]} showsVerticalScrollIndicator={false}>
       <View style={styles.topBar}>
@@ -112,7 +124,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel={saving ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: saving }} disabled={saving} onPress={() => void handleToggleSaved()} style={[styles.iconButton, saved && styles.savedIconButton, saving && styles.saveDisabled]}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={20} color={saved ? '#fff' : colors.ink} /></Pressable>
       </View>
       {importError ? <InlineNotice message={importError} actionLabel="重试导入" onAction={() => void handleImport()} onDismiss={() => setImportError(null)} /> : null}
-      {saveNotice ? <InlineNotice tone={saveNotice.tone} message={saveNotice.message} onDismiss={() => setSaveNotice(null)} /> : null}
+      {saveNotice ? <InlineNotice tone={saveNotice.tone} message={saveNotice.message} actionLabel={saveNotice.tone === 'error' ? retryingSave ? '保存中…' : '重试保存' : undefined} onAction={saveNotice.tone === 'error' ? () => void retrySave() : undefined} onDismiss={() => setSaveNotice(null)} /> : null}
 
       <View style={styles.hero}>
         <RecommendedBookCover book={book} width={150} />
