@@ -1081,3 +1081,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 生词本优先展示到期词
+
+- 学习中列表把到期词置顶，未来复习词按下次复习时间排序。
+- 已掌握列表按最近复习时间排序，搜索仍在排序后的结果上工作。
+- 目的：用户打开生词本即可看到当前最需要处理的词，减少滚动和记忆负担。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`

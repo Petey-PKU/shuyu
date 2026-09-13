@@ -45,7 +45,22 @@ export function VocabularyScreen({ navigation }: Props) {
     });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  const filtered = useMemo(() => words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered), [words, tab]);
+  const filtered = useMemo(() => {
+    const visible = words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered);
+    return visible.sort((a, b) => {
+      if (tab === 'learning') {
+        const aDue = isWordDue(a.nextReviewAt, now);
+        const bDue = isWordDue(b.nextReviewAt, now);
+        if (aDue !== bDue) return aDue ? -1 : 1;
+        const aNext = Date.parse(a.nextReviewAt ?? '');
+        const bNext = Date.parse(b.nextReviewAt ?? '');
+        if (Number.isFinite(aNext) && Number.isFinite(bNext) && aNext !== bNext) return aNext - bNext;
+      }
+      const aDate = Date.parse(a.lastReviewedAt ?? a.createdAt);
+      const bDate = Date.parse(b.lastReviewedAt ?? b.createdAt);
+      return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+    });
+  }, [now, tab, words]);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleWords = useMemo(() => {
     if (!normalizedQuery) return filtered;
