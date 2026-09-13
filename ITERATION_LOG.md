@@ -1581,3 +1581,16 @@
 - `npm run test:in-process`
 - `git diff --check`
 - Web 与 Android 无字节码 bundle 导出
+
+## 2026-09-13 限制长篇章节的单次排版规模
+
+- 产品走查发现无章节 TXT，以及部分 EPUB/MOBI 的超长章节，会让阅读器一次性测量过大的正文，首次打开可能出现明显等待或内存峰值。
+- TXT、EPUB 和 MOBI/KF8 解析现在会在约 5,000 个英文词或 30,000 个字符处按段落拆分；过长段落也会先按句子和词边界切开，续段使用“（续 2）”等标题，阅读顺序和词数保持不变。
+- 解析回归新增长篇 TXT 分段、词数守恒和续段标题检查。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- Web 与 Android 无字节码 bundle 导出

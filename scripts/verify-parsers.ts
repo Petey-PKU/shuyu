@@ -17,6 +17,13 @@ async function verifyTxt() {
   assert.equal(chapters[0].title, 'Chapter 1');
   assert.equal(chapters[1].title, 'Chapter 2');
   assert.ok(chapters[0].wordCount > 0);
+
+  const longText = Array.from({ length: 5_200 }, (_, index) => `word${index}`).join(' ');
+  const sections = splitPlainText(longText, 'Long text');
+  assert.ok(sections.length > 1, 'A long chapter is split into bounded reader sections');
+  assert.equal(sections.reduce((sum, chapter) => sum + chapter.wordCount, 0), 5_200,
+    'Splitting a long chapter preserves its word count');
+  assert.match(sections[1].title, /续 2/, 'Continuation sections are clearly labeled');
 }
 
 async function verifyEpub() {

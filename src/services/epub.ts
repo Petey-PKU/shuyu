@@ -1,6 +1,7 @@
 import JSZip, { type JSZipObject } from 'jszip';
 import { XMLParser } from 'fast-xml-parser';
 import { countWords } from '../utils/text';
+import { splitChapterSections } from '../utils/chapterSections';
 import type { ParsedBook } from '../types';
 import { decodeHtmlEntities, htmlToParagraphs } from './markup';
 
@@ -228,11 +229,11 @@ export async function parseEpub(data: ArrayBuffer, fallbackTitle: string, isCanc
     const parsed = htmlToParagraphs(source);
     const wordCount = countWords(parsed.paragraphs.join(' '));
     if (wordCount < 3) continue;
-    chapters.push({
+    chapters.push(...splitChapterSections({
       title: tocTitles.get(pathKey) || parsed.title || `第 ${chapters.length + 1} 章`,
       paragraphs: parsed.paragraphs,
       wordCount,
-    });
+    }));
   }
 
   if (!chapters.length) throw new Error('这本 EPUB 没有可读取的文字章节');
