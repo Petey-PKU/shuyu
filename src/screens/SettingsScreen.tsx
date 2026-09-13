@@ -246,6 +246,7 @@ export function SettingsScreen() {
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
         {voiceMessage ? <InlineNotice message={voiceMessage} onDismiss={() => setVoiceMessage(null)} /> : null}
+        <Text style={styles.voicePrivacy}>书语自带的 Android 音色完全离线；系统音色是否联网由设备、语音引擎和你安装的音色决定。</Text>
       </View>
 
       <Text style={styles.sectionLabel}>项目</Text>
@@ -378,6 +379,7 @@ const styles = StyleSheet.create({
   selectedVoiceRow: { backgroundColor: colors.accentSoft },
   voiceDisabled: { opacity: 0.58 },
   voicePreviewLabel: { color: colors.accent, fontSize: 10, fontWeight: '800' },
+  voicePrivacy: { color: colors.inkMuted, fontSize: 10, lineHeight: 16, paddingHorizontal: 18, paddingVertical: 12 },
   voiceEmpty: { paddingHorizontal: 18, paddingVertical: 18 },
   stepper: { flexDirection: 'row', gap: 8 },
   step: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
