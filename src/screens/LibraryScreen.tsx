@@ -65,7 +65,7 @@ export function LibraryScreen({ navigation }: Props) {
     setEditSaveFailed(false);
     try {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
-      setErrorMessage(null);
+      if (errorKind === 'save') setErrorMessage(null);
       setEditingBook(null);
       setEditWarning(null);
     } catch (error) {
