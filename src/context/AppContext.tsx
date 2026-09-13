@@ -235,12 +235,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         onFileSelected: (fileName) => {
           selectedFileName = fileName;
           setImportStatus((current) => current
-            ? { ...current, fileName }
-            : { phase: 'parsing', stage: 'reading', startedAt, fileName });
+            ? { ...current, fileName: fileName || current.fileName || '未命名书籍' }
+            : { phase: 'parsing', stage: 'reading', startedAt, fileName: fileName || '未命名书籍' });
         },
         onImportStage: (stage) => setImportStatus((current) => current
-          ? { ...current, stage, fileName: current.fileName ?? selectedFileName }
-          : { phase: 'parsing', stage, startedAt, fileName: selectedFileName }),
+          ? { ...current, stage, fileName: current.fileName ?? selectedFileName ?? '未命名书籍' }
+          : { phase: 'parsing', stage, startedAt, fileName: selectedFileName ?? '未命名书籍' }),
         confirmOcr: async (pageCount) => {
           // Close the React Native import modal before opening the native Alert.
           setImportStatus(null);
