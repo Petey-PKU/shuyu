@@ -102,6 +102,8 @@ export function ReaderScreen({ route, navigation }: Props) {
 
 function ReaderSession({ route, navigation }: Props) {
   const { bookId, chapterIndex: requestedChapter, paragraphIndex: requestedParagraph, replay, returnTo } = route.params;
+  const sourceTab = returnTo === 'Vocabulary' ? 'Vocabulary' : returnTo === 'Today' ? 'Today' : 'Library';
+  const sourceLabel = sourceTab === 'Vocabulary' ? '生词本' : sourceTab === 'Today' ? '今天' : '书架';
   const insets = useSafeAreaInsets();
   const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
   const { lookup: lookupDictionary, translateContext, entryCount, dictionaryLoading, dictionaryUnavailable } = useDictionary();
@@ -446,7 +448,7 @@ function ReaderSession({ route, navigation }: Props) {
   }), [turnPage]);
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
-  const returnToSource = () => navigation.popTo('Main', { screen: returnTo === 'Vocabulary' ? 'Vocabulary' : 'Library' });
+  const returnToSource = () => navigation.popTo('Main', { screen: sourceTab });
   const restartBook = () => {
     completionDismissed.current = true;
     setCompletionVisible(false);
@@ -461,6 +463,8 @@ function ReaderSession({ route, navigation }: Props) {
     const error = !book
       ? returnTo === 'Vocabulary'
         ? '这本书已不在本地书架中。请返回生词本选择其他词，或重新导入原文件。'
+        : returnTo === 'Today'
+          ? '这本书已不在本地书架中。请返回今天选择其他书籍，或重新导入原文件。'
         : '这本书已不在本地书架中。请返回书架选择其他书籍，或重新导入原文件。'
       : contentError;
     return (
@@ -475,7 +479,7 @@ function ReaderSession({ route, navigation }: Props) {
             <Text style={styles.contentRetryText}>重新打开</Text>
           </Pressable>
         ) : null}
-        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'} onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`返回${sourceLabel}`} onPress={returnToSource} style={styles.contentBack}><Text style={[styles.contentBackText, { color: theme.text }]}>{`返回${sourceLabel}`}</Text></Pressable>
       </View>
     );
   }
@@ -486,7 +490,7 @@ function ReaderSession({ route, navigation }: Props) {
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
       <View style={[styles.topBar, { paddingTop: insets.top + 4, backgroundColor: theme.chrome }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回上一页'} onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : returnTo === 'Today' ? '返回今天' : '返回上一页'} onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.topTitleWrap}>
           <Text numberOfLines={1} style={[styles.topTitle, { color: theme.text }]}>{book.title}</Text>
           <Text numberOfLines={1} style={[styles.topChapter, { color: theme.muted }]}>{chapter.title}</Text>
@@ -695,8 +699,8 @@ function ReaderSession({ route, navigation }: Props) {
           <Pressable accessibilityViewIsModal style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
             <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
             <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
-            <Text style={styles.completionBody}>{returnTo === 'Vocabulary' ? '你已经读到最后一页。可以返回生词本继续复习，或从头再读一遍。' : '你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'} onPress={returnToSource} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>{returnTo === 'Vocabulary' ? '返回生词本' : '返回书架'}</Text></Pressable>
+            <Text style={styles.completionBody}>{returnTo === 'Vocabulary' ? '你已经读到最后一页。可以返回生词本继续复习，或从头再读一遍。' : returnTo === 'Today' ? '你已经读到最后一页。可以返回今天继续安排阅读，或从头再读一遍。' : '你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`返回${sourceLabel}`} onPress={returnToSource} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>{`返回${sourceLabel}`}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="从头再读一遍" onPress={restartBook} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>从头再读一遍</Text></Pressable>
           </Pressable>
         </Pressable>
