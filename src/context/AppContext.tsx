@@ -481,6 +481,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStorageActivity('reset');
     setReady(false);
     setStartupError(null);
+    setStorageNotice(null);
     try {
       await persistence.waitForIdle();
       await clearAllLocalData();

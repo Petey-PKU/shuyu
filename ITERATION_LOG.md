@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 清除数据时清理旧操作提示
+
+- 清除全部本地数据前，旧的备份恢复或中断导入成功提示原先可能继续显示，让用户误以为新书架仍来自上一轮操作。
+- 现在清除流程开始时立即移除旧提示，再进入清空和重新初始化；数据操作的状态不会跨越清除边界。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 明确提示已恢复的中断导入
 
 - 启动自动补回中断导入原先完全静默，用户可能把重新出现的书籍误认为重复导入或数据异常。
