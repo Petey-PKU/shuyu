@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 展示在线翻译提供方策略
+
+- 在线翻译确认弹窗原先只说明可能发送给第三方，没有展示当前构建实际采用的服务组合。
+- 现在确认弹窗和隐私说明会显示自有网关、必应实验性兼容模式与 MyMemory 兜底等当前策略，开启前的隐私决策更明确。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 修正备份恢复失败通知样式
 
 - 备份恢复失败时，应用原先会把“恢复未完成”写入成功样式的全局通知；在启动恢复路径中还可能直接展示系统底层错误。
