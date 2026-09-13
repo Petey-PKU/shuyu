@@ -333,6 +333,7 @@ function ReaderSession({ route, navigation }: Props) {
     setSaveFeedback('idle');
     setLookup(null);
     setContextTranslation(undefined);
+    setTranslationLoading(false);
     setTranslationFailed(false);
     setLookupLoading(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));

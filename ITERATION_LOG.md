@@ -24,6 +24,12 @@
 - 现在请求开始等待停止前就预留最新代次，停止完成后再次确认请求仍有效，旧请求不会越过新请求开始播放。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 清理切换单词后的旧翻译状态
+
+- 整句翻译尚未返回时切换到另一个单词，旧请求会被正确标记为过期，但新词卡原先仍继承“翻译加载中”状态，旧请求也不会再替它清理状态。
+- 现在每次选择新单词都会先结束旧翻译加载状态，新的词卡不会永久显示过期请求的加载指示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 防止体验书索引留下坏引用
 
 - 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。
