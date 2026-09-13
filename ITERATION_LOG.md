@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 修复离线朗读流式错误回退
+
+- Piper 流式生成触发 `onError` 时原先只记录日志，函数仍返回离线播放成功，用户可能听不到声音且无法获知原因。
+- 现在把流式错误传入系统音色回退路径，并让阅读、复习、生词本和设置页明确提示“当前使用系统音色”；系统音色自身失败仍显示可重试的朗读错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 校验备份书籍元数据一致性
 
 - 备份原先只校验书籍 ID 与正文 ID 的关联；章节数、总词数或当前段落被篡改时仍可能恢复，导致首页进度和阅读器位置与正文不一致。

@@ -59,7 +59,9 @@ export function VocabularyScreen({ navigation }: Props) {
   const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
     setSpeechError(null);
-    void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+    void speakEnglish(word, 'word', preferences.speechVoice)
+      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   };
   const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
   const handleToggleMastered = async (wordId: string) => {

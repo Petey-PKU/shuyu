@@ -353,7 +353,9 @@ function ReaderSession({ route, navigation }: Props) {
 
   const speak = useCallback((text: string, kind: 'word' | 'paragraph') => {
     setSpeechError(null);
-    void speakEnglish(text, kind, preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+    void speakEnglish(text, kind, preferences.speechVoice)
+      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   }, [preferences.speechVoice]);
 
   const isSaved = useMemo(() => selection

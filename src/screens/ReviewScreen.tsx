@@ -34,7 +34,9 @@ export function ReviewScreen({ navigation, route }: Props) {
   const returnLabel = returnTo === 'Today' ? '返回今天' : '返回生词本';
   const speakWord = (word: string) => {
     setSpeechError(null);
-    void speakEnglish(word, 'word', preferences.speechVoice).catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+    void speakEnglish(word, 'word', preferences.speechVoice)
+      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
   };
 
   if (!current) {

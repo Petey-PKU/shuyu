@@ -72,7 +72,7 @@ export function SettingsScreen() {
     void updatePreferences({ speechVoice: voice }).catch(() => undefined);
     try {
       const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
-      if (voice === OFFLINE_VOICE_ID && provider === 'system') {
+      if (voice === OFFLINE_VOICE_ID && provider === 'system-fallback') {
         setVoiceMessage('离线音色暂不可用，试听已自动使用系统发音。请在正式 Android APK 中测试。');
       }
     } catch {
