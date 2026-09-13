@@ -1407,3 +1407,16 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-exit-copy`
+
+## 2026-09-13 锁住启动恢复中的并发清除操作
+
+- 备份恢复进行中时禁用重新读取和清除本地数据入口，并在处理函数内再次防守。
+- 避免恢复和清除同时写入，减少启动阶段的覆盖与数据丢失风险。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-recovery-concurrency`

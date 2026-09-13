@@ -99,11 +99,13 @@ function AppShell() {
   };
 
   const retryStartupLoad = () => {
+    if (recoveryBusy) return;
     setRecoveryMessage(null);
     void retryLoad();
   };
 
   const resetFromRecovery = () => {
+    if (recoveryBusy) return;
     setRecoveryMessage(null);
     setRecoveryResetVisible(false);
     void resetAll();
@@ -120,13 +122,13 @@ function AppShell() {
             <Text accessibilityRole="alert" style={styles.recoveryTitle}>本地数据未能读取</Text>
             <Text style={styles.recoveryBody}>{startupError}</Text>
             {recoveryMessage ? <Text accessibilityRole="alert" style={styles.recoveryError}>{recoveryMessage}</Text> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={retryStartupLoad} style={styles.retryButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" accessibilityState={{ disabled: recoveryBusy }} disabled={recoveryBusy} onPress={retryStartupLoad} style={[styles.retryButton, recoveryBusy && styles.recoveryDisabled]}>
               <Text style={styles.retryText}>重新读取</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel={recoveryBusy ? '正在恢复本地备份' : recoveryMessage ? '重试恢复本地备份' : '从本地备份恢复'} disabled={recoveryBusy} onPress={() => void recoverFromBackup()} style={[styles.recoverySecondary, recoveryBusy && styles.recoveryDisabled]}>
               <Text style={styles.recoverySecondaryText}>{recoveryBusy ? '恢复中…' : recoveryMessage ? '重试恢复' : '从备份恢复'}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="清除本地数据并重新开始" onPress={() => setRecoveryResetVisible(true)} style={styles.recoveryDestructive}>
+            <Pressable accessibilityRole="button" accessibilityLabel="清除本地数据并重新开始" accessibilityState={{ disabled: recoveryBusy }} disabled={recoveryBusy} onPress={() => setRecoveryResetVisible(true)} style={[styles.recoveryDestructive, recoveryBusy && styles.recoveryDisabled]}>
               <Text style={styles.recoveryDestructiveText}>清除并重新开始</Text>
             </Pressable>
           </View>
