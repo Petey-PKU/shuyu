@@ -34,6 +34,7 @@ export function SettingsScreen() {
   const [backupRetryAction, setBackupRetryAction] = useState<'export' | 'restore' | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [voiceErrorVoice, setVoiceErrorVoice] = useState<string | null>(null);
   const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
   const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export function SettingsScreen() {
     if (voicePreviewing) return;
     setVoicePreviewing(voice);
     setVoiceMessage(null);
+    setVoiceErrorVoice(null);
     void savePreferences({ speechVoice: voice });
     try {
       const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
@@ -101,6 +103,7 @@ export function SettingsScreen() {
       }
     } catch {
       setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。');
+      setVoiceErrorVoice(voice);
     } finally {
       setVoicePreviewing(null);
     }
@@ -246,7 +249,7 @@ export function SettingsScreen() {
           </Pressable>
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
-        {voiceMessage ? <InlineNotice message={voiceMessage} onDismiss={() => setVoiceMessage(null)} /> : null}
+        {voiceMessage ? <InlineNotice message={voiceMessage} actionLabel={voiceErrorVoice ? '重试试听' : undefined} onAction={voiceErrorVoice ? () => void chooseVoice(voiceErrorVoice) : undefined} onDismiss={() => { setVoiceMessage(null); setVoiceErrorVoice(null); }} /> : null}
         <Text style={styles.voicePrivacy}>书语自带的 Android 音色完全离线；系统音色是否联网由设备、语音引擎和你安装的音色决定。</Text>
       </View>
 
