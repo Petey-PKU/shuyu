@@ -12,6 +12,7 @@ import { InlineNotice } from '../components/InlineNotice';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, shadows, typography } from '../theme';
 import { formatImportFailure } from '../utils/importErrors';
+import { formatPersistenceFailure } from '../utils/persistence';
 
 type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Library'>, NativeStackScreenProps<RootStackParamList>>;
 
@@ -65,7 +66,7 @@ export function LibraryScreen({ navigation }: Props) {
       setEditWarning(null);
     } catch (error) {
       setErrorKind('save');
-      const message = error instanceof Error ? error.message : '请检查书名后重试';
+      const message = formatPersistenceFailure(error);
       setErrorMessage(message);
       setEditWarning(message);
     } finally {
@@ -92,7 +93,7 @@ export function LibraryScreen({ navigation }: Props) {
       await removeBook(deleteBook.id);
     } catch (error) {
       setErrorKind('save');
-      setErrorMessage(error instanceof Error ? error.message : '书籍删除未完成，请稍后重试。');
+      setErrorMessage(formatPersistenceFailure(error));
     } finally {
       setDeleteBusy(false);
       setDeleteBook(null);

@@ -27,6 +27,7 @@ import { sentenceAt, tokenizeParagraph } from '../utils/text';
 import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphIndex } from '../utils/reading';
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
 import { InlineNotice } from '../components/InlineNotice';
+import { formatContentReadFailure } from '../utils/contentErrors';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
   pageAtOffset,
@@ -179,7 +180,7 @@ function ReaderSession({ route, navigation }: Props) {
       setCurrentParagraph(position.paragraphIndex);
       setContent(loaded);
     }).catch((error) => {
-      if (active) setContentError(error instanceof Error ? error.message : '本地正文暂时无法读取，请重试。若仍无法打开，可从原文件重新导入或在设置中恢复备份。');
+      if (active) setContentError(formatContentReadFailure(error));
     });
     return () => { active = false; };
   }, [bookId, bookExists, getBookContent, loadAttempt]);
