@@ -31,6 +31,7 @@ export function SettingsScreen() {
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
   const [backupMessageTone, setBackupMessageTone] = useState<'success' | 'error'>('success');
+  const [backupRetryAction, setBackupRetryAction] = useState<'export' | 'restore' | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
@@ -119,8 +120,9 @@ export function SettingsScreen() {
     void savePreferences({ onlineSentenceTranslation: true });
   };
 
-  const showBackupMessage = (message: string, tone: 'success' | 'error' = 'success') => {
+  const showBackupMessage = (message: string, tone: 'success' | 'error' = 'success', retryAction: 'export' | 'restore' | null = null) => {
     setBackupMessageTone(tone);
+    setBackupRetryAction(retryAction);
     setBackupMessage(message);
   };
 
@@ -136,7 +138,7 @@ export function SettingsScreen() {
       if (!filename) return;
       showBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
     } catch (error) {
-      showBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`, 'error');
+      showBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`, 'error', 'export');
     } finally {
       setBackupBusy(false);
     }
@@ -156,7 +158,7 @@ export function SettingsScreen() {
       setBackupBusy(false);
     } catch (error) {
       setBackupBusy(false);
-      showBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`, 'error');
+      showBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`, 'error', 'restore');
     }
   };
 
@@ -167,7 +169,7 @@ export function SettingsScreen() {
     setBackupBusy(true);
     void restoreBackup(payload)
       .then(() => showBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
-      .catch((error) => showBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`, 'error'))
+      .catch((error) => showBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`, 'error', 'restore'))
       .finally(() => setBackupBusy(false));
   };
 
@@ -270,11 +272,12 @@ export function SettingsScreen() {
           </Pressable>
         </View>
         {backupMessage ? (
-          <Pressable accessibilityRole="alert" accessibilityLabel="关闭备份提示" onPress={() => setBackupMessage(null)} style={[styles.backupMessage, backupMessageTone === 'error' && styles.backupMessageError]}>
+          <View accessibilityRole="alert" style={[styles.backupMessage, backupMessageTone === 'error' && styles.backupMessageError]}>
             <Ionicons name={backupMessageTone === 'error' ? 'alert-circle-outline' : 'information-circle-outline'} size={17} color={backupMessageTone === 'error' ? colors.danger : colors.accent} />
             <Text style={[styles.backupMessageText, backupMessageTone === 'error' && styles.backupMessageErrorText]}>{backupMessage}</Text>
-            <Ionicons name="close" size={16} color={colors.inkMuted} />
-          </Pressable>
+            {backupRetryAction ? <Pressable accessibilityRole="button" accessibilityLabel={backupRetryAction === 'export' ? '重试导出备份' : '重试读取备份'} onPress={() => void (backupRetryAction === 'export' ? handleExportBackup() : handleRestoreBackup())} style={styles.backupRetry}><Text style={styles.backupRetryText}>重试</Text></Pressable> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭备份提示" onPress={() => { setBackupMessage(null); setBackupRetryAction(null); }} hitSlop={8} style={styles.backupClose}><Ionicons name="close" size={16} color={colors.inkMuted} /></Pressable>
+          </View>
         ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
@@ -420,4 +423,7 @@ const styles = StyleSheet.create({
   backupMessageError: { backgroundColor: 'rgba(217,95,89,0.1)' },
   backupMessageText: { flex: 1, color: colors.inkMuted, fontSize: 10, lineHeight: 16 },
   backupMessageErrorText: { color: colors.danger },
+  backupRetry: { minHeight: 30, paddingHorizontal: 9, borderRadius: radii.pill, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
+  backupRetryText: { color: colors.danger, fontSize: 10, fontWeight: '800' },
+  backupClose: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 });
