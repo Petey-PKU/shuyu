@@ -25,7 +25,7 @@ export function LibraryScreen({ navigation }: Props) {
   const [menuBook, setMenuBook] = useState<{ id: string; title: string; author: string } | null>(null);
   const [deleteBook, setDeleteBook] = useState<{ id: string; title: string } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
+  const [errorKind, setErrorKind] = useState<'import' | 'metadata' | 'delete'>('import');
   const [editWarning, setEditWarning] = useState<string | null>(null);
   const [editSaveFailed, setEditSaveFailed] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export function LibraryScreen({ navigation }: Props) {
   const handleImport = async () => {
     try {
       const book = await importBook();
-      setErrorMessage(null);
+      if (errorKind === 'import') setErrorMessage(null);
       if (book) navigation.navigate('Reader', { bookId: book.id });
     } catch (error) {
       setErrorKind('import');
@@ -65,11 +65,11 @@ export function LibraryScreen({ navigation }: Props) {
     setEditSaveFailed(false);
     try {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
-      if (errorKind === 'save') setErrorMessage(null);
+      if (errorKind === 'metadata') setErrorMessage(null);
       setEditingBook(null);
       setEditWarning(null);
     } catch (error) {
-      setErrorKind('save');
+      setErrorKind('metadata');
       const message = formatPersistenceFailure(error);
       setErrorMessage(message);
       setEditWarning(message);
@@ -98,10 +98,10 @@ export function LibraryScreen({ navigation }: Props) {
     setDeleteError(null);
     try {
       await removeBook(deleteBook.id);
-      setErrorMessage(null);
+      if (errorKind === 'delete') setErrorMessage(null);
       setDeleteBook(null);
     } catch (error) {
-      setErrorKind('save');
+      setErrorKind('delete');
       const message = formatPersistenceFailure(error);
       setErrorMessage(message);
       setDeleteError(message);
