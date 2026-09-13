@@ -173,8 +173,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         <Text style={styles.resultTitle}>{levelLabels[result.level]}</Text>
         <Text style={styles.resultBody}>推荐会从与你当前水平接近的书开始，并保留少量轻松读物和进阶挑战。之后还会参考本地阅读中的查词频率进行微调。</Text>
         <View style={styles.scoreCard}>
-          <View><Text style={styles.scoreLabel}>阅读适配分</Text><Text style={styles.scoreHint}>用于排序，不是考试成绩</Text></View>
-          <Text style={styles.scoreValue}>{result.score}</Text>
+          <View><Text style={styles.scoreLabel}>你的阅读等级</Text><Text style={styles.scoreHint}>{levelLabels[result.level]} · 用于推荐排序</Text></View>
+          <Text style={styles.scoreValue}>{result.level}</Text>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="查看我的推荐" onPress={() => navigation.goBack()} style={styles.primaryButton}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="重新测试" onPress={restart} style={styles.secondaryButton}><Text style={styles.secondaryText}>重新测试</Text></Pressable>

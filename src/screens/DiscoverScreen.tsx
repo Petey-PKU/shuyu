@@ -166,7 +166,7 @@ export function DiscoverScreen({ navigation }: Props) {
           <View style={styles.profileLevel}><Text style={styles.profileLevelText}>{recommendationState.profile.level}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileTitle}>{levelLabels[recommendationState.profile.level]}</Text>
-            <Text style={styles.profileBody}>适配分 {targetScore} · 推荐已结合测试结果{hasRecommendationReadingSignal(readingSignals, books) ? '和近期阅读' : ''}</Text>
+            <Text style={styles.profileBody}>阅读等级 {recommendationState.profile.level} · {levelLabels[recommendationState.profile.level]} · 推荐已结合测试结果{hasRecommendationReadingSignal(readingSignals, books) ? '和近期阅读' : ''}</Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={colors.sage} />
         </View>
