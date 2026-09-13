@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 让未完成阅读目标变成行动
+
+- 首页原先只有到期生词时才出现明确行动卡；没有到期词但今日阅读目标未完成时，用户只能看到分钟数字。
+- 现在会显示还差多少分钟，并直接回到当前书籍的上次位置；关闭阅读统计或目标已完成时不增加打扰。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 保留 Web 词典来源与许可证元数据
 
 - Web 词典生成文件原先只有条目和别名，后续更新时不容易确认来源归属。
