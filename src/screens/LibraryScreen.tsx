@@ -27,6 +27,7 @@ export function LibraryScreen({ navigation }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
   const [editWarning, setEditWarning] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [metadataSaving, setMetadataSaving] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
@@ -89,14 +90,17 @@ export function LibraryScreen({ navigation }: Props) {
   const handleDelete = async () => {
     if (!deleteBook || deleteBusy) return;
     setDeleteBusy(true);
+    setDeleteError(null);
     try {
       await removeBook(deleteBook.id);
+      setDeleteBook(null);
     } catch (error) {
       setErrorKind('save');
-      setErrorMessage(formatPersistenceFailure(error));
+      const message = formatPersistenceFailure(error);
+      setErrorMessage(message);
+      setDeleteError(message);
     } finally {
       setDeleteBusy(false);
-      setDeleteBook(null);
     }
   };
 
@@ -198,13 +202,14 @@ export function LibraryScreen({ navigation }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
-      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => { if (!deleteBusy) setDeleteBook(null); }}>
-        <Pressable style={styles.modalBackdropCenter} onPress={() => { if (!deleteBusy) setDeleteBook(null); }}>
+      <Modal visible={!!deleteBook} transparent animationType="fade" onRequestClose={() => { if (!deleteBusy) { setDeleteBook(null); setDeleteError(null); } }}>
+        <Pressable style={styles.modalBackdropCenter} onPress={() => { if (!deleteBusy) { setDeleteBook(null); setDeleteError(null); } }}>
           <Pressable accessibilityViewIsModal style={styles.actionCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.actionTitle}>删除本地书籍？</Text>
             <Text style={styles.actionBody}>“{deleteBook?.title}”的阅读进度和相关生词也会删除。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={deleteBusy ? '正在删除书籍' : '确认删除书籍'} accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => void handleDelete()} style={[styles.actionDanger, deleteBusy && styles.actionDisabled]}><Text style={styles.actionDangerText}>{deleteBusy ? '删除中…' : '删除书籍'}</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => setDeleteBook(null)} style={[styles.actionCancel, deleteBusy && styles.actionDisabled]}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
+            {deleteError ? <Text accessibilityRole="alert" style={styles.deleteWarning}>{deleteError}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel={deleteBusy ? '正在删除书籍' : deleteError ? '重试删除书籍' : '确认删除书籍'} accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => void handleDelete()} style={[styles.actionDanger, deleteBusy && styles.actionDisabled]}><Text style={styles.actionDangerText}>{deleteBusy ? '删除中…' : deleteError ? '重试删除' : '删除书籍'}</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消删除" accessibilityState={{ disabled: deleteBusy }} disabled={deleteBusy} onPress={() => { setDeleteBook(null); setDeleteError(null); }} style={[styles.actionCancel, deleteBusy && styles.actionDisabled]}><Text style={styles.actionCancelText}>保留书籍</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -237,6 +242,7 @@ const styles = StyleSheet.create({
   actionCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
   actionTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 23, fontWeight: '700' },
   actionBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  deleteWarning: { color: colors.danger, fontSize: 11, lineHeight: 17, marginTop: 12 },
   actionPrimary: { minHeight: 46, borderRadius: radii.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   actionPrimaryText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   actionDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 10 },
