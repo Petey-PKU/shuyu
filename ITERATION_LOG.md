@@ -1113,3 +1113,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 加固导入恢复标记
+
+- 导入正文后写入待恢复标记失败时自动重试一次。
+- 两次写入都失败时清理本次正文并返回中文重试提示，避免没有恢复标记却继续写入不完整书架状态。
+- 目的：让导入失败路径与“下次启动可恢复”的承诺保持一致，避免用户误以为书籍已安全保存。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`

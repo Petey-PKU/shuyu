@@ -249,7 +249,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!parsed || importCancelRequestedRef.current) return null;
       setImportStatus((current) => current ? { ...current, stage: 'saving' } : current);
       const { book } = await createBook(parsed);
-      await savePendingImport(book).catch(() => undefined);
+      try {
+        await savePendingImport(book);
+      } catch {
+        // A temporary provider failure should not leave the freshly written
+        //正文 without a recovery marker. Retry once before aborting safely.
+        try {
+          await savePendingImport(book);
+        } catch {
+          await deleteBookContent(book.id).catch(() => undefined);
+          throw new Error('无法记录导入恢复状态，请检查设备空间后重试');
+        }
+      }
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
         await clearPendingImport(book.id).catch(() => undefined);
