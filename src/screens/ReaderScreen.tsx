@@ -630,9 +630,9 @@ function ReaderSession({ route, navigation }: Props) {
                 </View>
                 <Text style={styles.providerNote}>
                   {dictionaryLoading
-                    ? '离线词典加载中 · 已显示基础兜底'
+                    ? lookup?.source === 'network' ? '离线词典加载中 · 在线补充释义' : '离线词典加载中 · 已显示基础兜底'
                     : dictionaryUnavailable
-                    ? '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
+                    ? lookup?.source === 'network' ? '离线词典暂不可用 · 在线补充释义，可在设置中重试' : '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
                     : Platform.OS === 'web'
                     ? lookup?.source === 'offline' ? 'Web 高频词典 · 查词无需联网' : lookup?.source === 'network' ? 'Web 高频词典未收录 · 在线补充释义' : 'Web 高频词典未收录 · 已显示兜底结果'
                     : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}

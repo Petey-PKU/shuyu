@@ -1161,3 +1161,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 校准查词来源提示
+
+- 离线词典加载中或不可用时，查词卡片根据实际结果显示“在线补充释义”或“基础兜底”。
+- 保留设置页重试入口提示，避免用户误解当前结果来源或联网范围。
+- 目的：让词典状态、实际释义来源和隐私预期保持一致。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
