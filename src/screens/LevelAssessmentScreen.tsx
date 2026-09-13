@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +39,17 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const draftPersistedRef = useRef(false);
   const profileSavePendingRef = useRef(false);
 
+  const clearDraft = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(assessmentDraftKey);
+      setClearDraftError(null);
+      return true;
+    } catch {
+      setClearDraftError('本机暂时无法清除测试草稿，当前作答仍保留；请重试。');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
     answeringRef.current = true;
@@ -54,7 +65,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
           const profile = scoreAssessment(restored);
           try {
             await setReadingProfile(profile);
-            if (active) await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
+            if (active) await clearDraft();
           } catch {
             if (active) {
               profileSavePendingRef.current = true;
@@ -80,7 +91,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       }
     });
     return () => { active = false; };
-  }, []);
+  }, [clearDraft, setReadingProfile]);
   const question = assessmentQuestions[questionIndex];
 
   useEffect(() => {
@@ -108,12 +119,14 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     answeringRef.current = true;
     setAnswering(true);
     try {
-      await AsyncStorage.removeItem(assessmentDraftKey);
-      allowExitRef.current = true;
-      answeringRef.current = false;
-      navigation.goBack();
+      const cleared = await clearDraft();
+      if (cleared) {
+        allowExitRef.current = true;
+        answeringRef.current = false;
+        navigation.goBack();
+      }
     } catch {
-      setClearDraftError('本机暂时无法清除测试草稿，作答仍保留；请稍后重试退出。');
+      // clearDraft converts storage failures into an inline recovery notice.
     } finally {
       answeringRef.current = false;
       setAnswering(false);
@@ -156,7 +169,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         setProfileSaveError(null);
         // Keep the complete draft until the profile is durably accepted. If
         // the profile write fails, the next launch can recover the result.
-        await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
+        await clearDraft();
       } catch {
         profileSavePendingRef.current = true;
         setProfileSaveError(profileSaveFailure(draftPersistedRef.current));
@@ -178,7 +191,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     setRetryingProfile(true);
     try {
       await setReadingProfile(result);
-      await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
+      await clearDraft();
       profileSavePendingRef.current = false;
       setProfileSaveError(null);
     } catch {
@@ -231,25 +244,37 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     }
   };
 
+  const retryDraftClear = async () => {
+    if (answeringRef.current) return;
+    answeringRef.current = true;
+    setAnswering(true);
+    try {
+      await clearDraft();
+    } finally {
+      answeringRef.current = false;
+      setAnswering(false);
+    }
+  };
+
   useEffect(() => {
     // The app-wide retry button can also persist this result. An empty tracker
     // means all failed writes were saved; finish this screen's draft cleanup too.
     if (persistenceError || !result || !profileSavePendingRef.current || answeringRef.current) return;
     answeringRef.current = true;
     setAnswering(true);
-    void AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined).finally(() => {
+    void clearDraft().finally(() => {
       profileSavePendingRef.current = false;
       setProfileSaveError(null);
       answeringRef.current = false;
       setAnswering(false);
     });
-  }, [persistenceError, result]);
+  }, [clearDraft, persistenceError, result]);
 
   if (result) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={[styles.resultContent, { paddingTop: insets.top + 26, paddingBottom: insets.bottom + 30 }]}>
         {profileSaveError ? <InlineNotice message={profileSaveError} actionLabel={retryingProfile ? '保存中…' : '重试保存'} onAction={() => void retryProfileSave()} onDismiss={() => setProfileSaveError(null)} /> : null}
-        {clearDraftError ? <InlineNotice message={clearDraftError} onDismiss={() => setClearDraftError(null)} /> : null}
+        {clearDraftError ? <InlineNotice message={clearDraftError} actionLabel={answering ? '处理中…' : '重试清理'} onAction={() => void retryDraftClear()} onDismiss={() => setClearDraftError(null)} /> : null}
         <View style={styles.resultOrb}><Text style={styles.resultLevel}>{result.level}</Text></View>
         <Text style={styles.eyebrow}>{confidenceLabels[result.confidence]}</Text>
         <Text style={styles.resultTitle}>{levelLabels[result.level]}</Text>
@@ -294,7 +319,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
           ))}
         </View>
         {draftSaveError ? <InlineNotice message={draftSaveError} actionLabel={Object.keys(answers).length ? retryingDraft ? '保存中…' : '重试保存' : undefined} onAction={Object.keys(answers).length ? () => void retryDraftSave() : undefined} onDismiss={() => setDraftSaveError(null)} style={styles.draftNotice} /> : null}
-        {clearDraftError ? <InlineNotice message={clearDraftError} onDismiss={() => setClearDraftError(null)} style={styles.draftNotice} /> : null}
+        {clearDraftError ? <InlineNotice message={clearDraftError} actionLabel={answering ? '处理中…' : '重试清理'} onAction={() => void retryDraftClear()} onDismiss={() => setClearDraftError(null)} style={styles.draftNotice} /> : null}
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
       <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>

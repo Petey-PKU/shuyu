@@ -194,6 +194,9 @@ try {
     await page.evaluate(() => { window.__assessmentFaults.clear = false; });
     await page.getByRole('button', { name: '退出测试', exact: true }).click();
     await page.getByRole('button', { name: '退出并放弃当前测试', exact: true }).click();
+    // Stack navigation returns to the tab that launched the test; make the
+    // destination explicit before asserting its first-use CTA.
+    await page.getByRole('tab', { name: /发现/ }).click();
     await page.getByRole('button', { name: '开始水平测试', exact: true }).waitFor();
     assert.equal((await stored(page)).draft, null);
     await page.getByRole('button', { name: '开始水平测试', exact: true }).click();
