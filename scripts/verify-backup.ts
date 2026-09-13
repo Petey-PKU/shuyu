@@ -28,6 +28,9 @@ assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ..
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, totalWords: 3 }] })), /书籍元数据与正文不匹配/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, currentParagraph: 2 }] })), /书籍元数据与正文不匹配/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [{ ...word, bookId: 'missing' }] })), /书籍与学习记录不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [{ ...word, chapterIndex: 2, paragraphIndex: 0 }] })), /生词位置与正文不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [{ ...word, chapterIndex: 0 }] })), /生词位置与正文不匹配/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, readingSignals: [readingSignals[0], { ...readingSignals[0], bookId: book.id }] })), /阅读记录重复/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, id: '../escape' }], contents: { '../escape': { ...content, id: '../escape' } }, words: [{ ...word, bookId: '../escape' }], readingSignals: [{ ...readingSignals[0], bookId: '../escape' }] })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, books: [{ ...book, progress: 2 }] })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, preferences: { ...preferences, fontSize: 100 } })), /有效的书语备份/);
@@ -38,6 +41,7 @@ assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [word
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, recommendationState: { ...recommendationState, profile: { level: 'unknown' } } })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, preferences: { ...preferences, speechVoice: {} } })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, dailyHistory: { '2026-02-30': { minutes: 1, words: 2 } } } })), /有效的书语备份/);
+assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, todayDate: 'not-a-date' } })), /有效的书语备份/);
 assert.equal(formatBackupOperationError(new Error('EACCES: permission denied'), 'fallback'), '设备暂时不允许访问文件，请检查存储权限后重试');
 assert.equal(formatBackupOperationError(new Error('ENOENT: file not found'), 'fallback'), '备份文件或目录已不可用，请重新选择后重试');
 assert.equal(formatBackupOperationError(new Error('disk full'), 'fallback'), '设备存储空间可能不足，请清理空间后重试');

@@ -61,8 +61,8 @@ export function validStats(value: unknown): value is ReadingStats {
   }));
   return isRecord(value) && ['words', 'todayWords', 'streak'].every((key) => isNonNegativeInteger(value[key]))
     && isNonNegativeNumber(value.minutes) && isNonNegativeNumber(value.todayMinutes)
-    && (value.todayDate === undefined || typeof value.todayDate === 'string')
-    && (value.lastReadDate === undefined || typeof value.lastReadDate === 'string')
+    && (value.todayDate === undefined || isDateKey(value.todayDate))
+    && (value.lastReadDate === undefined || isDateKey(value.lastReadDate))
     && validHistory;
 }
 export function validPreferences(value: unknown): value is ReadingPreferences {
@@ -126,6 +126,20 @@ export function validateBackupPayload(value: unknown): BackupPayload {
     || parsed.words.some((word) => !bookIds.has(word.bookId))
     || parsed.readingSignals.some((signal) => !bookIds.has(signal.bookId))) {
     throw new Error('备份中的书籍与学习记录不匹配');
+  }
+  const wordLocationMismatch = parsed.words.some((word) => {
+    const hasChapter = word.chapterIndex !== undefined;
+    const hasParagraph = word.paragraphIndex !== undefined;
+    if (hasChapter !== hasParagraph) return true;
+    if (!hasChapter) return false;
+    const chapter = contents[word.bookId]?.chapters[word.chapterIndex!];
+    return !chapter || word.paragraphIndex! >= chapter.paragraphs.length;
+  });
+  if (wordLocationMismatch) throw new Error('备份中的生词位置与正文不匹配');
+  const signalBookIds = new Set<string>();
+  for (const signal of parsed.readingSignals) {
+    if (signalBookIds.has(signal.bookId)) throw new Error('备份中的阅读记录重复');
+    signalBookIds.add(signal.bookId);
   }
   return parsed;
 }
