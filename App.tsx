@@ -98,6 +98,11 @@ function AppShell() {
     }
   };
 
+  const retryStartupLoad = () => {
+    setRecoveryMessage(null);
+    void retryLoad();
+  };
+
   if (!ready) {
     return (
       <>
@@ -109,11 +114,11 @@ function AppShell() {
             <Text accessibilityRole="alert" style={styles.recoveryTitle}>本地数据未能读取</Text>
             <Text style={styles.recoveryBody}>{startupError}</Text>
             {recoveryMessage ? <Text accessibilityRole="alert" style={styles.recoveryError}>{recoveryMessage}</Text> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={() => void retryLoad()} style={styles.retryButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={retryStartupLoad} style={styles.retryButton}>
               <Text style={styles.retryText}>重新读取</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="从本地备份恢复" disabled={recoveryBusy} onPress={() => void recoverFromBackup()} style={[styles.recoverySecondary, recoveryBusy && styles.recoveryDisabled]}>
-              <Text style={styles.recoverySecondaryText}>{recoveryBusy ? '恢复中…' : '从备份恢复'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={recoveryBusy ? '正在恢复本地备份' : recoveryMessage ? '重试恢复本地备份' : '从本地备份恢复'} disabled={recoveryBusy} onPress={() => void recoverFromBackup()} style={[styles.recoverySecondary, recoveryBusy && styles.recoveryDisabled]}>
+              <Text style={styles.recoverySecondaryText}>{recoveryBusy ? '恢复中…' : recoveryMessage ? '重试恢复' : '从备份恢复'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="清除本地数据并重新开始" onPress={() => setRecoveryResetVisible(true)} style={styles.recoveryDestructive}>
               <Text style={styles.recoveryDestructiveText}>清除并重新开始</Text>
