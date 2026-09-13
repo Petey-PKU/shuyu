@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
@@ -32,6 +32,7 @@ function formatMinutes(minutes: number) {
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const { books, stats, words, preferences, readingSignals, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -135,7 +136,7 @@ export function HomeScreen({ navigation }: Props) {
           <View style={styles.heroCopy}>
             <View>
               <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : currentStarted ? '继续阅读' : '开始阅读'}</Text>
-              <Text numberOfLines={3} style={styles.heroTitle}>{current.title}</Text>
+              <Text numberOfLines={3} style={[styles.heroTitle, width < 350 && styles.heroTitleNarrow]}>{current.title}</Text>
               <Text numberOfLines={1} style={styles.heroAuthor}>{current.author}</Text>
             </View>
             <View>
@@ -289,6 +290,7 @@ const styles = StyleSheet.create({
   heroCover: { width: 116, justifyContent: 'center', transform: [{ rotate: '4deg' }, { translateX: 6 }] },
   heroEyebrow: { color: colors.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 11 },
   heroTitle: { color: '#FBF9F3', fontFamily: typography.serif, fontSize: 27, lineHeight: 31, fontWeight: '700', letterSpacing: -0.7 },
+  heroTitleNarrow: { fontSize: 20, lineHeight: 24, letterSpacing: -0.3 },
   heroAuthor: { color: 'rgba(255,255,255,0.52)', fontSize: 12, marginTop: 8 },
   progressTrack: { width: '100%', height: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.14)', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 4, backgroundColor: colors.accent },
