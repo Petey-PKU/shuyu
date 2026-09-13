@@ -21,7 +21,7 @@ const rows = [
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
+  const { books, words, preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
   const { entryCount, dictionaryLoading, dictionaryUnavailable, retryDictionary } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -321,8 +321,8 @@ export function SettingsScreen() {
               <View style={styles.resetIcon}><Ionicons name="cloud-upload-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>覆盖当前本地数据？</Text>
             </View>
-            {restorePayload ? <Text style={styles.infoBody}>备份时间：{new Date(restorePayload.exportedAt).toLocaleString()}\n包含 {restorePayload.books.length} 本书和 {restorePayload.words.length} 个生词。</Text> : null}
-            <Text style={styles.infoBody}>当前书架与学习记录会被替换。恢复前请确认这份备份来自你信任的设备。</Text>
+            {restorePayload ? <Text style={styles.infoBody}>备份时间：{new Date(restorePayload.exportedAt).toLocaleString()}\n包含 {restorePayload.books.length} 本书和 {restorePayload.words.length} 个生词。\n当前设备有 {books.length} 本书和 {words.length} 个生词。</Text> : null}
+            <Text style={styles.infoBody}>恢复会替换当前书架与学习记录。恢复前请确认这份备份来自你信任的设备，并确认上面的数量符合预期。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认恢复本地备份" onPress={confirmRestoreBackup} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>恢复备份</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消恢复本地备份" onPress={() => { setRestorePayload(null); setBackupBusy(false); }} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
           </Pressable>

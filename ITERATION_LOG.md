@@ -1129,3 +1129,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 恢复备份前显示覆盖范围
+
+- 恢复确认框同时显示备份内和当前设备的书籍、生词数量。
+- 文案明确说明恢复会替换当前书架与学习记录，并要求用户核对数量。
+- 目的：在高影响数据操作前减少误恢复和误覆盖。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
