@@ -35,6 +35,9 @@ import {
   saveWords,
   restoreBackupData,
   recoverPendingRestore,
+  recoverPendingImport,
+  savePendingImport,
+  clearPendingImport,
 } from '../services/library';
 import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
@@ -178,7 +181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setStartupError(null);
     try {
       const snapshot = await loadAppSnapshot({
-        recoverPendingRestore, loadBooks, loadWords, loadStats, loadPreferences, loadRecommendationState, loadReadingSignals, ensureSampleBook,
+        recoverPendingRestore, recoverPendingImport, loadBooks, loadWords, loadStats, loadPreferences, loadRecommendationState, loadReadingSignals, ensureSampleBook,
       });
       booksRef.current = snapshot.books;
       wordsRef.current = snapshot.words;
@@ -245,15 +248,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!parsed || importCancelRequestedRef.current) return null;
       setImportStatus((current) => current ? { ...current, stage: 'saving' } : current);
       const { book } = await createBook(parsed);
+      await savePendingImport(book).catch(() => undefined);
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
+        await clearPendingImport().catch(() => undefined);
         return null;
       }
       const next = [book, ...booksRef.current];
       booksRef.current = next;
       setBooks(next);
+      const persistImportedBook = async () => {
+        await saveBooks(next);
+        await clearPendingImport();
+      };
+      const retryImportedBook = async () => {
+        await saveBooks(booksRef.current);
+        await clearPendingImport();
+      };
       try {
-        await persist('books', '书架', () => saveBooks(next), () => saveBooks(booksRef.current));
+        await persist('books', '书架', persistImportedBook, retryImportedBook);
       } catch {
         // Keep the imported book available for immediate reading. The
         // persistence tracker retains the latest index and exposes a retry

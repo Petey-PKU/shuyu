@@ -13,7 +13,7 @@ import type {
   BackupPayload,
 } from '../types';
 import { bookAccents } from '../theme';
-import { seedSampleOnce } from '../utils/bootstrap';
+import { recoverPendingImportOnce, seedSampleOnce } from '../utils/bootstrap';
 import { libraryKeys as KEYS } from '../utils/storageKeys';
 import { recoverInterruptedRestore, restoreBackupSnapshot, type RestoreStorage } from '../utils/backupRestore';
 import { isSafeBookId, parseBookContent } from '../utils/bookContent';
@@ -74,6 +74,14 @@ export async function loadBooks(): Promise<Book[]> {
 
 export async function saveBooks(books: Book[]) {
   await enqueueWrite(KEYS.books, () => AsyncStorage.setItem(KEYS.books, JSON.stringify(books)));
+}
+
+export async function savePendingImport(book: Book) {
+  await enqueueWrite(KEYS.pendingImport, () => AsyncStorage.setItem(KEYS.pendingImport, JSON.stringify(book)));
+}
+
+export async function clearPendingImport() {
+  await enqueueWrite(KEYS.pendingImport, () => AsyncStorage.removeItem(KEYS.pendingImport));
 }
 
 export async function loadWords(): Promise<SavedWord[]> {
@@ -189,6 +197,7 @@ export async function loadBookContent(bookId: string): Promise<BookContent> {
 
 export async function restoreBackupData(payload: BackupPayload) {
   assertWritable();
+  await clearPendingImport();
   restoring = true;
   try {
     await Promise.allSettled([...writeQueues.values()]);
@@ -228,6 +237,18 @@ export async function recoverPendingRestore() {
   restoring = true;
   try { await recoverInterruptedRestore(restoreStorage); }
   finally { restoring = false; }
+}
+
+export async function recoverPendingImport() {
+  assertWritable();
+  await recoverPendingImportOnce({
+    loadPendingImport: () => AsyncStorage.getItem(KEYS.pendingImport),
+    clearPendingImport,
+    loadBooks,
+    saveBooks,
+    contentExists: async (id) => Platform.OS === 'web'
+      ? (await AsyncStorage.getItem(contentKey(id))) !== null : contentFile(id).exists,
+  });
 }
 
 const sample: ParsedBook = {

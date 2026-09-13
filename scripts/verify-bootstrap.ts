@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { loadAppSnapshot, seedSampleOnce } from '../src/utils/bootstrap';
+import { loadAppSnapshot, recoverPendingImportOnce, seedSampleOnce } from '../src/utils/bootstrap';
 import type { Book, ReadingPreferences, ReadingStats, SavedWord } from '../src/types';
 
 const userBook: Book = { id: 'mine', title: 'My book', author: 'Reader', format: 'txt', createdAt: '2026-09-09', lastOpenedAt: '2026-09-09', currentChapter: 2, currentParagraph: 3, currentOffset: 90, progress: 0.4, totalWords: 1000, chapterCount: 5, accent: '#333' };
@@ -56,6 +56,35 @@ async function main() {
     loadBooks: async () => { readAfterFailedRollback = true; return []; },
   }), /rollback unavailable/);
   assert.equal(readAfterFailedRollback, false, 'An incomplete rollback must not expose a mixed library');
+
+  const pendingBook: Book = { ...userBook, id: 'pending', title: 'Recovered import' };
+  let pendingRaw: string | null = JSON.stringify(pendingBook);
+  let pendingBooks = [userBook];
+  let pendingContent = true;
+  let pendingSaveFailures = 0;
+  const pendingStorage = {
+    loadPendingImport: async () => pendingRaw,
+    clearPendingImport: async () => { pendingRaw = null; },
+    loadBooks: async () => pendingBooks,
+    saveBooks: async (next: Book[]) => { if (pendingSaveFailures > 0) { pendingSaveFailures -= 1; throw new Error('temporary index failure'); } pendingBooks = next; },
+    contentExists: async () => pendingContent,
+  };
+  await recoverPendingImportOnce(pendingStorage);
+  assert.deepEqual(pendingBooks, [pendingBook, userBook], 'A pending import is reattached to the shelf when its正文 exists');
+  assert.equal(pendingRaw, null, 'A recovered import marker is cleared after the shelf index is saved');
+  pendingRaw = JSON.stringify(pendingBook);
+  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(pendingRaw, null, 'A marker for an already indexed book is cleared without duplicating the shelf');
+  pendingBooks = [userBook];
+  pendingRaw = JSON.stringify(pendingBook);
+  pendingContent = false;
+  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(pendingRaw, null, 'A marker is discarded when the正文 was removed');
+  pendingContent = true;
+  pendingRaw = JSON.stringify(pendingBook);
+  pendingSaveFailures = 1;
+  await recoverPendingImportOnce(pendingStorage);
+  assert.equal(pendingRaw !== null, true, 'A failed recovery keeps the marker for the next startup');
 
   let persistedBooks = [userBook];
   let seeded = false;

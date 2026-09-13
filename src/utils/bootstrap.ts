@@ -3,6 +3,7 @@ import { validBook, validPreferences, validRecommendationState, validSignal, val
 
 interface BootstrapStorage {
   recoverPendingRestore?: () => Promise<void>;
+  recoverPendingImport?: () => Promise<void>;
   loadBooks: () => Promise<Book[]>;
   loadWords: () => Promise<SavedWord[]>;
   loadStats: () => Promise<ReadingStats>;
@@ -10,6 +11,50 @@ interface BootstrapStorage {
   loadRecommendationState: () => Promise<RecommendationState>;
   loadReadingSignals: () => Promise<ReadingSignal[]>;
   ensureSampleBook: (books: Book[]) => Promise<Book[]>;
+}
+
+export interface PendingImportStorage {
+  loadPendingImport: () => Promise<string | null>;
+  clearPendingImport: () => Promise<void>;
+  loadBooks: () => Promise<Book[]>;
+  saveBooks: (books: Book[]) => Promise<void>;
+  contentExists: (bookId: string) => Promise<boolean>;
+}
+
+/** Recover an imported book whose正文 exists but whose shelf index was not acknowledged. */
+export async function recoverPendingImportOnce(storage: PendingImportStorage) {
+  const raw = await storage.loadPendingImport();
+  if (!raw) return;
+
+  let pending: Book;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!validBook(parsed)) throw new Error('invalid pending import');
+    pending = parsed;
+  } catch {
+    try { await storage.clearPendingImport(); } catch { /* A corrupt marker must not block startup. */ }
+    return;
+  }
+
+  const books = await storage.loadBooks();
+  if (books.some((book) => book.id === pending.id)) {
+    try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
+    return;
+  }
+
+  let contentExists = false;
+  try { contentExists = await storage.contentExists(pending.id); } catch { return; }
+  if (!contentExists) {
+    try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
+    return;
+  }
+
+  try {
+    await storage.saveBooks([pending, ...books]);
+    await storage.clearPendingImport();
+  } catch {
+    // Keep the marker so a later startup can retry without losing the import.
+  }
 }
 
 function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, preferences: unknown, recommendationState: unknown, readingSignals: unknown) {
@@ -34,6 +79,7 @@ function validateLocalSnapshot(books: unknown, words: unknown, stats: unknown, p
 /** Publish a complete snapshot only after every persisted data group is readable. */
 export async function loadAppSnapshot(storage: BootstrapStorage) {
   await storage.recoverPendingRestore?.();
+  await storage.recoverPendingImport?.();
   const [books, words, stats, preferences, recommendationState, readingSignals] = await Promise.all([
     storage.loadBooks(), storage.loadWords(), storage.loadStats(), storage.loadPreferences(),
     storage.loadRecommendationState(), storage.loadReadingSignals(),
