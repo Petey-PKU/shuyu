@@ -10,6 +10,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { ReadingLevelProfile } from '../types';
 import { levelLabels } from '../services/recommendation';
 import { colors, radii, typography } from '../theme';
+import { InlineNotice } from '../components/InlineNotice';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'LevelAssessment'>;
 
@@ -18,13 +19,15 @@ const assessmentDraftKey = '@shuyu/assessment-draft';
 
 export function LevelAssessmentScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { setReadingProfile } = useApp();
+  const { setReadingProfile, retryPersistence } = useApp();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
   const [answering, setAnswering] = useState(false);
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [retryingProfile, setRetryingProfile] = useState(false);
   const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
   const allowExitRef = useRef(false);
@@ -41,7 +44,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         if (isAssessmentComplete(restored)) {
           const profile = scoreAssessment(restored);
           void AsyncStorage.removeItem(assessmentDraftKey);
-          void setReadingProfile(profile).catch(() => undefined);
+          void setReadingProfile(profile).catch(() => setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存。'));
           setResult(profile);
         } else {
           setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
@@ -116,8 +119,9 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       try { await AsyncStorage.removeItem(assessmentDraftKey); } catch { /* The result remains usable in memory. */ }
       try {
         await setReadingProfile(profile);
+        setProfileSaveError(null);
       } catch {
-        // The optimistic profile is still usable; AppShell exposes the retry action.
+        setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存。');
       } finally {
         // The optimistic profile is already available in memory; show the result even
         // when the persistence layer reports a recoverable write failure.
@@ -126,6 +130,16 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     } finally {
       answeringRef.current = false;
       setAnswering(false);
+    }
+  };
+
+  const retryProfileSave = async () => {
+    if (retryingProfile) return;
+    setRetryingProfile(true);
+    try {
+      if (await retryPersistence()) setProfileSaveError(null);
+    } finally {
+      setRetryingProfile(false);
     }
   };
 
@@ -139,6 +153,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   if (result) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={[styles.resultContent, { paddingTop: insets.top + 26, paddingBottom: insets.bottom + 30 }]}>
+        {profileSaveError ? <InlineNotice message={profileSaveError} actionLabel={retryingProfile ? '保存中…' : '重试保存'} onAction={() => void retryProfileSave()} onDismiss={() => setProfileSaveError(null)} /> : null}
         <View style={styles.resultOrb}><Text style={styles.resultLevel}>{result.level}</Text></View>
         <Text style={styles.eyebrow}>{confidenceLabels[result.confidence]}</Text>
         <Text style={styles.resultTitle}>{levelLabels[result.level]}</Text>
