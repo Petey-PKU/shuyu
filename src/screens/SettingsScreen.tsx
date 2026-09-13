@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ export function SettingsScreen() {
   const { entryCount, dictionaryLoading, dictionaryUnavailable, retryDictionary } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
+  const backupBusyRef = useRef(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [onlinePromptVisible, setOnlinePromptVisible] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
@@ -131,11 +132,12 @@ export function SettingsScreen() {
   };
 
   const handleExportBackup = async () => {
-    if (backupBusy) return;
+    if (backupBusy || backupBusyRef.current) return;
     if (Platform.OS === 'web') {
       showBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
+    backupBusyRef.current = true;
     setBackupBusy(true);
     try {
       const filename = await exportBackup();
@@ -144,23 +146,27 @@ export function SettingsScreen() {
     } catch (error) {
       showBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`, 'error', 'export');
     } finally {
+      backupBusyRef.current = false;
       setBackupBusy(false);
     }
   };
 
   const handleRestoreBackup = async () => {
-    if (backupBusy) return;
+    if (backupBusy || backupBusyRef.current) return;
     if (Platform.OS === 'web') {
       showBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
+    backupBusyRef.current = true;
     setBackupBusy(true);
     try {
       const payload = await pickBackup();
-      if (!payload) { setBackupBusy(false); return; }
+      if (!payload) { backupBusyRef.current = false; setBackupBusy(false); return; }
       setRestorePayload(payload);
+      backupBusyRef.current = false;
       setBackupBusy(false);
     } catch (error) {
+      backupBusyRef.current = false;
       setBackupBusy(false);
       showBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`, 'error', 'restore');
     }
@@ -168,13 +174,14 @@ export function SettingsScreen() {
 
   const confirmRestoreBackup = () => {
     const payload = restorePayload;
-    if (!payload || backupBusy) return;
+    if (!payload || backupBusy || backupBusyRef.current) return;
+    backupBusyRef.current = true;
     setRestorePayload(null);
     setBackupBusy(true);
     void restoreBackup(payload)
       .then(() => showBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
       .catch((error) => showBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`, 'error', 'restore'))
-      .finally(() => setBackupBusy(false));
+      .finally(() => { backupBusyRef.current = false; setBackupBusy(false); });
   };
 
   return (

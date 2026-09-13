@@ -1420,3 +1420,17 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-recovery-concurrency`
+
+## 2026-09-13 防止备份恢复确认的快速重复提交
+
+- 导出、选择备份和确认恢复共用同步操作锁，状态更新前的快速双击不会启动第二个数据操作。
+- 恢复失败或取消选择时会释放锁，原有重试入口保持可用。
+- 目的：避免第二次点击覆盖第一轮恢复提示，或让用户误以为恢复状态不确定。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-backup-double-submit`
