@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 统一备份操作失败提示
+
+- Android 文件提供器在备份导出、选择或恢复失败时可能返回权限、空间不足或文件不存在等英文系统错误，原先设置页会直接展示这些细节。
+- 现在统一给出重新选择目录、检查权限或清理空间的中文提示；已有中文校验和回滚错误继续保留，备份测试覆盖四类系统错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 归一化本地写入失败提示
 
 - 持久化重试横幅原先会直接拼接底层错误，例如 `disk full` 或 `SQLITE_BUSY`，用户无法据此判断应该清理空间、稍后重试还是检查权限。

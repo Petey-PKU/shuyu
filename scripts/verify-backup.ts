@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import type { Book, BookContent, ReadingPreferences, ReadingSignal, ReadingStats, RecommendationState, SavedWord } from '../src/types';
 import { createBackupPayload, parseBackupPayload } from '../src/utils/backup';
+import { formatBackupOperationError } from '../src/utils/backupErrors';
 
 const book: Book = { id: 'book_1', title: 'A Story', author: 'Reader', format: 'txt', createdAt: '2026-09-09T00:00:00Z', lastOpenedAt: '2026-09-09T00:00:00Z', currentChapter: 0, currentParagraph: 0, progress: 0, totalWords: 2, chapterCount: 1, accent: '#333' };
 const content: BookContent = { id: book.id, title: book.title, chapters: [{ id: 'chapter_1', title: 'Start', paragraphs: ['One two.'], wordCount: 2 }] };
@@ -34,6 +35,10 @@ assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, words: [word
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, recommendationState: { ...recommendationState, profile: { level: 'unknown' } } })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, preferences: { ...preferences, speechVoice: {} } })), /有效的书语备份/);
 assert.throws(() => parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, dailyHistory: { '2026-02-30': { minutes: 1, words: 2 } } } })), /有效的书语备份/);
+assert.equal(formatBackupOperationError(new Error('EACCES: permission denied'), 'fallback'), '设备暂时不允许访问文件，请检查存储权限后重试');
+assert.equal(formatBackupOperationError(new Error('ENOENT: file not found'), 'fallback'), '备份文件或目录已不可用，请重新选择后重试');
+assert.equal(formatBackupOperationError(new Error('disk full'), 'fallback'), '设备存储空间可能不足，请清理空间后重试');
+assert.equal(formatBackupOperationError(new Error('unexpected provider error'), 'fallback'), 'fallback');
 const withDeletedBookSignal = createBackupPayload({ ...payload, readingSignals: [...readingSignals, { bookId: 'deleted_book', lookups: 3, wordsRead: 8, minutes: 2 }] });
 assert.deepEqual(withDeletedBookSignal.readingSignals, readingSignals, 'Legacy deleted-book signals must not make a newly exported backup unrestorable');
 assert.deepEqual(parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, minutes: 1.5 }, readingSignals: [{ ...readingSignals[0], minutes: 0.5 }] })).stats.minutes, 1.5);

@@ -10,6 +10,7 @@ import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, stopSpeech, SYSTEM_A
 import { getTranslationProviderSummary } from '../services/translation';
 import type { BackupPayload } from '../types';
 import { InlineNotice } from '../components/InlineNotice';
+import { formatBackupOperationError } from '../utils/backupErrors';
 
 const rows = [
   { icon: 'book-outline', title: '离线英汉词典', caption: 'ECDICT Core · 120,000 词条', status: '已就绪' },
@@ -108,7 +109,7 @@ export function SettingsScreen() {
       if (!filename) return;
       setBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
     } catch (error) {
-      setBackupMessage(`备份未完成：${error instanceof Error ? error.message : '请选择一个可写入的目录后重试'}`);
+      setBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`);
     } finally {
       setBackupBusy(false);
     }
@@ -128,7 +129,7 @@ export function SettingsScreen() {
       setBackupBusy(false);
     } catch (error) {
       setBackupBusy(false);
-      setBackupMessage(`无法读取备份：${error instanceof Error ? error.message : '请选择书语生成的 JSON 备份文件'}`);
+      setBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`);
     }
   };
 
@@ -139,7 +140,7 @@ export function SettingsScreen() {
     setBackupBusy(true);
     void restoreBackup(payload)
       .then(() => setBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
-      .catch((error) => setBackupMessage(`恢复未完成：${error instanceof Error ? error.message : '请检查备份文件后重试'}`))
+      .catch((error) => setBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`))
       .finally(() => setBackupBusy(false));
   };
 
