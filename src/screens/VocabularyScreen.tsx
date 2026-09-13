@@ -133,7 +133,7 @@ export function VocabularyScreen({ navigation }: Props) {
               </View>
               <Text style={styles.meaning}>{item.meaning}</Text>
               <Text numberOfLines={2} style={styles.context}>{item.context}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel={`回到${item.bookTitle}中${item.word}所在原文`} onPress={() => navigation.navigate('Reader', { bookId: item.bookId, chapterIndex: item.chapterIndex, paragraphIndex: item.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`回到${item.bookTitle}${sourceLocation(item.chapterIndex, item.paragraphIndex) ? `，${sourceLocation(item.chapterIndex, item.paragraphIndex)}` : ''}中${item.word}所在原文`} onPress={() => navigation.navigate('Reader', { bookId: item.bookId, chapterIndex: item.chapterIndex, paragraphIndex: item.paragraphIndex, returnTo: 'Vocabulary' })} style={styles.sourceButton}>
                 <Text style={styles.source}>{item.bookTitle}{sourceLocation(item.chapterIndex, item.paragraphIndex) ? ` · ${sourceLocation(item.chapterIndex, item.paragraphIndex)}` : ''} · {item.reviewCount ? `已复习 ${item.reviewCount} 次` : '待首次复习'}{!item.mastered && item.nextReviewAt && !isWordDue(item.nextReviewAt, now) ? ` · ${reviewDelayLabel(item.nextReviewAt, now)}` : ''}</Text>
                 <Ionicons name="arrow-forward" size={12} color={colors.accent} />
               </Pressable>
