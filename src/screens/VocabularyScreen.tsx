@@ -79,7 +79,15 @@ export function VocabularyScreen({ navigation }: Props) {
   const reviewedToday = words.filter((word) => word.lastReviewedAt && localDateKey(new Date(word.lastReviewedAt)) === today).length;
   const nextReviewAt = nextReviewTime(words);
   const reviewTitle = active ? `${active} 个词等待重逢` : learningCount ? '先休息一下' : words.length ? '收藏词都已掌握' : '从第一个生词开始';
-  const reviewMeta = !active && nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}` : reviewedToday ? `今天已复习 ${reviewedToday} 个` : '从原句开始回忆';
+  const reviewMeta = active
+    ? `从原句开始回忆`
+    : nextReviewAt
+      ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}`
+      : reviewedToday
+        ? `今天已复习 ${reviewedToday} 个`
+        : words.length
+          ? '从原句开始回忆'
+          : '阅读中收藏后会出现在这里';
   const emptyTitle = normalizedQuery ? '没有匹配的词' : tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
   const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
@@ -153,7 +161,7 @@ export function VocabularyScreen({ navigation }: Props) {
           <Text style={styles.reviewTitle}>{reviewTitle}</Text>
           <Text style={styles.reviewMeta}>{reviewMeta}</Text>
         </View>
-        <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View>
+        {active ? <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View> : null}
       </Pressable>
       {words.length ? <View style={styles.searchBox}><Ionicons name="search-outline" size={17} color={colors.inkMuted} /><TextInput accessibilityLabel="搜索生词" placeholder="搜索单词、释义、原句或书名" placeholderTextColor={colors.inkMuted} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={styles.searchInput} /><Pressable accessibilityRole="button" accessibilityLabel="清除生词搜索" accessibilityState={{ disabled: !query }} disabled={!query} onPress={() => setQuery('')} style={[styles.searchClear, !query && styles.searchClearDisabled]}><Ionicons name="close-circle" size={17} color={colors.inkMuted} /></Pressable></View> : null}
       <View style={styles.tabs}>

@@ -1465,3 +1465,18 @@
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-discover-privacy`
 - 本地 Playwright：发现页展示“答案只保存在本机，不会上传”且开始按钮可见
+
+## 2026-09-13 消除生词本空状态的假操作入口
+
+- 没有收藏词时隐藏“今日复习”卡片的箭头，避免禁用卡片看起来仍可点击。
+- 副文案改为“阅读中收藏后会出现在这里”，有到期词时才显示复习相关提示。
+- 保留空状态的“去读一本书”行动入口，引导用户先产生第一个语境生词。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-vocab-empty-action`
+- 本地 Playwright：空生词本无误导箭头、复习卡片禁用且“去今天开始阅读”可见
