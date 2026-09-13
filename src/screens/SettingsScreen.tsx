@@ -315,7 +315,7 @@ export function SettingsScreen() {
               <View style={styles.resetIcon}><Ionicons name="warning-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>清除全部本地数据？</Text>
             </View>
-            <Text style={styles.infoBody}>书籍、阅读进度、生词、统计和偏好都会从这台设备永久删除。</Text>
+            <Text style={styles.infoBody}>你导入的书籍、阅读进度、生词、统计和偏好都会从这台设备永久删除。重新开始后，书语可能重新生成一本不含个人数据的内置体验书。</Text>
             <Text style={styles.infoBody}>如果你还没有备份，请先取消并导出本地备份。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认清除全部本地数据" onPress={() => { setResetVisible(false); void resetAll(); }} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>全部清除</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消清除本地数据" onPress={() => setResetVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
