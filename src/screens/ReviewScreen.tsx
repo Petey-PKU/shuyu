@@ -23,6 +23,8 @@ export function ReviewScreen({ navigation, route }: Props) {
   const now = Date.now();
   const [reviewQueueIds] = useState(() => words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, now)).map((word) => word.id));
   const [reviewedIds, setReviewedIds] = useState<string[]>([]);
+  const [masteredCount, setMasteredCount] = useState(0);
+  const [deferredCount, setDeferredCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const submittingRef = useRef(false);
@@ -45,7 +47,7 @@ export function ReviewScreen({ navigation, route }: Props) {
   };
 
   if (!current) {
-    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
+    return <View style={[styles.done, { paddingTop: insets.top }]}><View style={styles.doneIcon}><Ionicons name="checkmark" size={34} color="#fff" /></View><Text accessibilityRole="header" style={styles.doneTitle}>本轮已完成</Text><Text style={styles.doneBody}>本轮复习了 {reviewedIds.length} 个词：记住了 {masteredCount} 个，稍后再看 {deferredCount} 个。{nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt)}。` : '继续阅读，在故事中遇见更多词汇。'}</Text><Pressable accessibilityRole="button" accessibilityLabel="继续阅读" onPress={() => navigation.navigate('Main', { screen: 'Today' })} style={styles.doneButton}><Text style={styles.doneButtonText}>继续阅读</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={returnLabel} onPress={() => navigation.navigate('Main', { screen: returnTo })} style={styles.doneSecondary}><Text style={styles.doneSecondaryText}>{returnLabel}</Text></Pressable></View>;
   }
 
   const next = async (mastered: boolean) => {
@@ -60,6 +62,8 @@ export function ReviewScreen({ navigation, route }: Props) {
       // banner when persistence fails, so do not make the user review this
       // same card twice while the local write is recoverable.
     } finally {
+      if (mastered) setMasteredCount((count) => count + 1);
+      else setDeferredCount((count) => count + 1);
       submittingRef.current = false;
       setReviewedIds((ids) => ids.includes(current.id) ? ids : [...ids, current.id]);
       setRevealed(false);

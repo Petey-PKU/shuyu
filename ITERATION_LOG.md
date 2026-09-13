@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 补充复习结果反馈
+
+- 复习完成页原先只显示本轮处理了多少个词，用户无法快速判断哪些已经掌握、哪些被延后。
+- 现在分别统计“记住了”和“稍后再看”的数量，并保留下次复习时间提示，复习结果更容易转化为下一步行动。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 清除数据时清理旧操作提示
 
 - 清除全部本地数据前，旧的备份恢复或中断导入成功提示原先可能继续显示，让用户误以为新书架仍来自上一轮操作。
