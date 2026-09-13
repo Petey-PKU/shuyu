@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 同步编辑后的备份书籍元数据
+
+- 用户编辑书名或作者后，书架和生词会更新，但旧版本导出的正文副本仍可能保留旧元数据，换设备恢复后出现标题不一致。
+- 现在生成备份时以当前书架元数据覆盖正文副本的书名和作者，并增加跨设备一致性测试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 展示在线翻译提供方策略
 
 - 在线翻译确认弹窗原先只说明可能发送给第三方，没有展示当前构建实际采用的服务组合。

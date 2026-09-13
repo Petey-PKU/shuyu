@@ -7,9 +7,16 @@ export function createBackupPayload(data: Omit<BackupPayload, 'app' | 'schemaVer
   if (data.books.some((book) => !data.contents[book.id] || data.contents[book.id].id !== book.id)) {
     throw new Error('有书籍正文无法读取，备份未生成');
   }
+  // The shelf metadata is the source of truth after a user edits a title or
+  // author. Keep the copied content metadata aligned for cross-device restore.
+  const contents = Object.fromEntries(data.books.map((book) => [book.id, {
+    ...data.contents[book.id],
+    title: book.title,
+    author: book.author,
+  }])) as Record<string, import('../types').BookContent>;
   // Older releases retained recommendation signals after deleting a book.
   const bookIds = new Set(data.books.map((book) => book.id));
-  const payload: BackupPayload = { ...data, app: 'shuyu', schemaVersion: 1, exportedAt,
+  const payload: BackupPayload = { ...data, contents, app: 'shuyu', schemaVersion: 1, exportedAt,
     readingSignals: data.readingSignals.filter((signal) => bookIds.has(signal.bookId)),
   };
   validateBackupPayload(payload);

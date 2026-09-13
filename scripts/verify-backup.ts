@@ -48,5 +48,8 @@ assert.equal(formatBackupOperationError(new Error('disk full'), 'fallback'), 'шо
 assert.equal(formatBackupOperationError(new Error('unexpected provider error'), 'fallback'), 'fallback');
 const withDeletedBookSignal = createBackupPayload({ ...payload, readingSignals: [...readingSignals, { bookId: 'deleted_book', lookups: 3, wordsRead: 8, minutes: 2 }] });
 assert.deepEqual(withDeletedBookSignal.readingSignals, readingSignals, 'Legacy deleted-book signals must not make a newly exported backup unrestorable');
+const renamedBackup = createBackupPayload({ ...payload, books: [{ ...book, title: 'Renamed story', author: 'New reader' }] });
+assert.equal(renamedBackup.contents[book.id].title, 'Renamed story', 'Edited shelf titles must be reflected in exported content metadata');
+assert.equal(renamedBackup.contents[book.id].author, 'New reader', 'Edited shelf authors must be reflected in exported content metadata');
 assert.deepEqual(parseBackupPayload(JSON.stringify({ ...payload, stats: { ...stats, minutes: 1.5 }, readingSignals: [{ ...readingSignals[0], minutes: 0.5 }] })).stats.minutes, 1.5);
 console.log('Backup payload validation and round-trip verification passed.');
