@@ -88,8 +88,20 @@ export function VocabularyScreen({ navigation }: Props) {
         : words.length
           ? '从原句开始回忆'
           : '阅读中收藏后会出现在这里';
-  const emptyTitle = normalizedQuery ? '没有匹配的词' : tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
-  const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
+  const emptyTitle = normalizedQuery
+    ? '没有匹配的词'
+    : tab === 'mastered'
+      ? '还没有掌握词'
+      : words.length
+        ? '学习中的词都掌握了'
+        : '这里还很安静';
+  const emptyBody = normalizedQuery
+    ? '试试单词、释义、原句或书名。'
+    : tab === 'mastered'
+      ? '在复习中点“记住了”，掌握的词会出现在这里。'
+      : words.length
+        ? '可以切换到“已掌握”查看，或继续阅读收藏新词。'
+        : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
     const request = ++speechRequest.current;
     setSpeechError(null);
