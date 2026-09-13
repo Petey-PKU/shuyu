@@ -27,6 +27,7 @@ export function LibraryScreen({ navigation }: Props) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorKind, setErrorKind] = useState<'import' | 'save'>('import');
   const [editWarning, setEditWarning] = useState<string | null>(null);
+  const [editSaveFailed, setEditSaveFailed] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [metadataSaving, setMetadataSaving] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -61,8 +62,10 @@ export function LibraryScreen({ navigation }: Props) {
     if (!editingBook || metadataSaving) return;
     setMetadataSaving(true);
     setEditWarning(null);
+    setEditSaveFailed(false);
     try {
       await updateBookMetadata(editingBook.id, draftTitle, draftAuthor);
+      setErrorMessage(null);
       setEditingBook(null);
       setEditWarning(null);
     } catch (error) {
@@ -70,6 +73,7 @@ export function LibraryScreen({ navigation }: Props) {
       const message = formatPersistenceFailure(error);
       setErrorMessage(message);
       setEditWarning(message);
+      setEditSaveFailed(true);
     } finally {
       setMetadataSaving(false);
     }
@@ -85,6 +89,7 @@ export function LibraryScreen({ navigation }: Props) {
     }
     setEditingBook(null);
     setEditWarning(null);
+    setEditSaveFailed(false);
   };
 
   const handleDelete = async () => {
@@ -177,8 +182,8 @@ export function LibraryScreen({ navigation }: Props) {
                 <Text style={styles.editLabel}>作者</Text>
                 <TextInput accessibilityLabel="编辑作者，可选" value={draftAuthor} onChangeText={setDraftAuthor} placeholder="作者（可选）" placeholderTextColor="#9B9C97" style={styles.editInput} returnKeyType="done" onSubmitEditing={() => void saveMetadata()} />
                 <View style={styles.editActions}>
-                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => { setEditingBook(null); setEditWarning(null); }} style={[styles.editCancel, metadataSaving && styles.editDisabled]}><Text style={styles.editCancelText}>取消</Text></Pressable>
-                  <Pressable accessibilityRole="button" accessibilityLabel="保存书籍信息" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => void saveMetadata()} style={[styles.editSave, metadataSaving && styles.editDisabled]}><Text style={styles.editSaveText}>{metadataSaving ? '保存中…' : '保存'}</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel="取消编辑" accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => { setEditingBook(null); setEditWarning(null); setEditSaveFailed(false); }} style={[styles.editCancel, metadataSaving && styles.editDisabled]}><Text style={styles.editCancelText}>取消</Text></Pressable>
+                  <Pressable accessibilityRole="button" accessibilityLabel={metadataSaving ? '正在保存书籍信息' : editSaveFailed ? '重试保存书籍信息' : '保存书籍信息'} accessibilityState={{ disabled: metadataSaving }} disabled={metadataSaving} onPress={() => void saveMetadata()} style={[styles.editSave, metadataSaving && styles.editDisabled]}><Text style={styles.editSaveText}>{metadataSaving ? '保存中…' : editSaveFailed ? '重试保存' : '保存'}</Text></Pressable>
                 </View>
               </ScrollView>
             </Pressable>
@@ -196,6 +201,7 @@ export function LibraryScreen({ navigation }: Props) {
               setDraftTitle(menuBook.title);
               setDraftAuthor(menuBook.author);
               setEditWarning(null);
+              setEditSaveFailed(false);
               setMenuBook(null);
             }} style={styles.actionPrimary}><Text style={styles.actionPrimaryText}>编辑信息</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="删除书籍" onPress={() => menuBook && confirmDelete(menuBook.id, menuBook.title)} style={styles.actionDanger}><Text style={styles.actionDangerText}>删除书籍</Text></Pressable>
