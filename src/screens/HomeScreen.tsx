@@ -32,7 +32,7 @@ function formatMinutes(minutes: number) {
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { books, stats, words, preferences, importBook } = useApp();
+  const { books, stats, words, preferences, readingSignals, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
     const refresh = () => setClock(Date.now());
@@ -218,13 +218,20 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="查看全部书籍" onPress={() => navigation.navigate('Library')}><Text style={styles.link}>查看全部</Text></Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
-        {recentBooks.map((book) => (
-          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》`} onPress={() => openBook(book)} style={styles.bookItem}>
-            <BookCover book={book} width={116} compact />
-            <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
-            <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
-          </Pressable>
-        ))}
+        {recentBooks.map((book) => {
+          const activity = readingSignals.find((signal) => signal.bookId === book.id);
+          const activityLabel = activity && (activity.minutes > 0 || activity.lookups > 0)
+            ? `，累计阅读 ${formatMinutes(activity.minutes)} 分钟，查词 ${activity.lookups} 次`
+            : '';
+          return (
+            <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》${activityLabel}`} onPress={() => openBook(book)} style={styles.bookItem}>
+              <BookCover book={book} width={116} compact />
+              <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
+              <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
+              {activity && (activity.minutes > 0 || activity.lookups > 0) ? <Text numberOfLines={1} style={styles.bookActivity}>累计 {formatMinutes(activity.minutes)} 分钟 · 查词 {activity.lookups} 次</Text> : null}
+            </Pressable>
+          );
+        })}
         <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
@@ -316,6 +323,7 @@ const styles = StyleSheet.create({
   bookItem: { width: 116, gap: 7 },
   bookTitle: { color: colors.ink, fontSize: 13, fontWeight: '700', lineHeight: 17 },
   bookProgress: { color: colors.inkMuted, fontSize: 10, fontWeight: '600' },
+  bookActivity: { color: colors.sage, fontSize: 8, fontWeight: '700' },
   importCard: { width: 116, height: 168, backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', borderRadius: radii.medium, alignItems: 'center', justifyContent: 'center' },
   importIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   importTitle: { color: colors.ink, fontWeight: '700', fontSize: 12 },

@@ -1065,3 +1065,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 每本书显示阅读足迹
+
+- 首页最近书页使用已有本地阅读记录，补充每本书的累计阅读分钟与查词次数。
+- 书籍没有活动记录时不增加空白信息；有记录时卡片和读屏标签都能直接说明投入。
+- 目的：把全局统计连接到具体书籍，帮助用户判断哪本书最适合继续学习。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
