@@ -137,7 +137,7 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.metrics}>
-        <View style={styles.metric}><Text style={styles.metricValue}>{book.difficulty}</Text><Text style={styles.metricLabel}>难度分</Text></View>
+        <View style={styles.metric}><Text style={styles.metricValue}>{book.level}</Text><Text style={styles.metricLabel}>阅读等级</Text></View>
         <View style={styles.metricDivider} />
         <View style={styles.metric}><Text style={styles.metricValue}>{lengthLabels[book.length]}</Text><Text style={styles.metricLabel}>阅读篇幅</Text></View>
         <View style={styles.metricDivider} />

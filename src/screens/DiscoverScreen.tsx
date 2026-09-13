@@ -216,7 +216,7 @@ export function DiscoverScreen({ navigation }: Props) {
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
                 <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={savingBookId === book.id ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: savingBookId === book.id }} disabled={savingBookId === book.id} onPress={(event) => { event.stopPropagation(); void handleToggleSaved(book.id); }} style={savingBookId === book.id && styles.saveDisabled} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
-                <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
+                <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · {book.level} {levelLabels[book.level]}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>
               </View>
