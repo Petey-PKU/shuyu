@@ -348,7 +348,7 @@ function ReaderSession({ route, navigation }: Props) {
     setTranslationFailed(false);
     setLookupLoading(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    void recordLookup(bookId).catch(() => undefined);
+    void recordLookup(bookId).catch(() => setStatsSaveError('查词记录已在当前会话更新，但设备尚未保存。'));
     await requestWordLookup(word, request);
   }, [bookId, chapterParagraphStarts, chapterText, recordLookup, requestWordLookup, tapHintVisible]);
 
