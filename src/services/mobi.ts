@@ -39,6 +39,10 @@ function formatLabel(format: KindleFormat) {
   return format === 'mobi' ? 'MOBI' : format.toUpperCase();
 }
 
+export function formatKindleParseFailure(format: KindleFormat) {
+  return `无法解析 ${formatLabel(format)} 文件。文件可能损坏、扩展名不正确，或包含暂不支持的固定版式；请确认文件无 DRM 且为可重排文字内容后重试`;
+}
+
 function asciiAt(data: ArrayBuffer, offset: number, length: number) {
   if (offset < 0 || offset + length > data.byteLength) return '';
   return String.fromCharCode(...new Uint8Array(data, offset, length));
@@ -250,7 +254,6 @@ export async function parseKindle(
   const attempts: Array<() => Promise<ParsedBook>> = requestedFormat === 'mobi' && !inspection.likelyKf8
     ? [() => parseMobi(data, fallbackTitle, isCancelled), () => parseKf8(data, fallbackTitle, 'kf8', isCancelled)]
     : [() => parseKf8(data, fallbackTitle, requestedFormat === 'mobi' ? 'kf8' : requestedFormat, isCancelled), () => parseMobi(data, fallbackTitle, isCancelled)];
-  const errors: string[] = [];
   for (const attempt of attempts) {
     try {
       const parsed = await attempt();
@@ -259,8 +262,7 @@ export async function parseKindle(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (/DRM|加密|导入已取消/.test(message)) throw error;
-      errors.push(message);
     }
   }
-  throw new Error(`无法解析 ${formatLabel(requestedFormat)} 文件。已尝试 KF8 与兼容 MOBI 内容：${errors.join('；')}`);
+  throw new Error(formatKindleParseFailure(requestedFormat));
 }

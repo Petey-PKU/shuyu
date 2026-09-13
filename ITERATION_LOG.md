@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 统一 Kindle 导入失败提示
+
+- MOBI/KF8 兼容解析全部失败时，原先会把解析器内部英文异常拼入最终提示，用户无法判断应转换格式、确认无 DRM 还是重新选择文件。
+- 现在统一提示文件损坏、扩展名/固定版式不支持和 DRM 排查方向，并保留可识别的 DRM、取消、正文过大等专项错误；解析器测试覆盖统一兜底文案。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 保留水平测试最后答案
 
 - 水平测试最后一道题原先直接计算结果并删除草稿，应用在结果写入前被系统回收时，最后答案无法恢复。

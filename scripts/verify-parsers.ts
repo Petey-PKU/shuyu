@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import JSZip from 'jszip';
 import { parseEpub } from '../src/services/epub';
 import { htmlToParagraphs } from '../src/services/markup';
-import { assertDrmFreeKindleFile, inspectKindleFile } from '../src/services/mobi';
+import { assertDrmFreeKindleFile, formatKindleParseFailure, inspectKindleFile } from '../src/services/mobi';
 import { parseExtractedPdfText, pdfNeedsOcr, PdfNeedsOcrError } from '../src/services/pdfText';
 import { formatPdfExtractionError } from '../src/services/pdfErrors';
 import { splitTranslationText } from '../src/services/translation';
@@ -124,6 +124,7 @@ function verifyKindleDrmGuard() {
 
   view.setUint16(108, 2, false);
   assert.throws(() => assertDrmFreeKindleFile(file, 'kf8'), /DRM/);
+  assert.equal(formatKindleParseFailure('kf8'), '无法解析 KF8 文件。文件可能损坏、扩展名不正确，或包含暂不支持的固定版式；请确认文件无 DRM 且为可重排文字内容后重试');
 }
 
 async function main() {
