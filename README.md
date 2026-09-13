@@ -100,6 +100,8 @@ python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
 
 水平测试恢复也有可选浏览器回归。使用同一个本地 Web 预览服务器和 Playwright 安装，在 Node.js 24 中运行 `node scripts/run-verifier.mjs scripts/verify-assessment-recovery.mjs`。此测试无需准备书籍夹具，会在独立浏览器上下文中模拟草稿、等级写入和草稿删除失败，检查结果页两种重试入口、刷新恢复、放弃、重新测试及小屏操作。外部网络请求会被阻止，截图保存在 `.cache/assessment-recovery-check`。它验证 Web 存储故障处理，不能替代 Android 真机的异步存储和系统返回验收。
 
+复习结果的保存恢复也可运行 `node scripts/run-verifier.mjs scripts/verify-review-recovery.mjs`。脚本在隔离浏览器中注入一个到期词，模拟“记住了”写入失败，检查系统返回的“稍后处理”、全局重试和最终落盘；它同样阻止外部网络请求，不能替代 Android 系统返回键验收。
+
 在限制子进程数量的环境中，可给 `expo export` 添加 `--max-workers 1`。Android 导出仍需允许启动项目所用的 Hermes 编译器；不要把 Web 导出成功当作 Android 安装包验收。
 
 首次运行 `npm run android` 时会从 sherpa-onnx 官方 Release 下载约 67 MB 的固定 Amy 模型归档，核对 SHA-256 后放入 Android 原生资源；后续构建复用 `.cache/tts-models`。GitHub Actions 会自动执行相同步骤，最终用户无需下载模型或配置服务。
