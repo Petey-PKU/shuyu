@@ -1434,3 +1434,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir .cache/web-preview`
 - `npx expo export --platform android --no-bytecode --output-dir .cache/android-backup-double-submit`
+
+## 2026-09-13 区分首次阅读与继续阅读
+
+- 首页 0% 的体验书主卡片和行动卡显示“开始阅读”，并说明从第一章开始。
+- 只有存在进度、章节、段落或字符位置时，才显示“继续阅读”和“从上次位置继续”；已读完书籍仍显示“重读”。
+- 最近书页的无障碍标签同步使用开始/继续/重读语义。
+- 目的：让首次打开体验书的用户知道下一步是开始，而不是寻找不存在的历史进度。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-home-first-read`
+- 本地 Playwright：首页首读文案与第一章引导通过

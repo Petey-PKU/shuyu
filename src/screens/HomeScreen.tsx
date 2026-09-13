@@ -44,6 +44,7 @@ export function HomeScreen({ navigation }: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
+  const currentStarted = !!current && (current.progress > 0 || current.currentChapter > 0 || current.currentParagraph > 0 || (current.currentOffset ?? 0) > 0);
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const recentWords = [...words].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
   const wordSourceLabel = (word: typeof recentWords[number]) => word.chapterIndex !== undefined && word.paragraphIndex !== undefined
@@ -120,11 +121,11 @@ export function HomeScreen({ navigation }: Props) {
       ) : null}
 
       {current ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : currentStarted ? '继续上次阅读' : '开始阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
           <LinearGradient colors={['#242520', '#171815']} style={StyleSheet.absoluteFill} />
           <View style={styles.heroCopy}>
             <View>
-              <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : '继续阅读'}</Text>
+              <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : currentStarted ? '继续阅读' : '开始阅读'}</Text>
               <Text numberOfLines={3} style={styles.heroTitle}>{current.title}</Text>
               <Text numberOfLines={1} style={styles.heroAuthor}>{current.author}</Text>
             </View>
@@ -133,7 +134,7 @@ export function HomeScreen({ navigation }: Props) {
               <View style={styles.progressMeta}>
                 <Text numberOfLines={1} style={styles.progressText}>{Math.round(current.progress * 100)}% · 第 {Math.min(current.currentChapter + 1, Math.max(1, current.chapterCount))}/{Math.max(1, current.chapterCount)} 章</Text>
                 <View style={styles.continuePill}>
-                  <Text style={styles.continueText}>{currentCompleted ? '重读' : '继续'}</Text>
+                  <Text style={styles.continueText}>{currentCompleted ? '重读' : currentStarted ? '继续' : '开始'}</Text>
                   <Ionicons name="arrow-forward" size={14} color={colors.ink} />
                 </View>
               </View>
@@ -175,12 +176,12 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="arrow-forward" size={18} color={colors.accent} />
         </Pressable>
       ) : statsEnabled && current && displayedTodayMinutes < preferences.dailyGoalMinutes ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`继续阅读，今日还差${formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)}分钟完成目标`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentStarted ? '继续阅读' : '开始阅读'}，今日还差${formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)}分钟完成目标`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
           <View style={styles.nextActionIcon}><Ionicons name="time-outline" size={20} color={colors.accent} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.nextActionEyebrow}>今天还可以读一会儿</Text>
-            <Text style={styles.nextActionTitle}>再读 {formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)} 分钟完成目标</Text>
-            <Text style={styles.nextActionBody}>从《{current.title}》的上次位置继续。</Text>
+            <Text style={styles.nextActionTitle}>{currentStarted ? '再读' : '阅读'} {formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)} 分钟完成目标</Text>
+            <Text style={styles.nextActionBody}>{currentStarted ? `从《${current.title}》的上次位置继续。` : `从《${current.title}》第一章开始。`}</Text>
           </View>
           <Ionicons name="arrow-forward" size={18} color={colors.accent} />
         </Pressable>
@@ -224,7 +225,7 @@ export function HomeScreen({ navigation }: Props) {
             ? `，累计阅读 ${formatMinutes(activity.minutes)} 分钟，查词 ${activity.lookups} 次`
             : '';
           return (
-            <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》${activityLabel}`} onPress={() => openBook(book)} style={styles.bookItem}>
+              <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : book.progress > 0 || book.currentChapter > 0 || book.currentParagraph > 0 || (book.currentOffset ?? 0) > 0 ? '继续阅读' : '开始阅读'}《${book.title}》${activityLabel}`} onPress={() => openBook(book)} style={styles.bookItem}>
               <BookCover book={book} width={116} compact />
               <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
               <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
