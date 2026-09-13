@@ -261,7 +261,7 @@ export function HomeScreen({ navigation }: Props) {
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
         <View style={{ flex: 1 }}>
           <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
+          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；查词次数只用于设备上的推荐排序，不会上传；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
         </View>
       </View>
     </ScrollView>
