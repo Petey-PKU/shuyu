@@ -36,7 +36,8 @@ export async function recoverPendingImportOnce(storage: PendingImportStorage) {
     return;
   }
 
-  const books = await storage.loadBooks();
+  let books: Book[];
+  try { books = await storage.loadBooks(); } catch { return; }
   if (books.some((book) => book.id === pending.id)) {
     try { await storage.clearPendingImport(); } catch { /* Retry cleanup on the next startup. */ }
     return;

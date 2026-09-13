@@ -85,6 +85,14 @@ async function main() {
   pendingSaveFailures = 1;
   await recoverPendingImportOnce(pendingStorage);
   assert.equal(pendingRaw !== null, true, 'A failed recovery keeps the marker for the next startup');
+  let transientBookRead = true;
+  await assert.doesNotReject(() => recoverPendingImportOnce({
+    ...pendingStorage,
+    loadBooks: async () => {
+      if (transientBookRead) { transientBookRead = false; throw new Error('temporary shelf read failure'); }
+      return pendingBooks;
+    },
+  }), 'A temporary shelf read failure must not turn pending-import recovery into a startup failure');
 
   let persistedBooks = [userBook];
   let seeded = false;
