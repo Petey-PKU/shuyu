@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -136,6 +136,7 @@ export function ReviewScreen({ navigation, route }: Props) {
       {speechError ? <InlineNotice message={speechError} actionLabel={speechRetryWord ? '重试朗读' : undefined} onAction={speechRetryWord ? () => speakWord(speechRetryWord) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetryWord(null); }} /> : null}
       {pendingReview ? <InlineNotice message="本次复习结果已保留，但设备尚未保存。" actionLabel={submitting ? '保存中…' : '重试保存'} onAction={() => void retryPendingReview()} /> : null}
       <View style={styles.card}>
+        <ScrollView style={styles.reviewContentScroll} contentContainerStyle={styles.reviewContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.eyebrow}>回到原句</Text>
         <Text style={styles.context}>{revealed ? current.context : cloze}</Text>
         {revealed ? (
@@ -151,6 +152,7 @@ export function ReviewScreen({ navigation, route }: Props) {
           <Text style={styles.source}>{current.bookTitle}{sourceLocation(current.chapterIndex, current.paragraphIndex) ? ` · ${sourceLocation(current.chapterIndex, current.paragraphIndex)}` : ''} · 回到原文</Text>
           <Ionicons name="arrow-forward" size={13} color={colors.accent} />
         </Pressable>
+        </ScrollView>
       </View>
       {revealed && !pendingReview ? (
         <View style={styles.actions}>
@@ -180,6 +182,8 @@ const styles = StyleSheet.create({
   progress: { height: 3, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.07)', overflow: 'hidden', marginTop: 8 },
   progressFill: { height: 3, backgroundColor: colors.accent, borderRadius: 3 },
   card: { flex: 1, marginVertical: 30, backgroundColor: colors.surfaceStrong, borderRadius: 32, padding: 28, justifyContent: 'center', ...shadows.card },
+  reviewContentScroll: { flexShrink: 1 },
+  reviewContent: { flexGrow: 1, justifyContent: 'center' },
   eyebrow: { color: colors.accent, fontSize: 10, fontWeight: '800', letterSpacing: 1.5, textAlign: 'center', marginBottom: 26 },
   context: { color: colors.ink, fontFamily: typography.serif, fontSize: 25, lineHeight: 38, textAlign: 'center', letterSpacing: -0.25 },
   reveal: { alignSelf: 'center', marginTop: 28, backgroundColor: colors.canvas, borderRadius: radii.pill, paddingHorizontal: 18, paddingVertical: 11 },

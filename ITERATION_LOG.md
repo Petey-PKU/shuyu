@@ -1687,3 +1687,18 @@
 - Web 与 Android 无字节码 bundle 导出
 - 320px 初始书页和保存失败弹层截图检查
 - `git diff --check`
+
+## 2026-09-13 让长原句复习操作保持可达
+
+- 产品走查发现复习卡片把整句原文、释义和翻译都放在可伸缩卡片中；长原句会把底部“记住了”和“再看看”按钮推到屏幕外，用户无法完成本轮复习。
+- 复习卡片内容现在独立滚动，底部答案操作固定在卡片外层；普通短句的视觉布局保持不变。
+- 复习恢复回归改用长原句，检查 390px 和 `REVIEW_WIDTH=320` 窄屏下操作按钮仍在视口内，并继续覆盖写入失败、系统返回、稍后离开和全局重试。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-review-recovery.mjs`
+- `REVIEW_WIDTH=320 node scripts/verify-review-recovery.mjs`
+- Web 导出
+- `git diff --check`

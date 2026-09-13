@@ -102,7 +102,7 @@ python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
 
 水平测试恢复也有可选浏览器回归。使用同一个本地 Web 预览服务器和 Playwright 安装，在 Node.js 24 中运行 `node scripts/run-verifier.mjs scripts/verify-assessment-recovery.mjs`。此测试无需准备书籍夹具，会在独立浏览器上下文中模拟草稿、等级写入和草稿删除失败，检查结果页两种重试入口、刷新恢复、放弃、重新测试及小屏操作。外部网络请求会被阻止，截图保存在 `.cache/assessment-recovery-check`。它验证 Web 存储故障处理，不能替代 Android 真机的异步存储和系统返回验收。
 
-复习结果的保存恢复也可运行 `node scripts/run-verifier.mjs scripts/verify-review-recovery.mjs`。脚本在隔离浏览器中注入一个到期词，模拟“记住了”写入失败，检查系统返回的“稍后处理”、全局重试和最终落盘；它同样阻止外部网络请求，不能替代 Android 系统返回键验收。
+复习结果的保存恢复也可运行 `node scripts/run-verifier.mjs scripts/verify-review-recovery.mjs`。脚本在隔离浏览器中注入一个带长原句的到期词，模拟“记住了”写入失败，检查窄屏/普通宽度下答案操作可达、系统返回的“稍后处理”、全局重试和最终落盘；设置 `REVIEW_WIDTH=320` 可额外执行 320px 检查。它同样阻止外部网络请求，不能替代 Android 系统返回键验收。
 
 阅读完成流程可运行 `node scripts/verify-reader-completion.mjs`，使用同一个预览服务器且无需额外夹具。它覆盖一页短书首次打开、多页末页、末尾空章、主动确认完成、重载、重新排版、从头重读和完成状态保存失败后的重试；截图保存在 `.cache/reader-completion-check`。
 

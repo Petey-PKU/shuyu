@@ -6,7 +6,8 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const origin = 'http://127.0.0.1:4174';
 const wordsKey = '@shuyu/words';
 const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' });
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const reviewWidth = Number(process.env.REVIEW_WIDTH || 390);
+const context = await browser.newContext({ viewport: { width: reviewWidth, height: reviewWidth <= 320 ? 568 : 844 } });
 const runtimeErrors = [];
 const externalRequests = [];
 
@@ -32,7 +33,7 @@ try {
   const bookId = await page.evaluate(() => JSON.parse(localStorage.getItem('@shuyu/books'))[0].id);
   await page.evaluate(({ bookId, wordsKey }) => {
     localStorage.setItem(wordsKey, JSON.stringify([{
-      id: 'review-recovery-test', word: 'quiet', meaning: '安静的', context: 'It was quiet.',
+      id: 'review-recovery-test', word: 'quiet', meaning: '安静的', context: `It was quiet ${'and the room stayed calm '.repeat(180)}today.`,
       bookId, bookTitle: 'The Quiet Observatory', chapterIndex: 0, paragraphIndex: 0,
       createdAt: new Date(Date.now() - 86_400_000).toISOString(), mastered: false,
       reviewCount: 0, nextReviewAt: new Date(Date.now() - 1_000).toISOString(),
@@ -41,6 +42,9 @@ try {
   await page.reload();
   await page.getByRole('button', { name: /开始复习，1 个词今天到期/ }).first().click();
   await page.getByRole('button', { name: '查看答案', exact: true }).click();
+  const answerButton = page.getByRole('button', { name: '标记为已掌握', exact: true });
+  const answerBox = await answerButton.boundingBox();
+  assert.ok(answerBox && answerBox.y >= 0 && answerBox.y + answerBox.height <= (reviewWidth <= 320 ? 568 : 844), 'Long review context must keep the answer action reachable');
   await page.evaluate(() => { window.__reviewFault = true; });
   await page.getByRole('button', { name: '标记为已掌握', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '结果已保留' }).waitFor();
