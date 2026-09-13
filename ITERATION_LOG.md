@@ -1717,3 +1717,17 @@
 - `SETTINGS_WIDTH=390 node scripts/verify-settings-privacy.mjs`
 - Web 导出
 - `git diff --check`
+
+## 2026-09-13 统一关于页面版本号
+
+- 产品走查发现设置列表已经动态读取 `app.json` 版本，但“关于书语”详情弹层仍写死旧版本 `1.3.1`，升级后会造成用户判断错误。
+- 详情弹层现在复用同一 `appVersion` 常量；设置页回归同时检查 320px、390px 下隐私、在线同意和配置版本号。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-settings-privacy.mjs`
+- `SETTINGS_WIDTH=390 node scripts/verify-settings-privacy.mjs`
+- Web 导出
+- `git diff --check`

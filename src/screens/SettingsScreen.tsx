@@ -358,7 +358,7 @@ export function SettingsScreen() {
             </View>
             <Text style={styles.infoBody}>书语是一款本地优先的英语语境阅读器。</Text>
             <Text style={styles.infoBody}>在书里，学会一门语言。</Text>
-            <Text style={styles.infoBody}>版本 1.3.1 · GPL-3.0-only</Text>
+            <Text style={styles.infoBody}>版本 {appVersion} · GPL-3.0-only</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="关闭关于书语" onPress={() => setAboutVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>知道了</Text></Pressable>
           </Pressable>
         </Pressable>
