@@ -12,6 +12,12 @@
 - 现在在本次导入流程中保留已选文件名，OCR 进度弹层重新打开后继续显示同一文件名。
 - 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
 
+## 2026-09-13 对齐首页导入格式说明
+
+- 首页 Android 导入卡片原先漏列 KF8，用户从入口看到的支持范围比实际解析能力更窄。
+- 现在入口完整列出 TXT、EPUB、MOBI、AZW3、KF8 和 PDF，和文件选择器及其它导入说明保持一致。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android（`--no-bytecode`）bundle。
+
 ## 2026-09-13 防止体验书索引留下坏引用
 
 - 初始化体验书时，存储提供器可能在索引部分写入后才报告失败；只清理正文会留下指向不存在内容的书架条目。
