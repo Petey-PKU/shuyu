@@ -1049,3 +1049,19 @@
 - 普通翻译路径遇到没有空格且超过 450 字节的文本时，原先会把超长 token 原样交给服务，URL 或连续字符串可能因此失败。
 - 现在按 UTF-8 字节边界拆分超长 token，并验证分块上限和文本无损拼接。
 - 分块过程改为增量计算字节数，避免极长无空格文本触发重复扫描造成卡顿。
+## 2026-09-13 目标完成后继续阅读
+
+- 首页在今日目标完成、没有到期复习词且仍有当前书籍时，保留“想再读几页吗？”行动卡。
+- 行动卡直接回到当前书籍上次位置，并向读屏用户报告目标已完成和书名。
+- 目的：完成目标后仍给用户一个低压力的下一步，保持阅读连续性。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`

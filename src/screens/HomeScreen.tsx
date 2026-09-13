@@ -184,6 +184,16 @@ export function HomeScreen({ navigation }: Props) {
           </View>
           <Ionicons name="arrow-forward" size={18} color={colors.accent} />
         </Pressable>
+      ) : statsEnabled && current ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={`今日目标已完成，继续阅读《${current.title}》`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+          <View style={styles.nextActionIcon}><Ionicons name="checkmark-circle-outline" size={20} color={colors.sage} /></View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nextActionEyebrow}>今日目标已完成</Text>
+            <Text style={styles.nextActionTitle}>想再读几页吗？</Text>
+            <Text style={styles.nextActionBody}>从《{current.title}》的上次位置继续，保持你的阅读节奏。</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+        </Pressable>
       ) : null}
 
       <View style={styles.trendCard}>
