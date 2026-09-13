@@ -25,9 +25,12 @@ assert.equal(safeParagraphIndex(0, 99), 0, 'Empty chapters must persist a valid 
 assert.equal(resolveReadingPosition([{ id: 'blank', title: 'Blank', paragraphs: [], wordCount: 0 }], 0, 99).paragraphIndex, 0, 'Resuming an empty chapter must stay at paragraph zero');
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 0), 0, 'Leading whitespace should not reopen the final page');
 assert.equal(pageAtOffset([{ start: 2, end: 8, text: 'One two' }, { start: 10, end: 15, text: 'three' }], 9), 1, 'Whitespace between pages resumes at the following page');
-assert.equal(progressAtPage(0, 10, 10, 10, 10), 1, 'A one-page book reaches 100% after its only page');
-assert.equal(progressAtPage(0, 10, 10, 4, 10), 0.4, 'An intermediate page reports its visible text share');
-assert.equal(progressAtPage(10, 10, 20, 10, 10), 1, 'A final page completes the overall book after earlier chapters');
+assert.equal(progressAtPage(0, 10, 10, 0, 10), 0, 'Opening a one-page book must not mark unread text complete');
+assert.equal(progressAtPage(0, 10, 10, 4, 10), 0.4, 'An intermediate page records the beginning of its visible text');
+assert.equal(progressAtPage(10, 10, 20, 0, 10), 0.5, 'Entering the final chapter retains the words reached in earlier chapters');
+assert.equal(progressAtPage(10, 10, 20, 6, 10), 0.8, 'Reaching the last page still leaves its text to read');
+assert.equal(progressAtPage(10, 0, 10, 0, 0), 0.99, 'A trailing empty chapter must not complete the book without confirmation');
+assert.equal(progressAtPage(0, 0, 0, 0, 0), 0, 'An empty chapter cannot invent reading progress');
 
 const coverage = new ReadingCoverage();
 coverage.recordPage('first', pages[0]);

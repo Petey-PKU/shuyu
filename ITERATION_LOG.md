@@ -1670,3 +1670,20 @@
 - `npm run test:in-process`
 - `git diff --check`
 - Web 与 Android 无字节码 bundle 导出
+
+## 2026-09-13 由用户确认读完，保留末页阅读空间
+
+- 真实浏览器复现：只有一页的短书首次打开就写入 100% 并弹出“这本书读完了”，正文尚未阅读便被完成弹层遮住；多页书也会在刚翻到最后一页时提前结束。
+- 普通阅读现在保存当前页起点，底部末页提供“读完这本书”按钮，点击后才确认完成。已经完成的旧记录继续保留，重新打开或重新排版不会自动弹窗或取消完成；主动重读会重置进度。
+- 完成状态保存失败时，完成弹层直接提供重试，并可选择“继续查看书页”。弹层按可用屏幕高度滚动，320px 下错误说明和操作可达。
+- 新增隔离浏览器回归，覆盖一页短书、390/320px、多页末页、最后空章、刷新、重新排版、两种重读入口和写入失败恢复；外部网络请求均被拦截并检查。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `node scripts/verify-reader-completion.mjs`
+- `node scripts/verify-reader-bookmarks.mjs`
+- Web 与 Android 无字节码 bundle 导出
+- 320px 初始书页和保存失败弹层截图检查
+- `git diff --check`

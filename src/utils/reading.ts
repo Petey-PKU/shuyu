@@ -24,10 +24,10 @@ export function safeParagraphIndex(paragraphCount: number, paragraphIndex = 0) {
     : 0;
 }
 
-/** Progress reflects the text the reader has actually reached, including the final page. */
-export function progressAtPage(completedWords: number, chapterWords: number, totalWords: number, pageEnd: number, chapterLength: number) {
-  const share = chapterLength <= 0 || pageEnd >= chapterLength ? 1 : Math.max(0, pageEnd / chapterLength);
-  return Math.min(1, Math.max(0, (completedWords + chapterWords * share) / Math.max(1, totalWords)));
+/** Save the beginning of the visible page; 100% is reserved for explicit completion. */
+export function progressAtPage(completedWords: number, chapterWords: number, totalWords: number, pageStart: number, chapterLength: number) {
+  const share = chapterLength <= 0 ? 0 : Math.max(0, Math.min(1, pageStart / chapterLength));
+  return Math.min(0.99, Math.max(0, (completedWords + chapterWords * share) / Math.max(1, totalWords)));
 }
 
 /** Count displayed words once per session, including across chapters and reflow. */

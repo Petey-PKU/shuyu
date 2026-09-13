@@ -144,9 +144,7 @@ function ReaderSession({ route, navigation }: Props) {
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
-  const completionShown = useRef(false);
-  const completionDismissed = useRef(false);
-  const replayStarted = useRef(!replay);
+  const completionConfirmed = useRef((book?.progress ?? 0) >= 1 && !replay);
   const readingCoverage = useRef(new ReadingCoverage());
   const hasVisiblePage = useRef(false);
   const lookupRequest = useRef(0);
@@ -290,22 +288,11 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(firstParagraph);
     const completedBefore = content.chapters.slice(0, chapterIndex).reduce((sum, item) => sum + item.wordCount, 0);
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
-    const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
-    if (replay && (chapterIndex > 0 || currentPage > 0)) replayStarted.current = true;
+    const progress = completionConfirmed.current ? 1 : progressAtPage(completedBefore, chapter.wordCount, totalWords, page.start, chapterText.length);
     void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start)
       .then(() => setProgressSaveError(null))
       .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [bookId, chapter, chapterIndex, chapterParagraphStarts, chapterText.length, content, currentPage, pages, updateProgress]);
-
-  useEffect(() => {
-    const reachedEnd = !!content && !!chapter && pages.length > 0
-      && chapterIndex === content.chapters.length - 1
-      && currentPage === pages.length - 1;
-    if (reachedEnd && replayStarted.current && !completionShown.current && !completionDismissed.current) {
-      completionShown.current = true;
-      setCompletionVisible(true);
-    }
-  }, [chapter, chapterIndex, content, currentPage, pages.length, replayStarted]);
 
   const requestSentenceTranslation = useCallback(async (sentence: string, request: number) => {
     setTranslationLoading(true);
@@ -445,7 +432,10 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(safeParagraph);
     setCurrentPage(0);
     setChaptersVisible(false);
-    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0)
+    const progress = completionConfirmed.current ? 1 : content && book && targetChapter
+      ? progressAtPage(content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0), targetChapter.wordCount, book.totalWords, pageAnchorOffset.current, targetChapter.paragraphs.join('\n\n').length)
+      : 0;
+    void updateProgress(bookId, index, safeParagraph, progress)
       .then(() => setProgressSaveError(null))
       .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [book, bookId, content, updateProgress]);
@@ -479,8 +469,15 @@ function ReaderSession({ route, navigation }: Props) {
 
   const returnToLibrary = () => navigation.popTo('Main', { screen: 'Library' });
   const returnToSource = () => navigation.popTo('Main', { screen: sourceTab });
+  const finishBook = () => {
+    completionConfirmed.current = true;
+    setCompletionVisible(true);
+    void updateProgress(bookId, chapterIndex, currentParagraph, 1, pages[currentPage]?.start ?? 0)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('读完状态已在当前会话更新，但设备尚未保存。'));
+  };
   const restartBook = () => {
-    completionDismissed.current = true;
+    completionConfirmed.current = false;
     setCompletionVisible(false);
     pageAnchorOffset.current = 0;
     setChapterIndex(0);
@@ -531,6 +528,8 @@ function ReaderSession({ route, navigation }: Props) {
   }
 
   const emptyChapter = !chapterText.trim();
+  const atBookEnd = chapterIndex === content.chapters.length - 1
+    && (emptyChapter || (pages.length > 0 && currentPage === pages.length - 1));
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
@@ -618,10 +617,12 @@ function ReaderSession({ route, navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" accessibilityState={{ disabled: emptyChapter || !pages.length }} disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
-        <View style={styles.bottomProgress}>
+        {atBookEnd ? <Pressable accessibilityRole="button" accessibilityLabel="读完这本书" onPress={finishBook} style={[styles.bottomProgress, styles.finishButton]}>
+          <Ionicons name="checkmark" size={17} color={colors.accent} /><Text style={styles.finishText}>读完这本书</Text>
+        </Pressable> : <View style={styles.bottomProgress}>
           <View style={styles.bottomMeta}><Text style={[styles.bottomText, { color: theme.muted }]}>第 {chapterIndex + 1}/{content.chapters.length} 章 · {emptyChapter ? '无正文' : pages.length ? `${currentPage + 1}/${pages.length} 页` : '排版中'}</Text><Text style={[styles.bottomText, { color: theme.muted }]}>{Math.round(book.progress * 100)}%</Text></View>
           <View style={[styles.bottomTrack, { backgroundColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]}><View style={[styles.bottomFill, { width: `${Math.max(2, book.progress * 100)}%` }]} /></View>
-        </View>
+        </View>}
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.audioButton}><Ionicons name="list-outline" size={20} color={theme.text} /></Pressable>
       </View>
 
@@ -752,11 +753,15 @@ function ReaderSession({ route, navigation }: Props) {
       <Modal visible={completionVisible} transparent animationType="fade" onRequestClose={() => setCompletionVisible(false)}>
         <Pressable style={styles.completionBackdrop} onPress={() => setCompletionVisible(false)}>
           <Pressable accessibilityViewIsModal style={styles.completionCard} onPress={(event) => event.stopPropagation()}>
+            <ScrollView style={styles.completionScroll} contentContainerStyle={styles.completionContent} showsVerticalScrollIndicator={false}>
             <View style={styles.completionIcon}><Ionicons name="checkmark" size={27} color="#fff" /></View>
             <Text accessibilityRole="header" style={styles.completionTitle}>这本书读完了</Text>
             <Text style={styles.completionBody}>{returnTo === 'Vocabulary' ? '你已经读到最后一页。可以返回生词本继续复习，或从头再读一遍。' : returnTo === 'Today' ? '你已经读到最后一页。可以返回今天继续安排阅读，或从头再读一遍。' : '你已经读到最后一页。可以回到书架选择下一本，或从头再读一遍。'}</Text>
+            {progressSaveError ? <InlineNotice style={styles.completionNotice} message="读完状态已在当前会话更新，但设备尚未保存。" actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} /> : null}
             <Pressable accessibilityRole="button" accessibilityLabel={`返回${sourceLabel}`} onPress={returnToSource} style={styles.completionPrimary}><Text style={styles.completionPrimaryText}>{`返回${sourceLabel}`}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="从头再读一遍" onPress={restartBook} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>从头再读一遍</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="继续查看书页" onPress={() => setCompletionVisible(false)} style={styles.completionSecondary}><Text style={styles.completionSecondaryText}>继续查看书页</Text></Pressable>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -800,6 +805,8 @@ const styles = StyleSheet.create({
   bottomBar: { paddingTop: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1 },
   audioButton: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
   bottomProgress: { flex: 1 },
+  finishButton: { height: 38, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, borderRadius: 19, backgroundColor: colors.accentSoft },
+  finishText: { color: colors.accent, fontSize: 12, fontWeight: '800' },
   bottomMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   bottomText: { fontSize: 9, fontWeight: '600' },
   bottomTrack: { height: 3, borderRadius: 3, overflow: 'hidden' },
@@ -852,7 +859,10 @@ const styles = StyleSheet.create({
   settingsDoneText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   chapterSheet: { backgroundColor: colors.surfaceStrong, borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 20, paddingTop: 10 },
   completionBackdrop: { flex: 1, backgroundColor: 'rgba(15,16,13,0.48)', alignItems: 'center', justifyContent: 'center', padding: 28 },
-  completionCard: { width: '100%', maxWidth: 340, backgroundColor: colors.surfaceStrong, borderRadius: 28, padding: 26, alignItems: 'center' },
+  completionCard: { width: '100%', maxWidth: 340, maxHeight: '100%', backgroundColor: colors.surfaceStrong, borderRadius: 28, overflow: 'hidden' },
+  completionScroll: { flexShrink: 1 },
+  completionContent: { padding: 26, alignItems: 'center' },
+  completionNotice: { alignSelf: 'stretch', marginHorizontal: 0 },
   completionIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.sage, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   completionTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 25, fontWeight: '700' },
   completionBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 9 },
