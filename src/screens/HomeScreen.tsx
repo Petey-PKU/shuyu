@@ -109,6 +109,15 @@ export function HomeScreen({ navigation }: Props) {
           <Pressable accessibilityRole="button" accessibilityLabel="导入自己的英文书" onPress={handleImport} style={styles.welcomeButton}><Text style={styles.welcomeButtonText}>导入</Text></Pressable>
         </View>
       ) : null}
+      {isSampleOnly || !current ? (
+        <View style={styles.privacyNote}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.privacyTitle}>先了解数据边界</Text>
+            <Text style={styles.privacyBody}>书籍正文与阅读进度留在设备；查词次数也只保存在设备，不会上传。在线增强需要你主动开启。</Text>
+          </View>
+        </View>
+      ) : null}
       {!current ? (
         <View style={styles.welcomeCard}>
           <View style={styles.welcomeIcon}><Ionicons name="library-outline" size={20} color={colors.accent} /></View>
@@ -258,13 +267,6 @@ export function HomeScreen({ navigation }: Props) {
         </View>
       ) : null}
 
-      <View style={styles.privacyNote}>
-        <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；查词次数也只保存在设备，用于显示阅读足迹和本地推荐排序，不会上传；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
-        </View>
-      </View>
     </ScrollView>
   );
 }
