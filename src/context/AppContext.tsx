@@ -311,7 +311,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addWord = useCallback(async (input: AddWordInput) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === input.bookId)) return;
     const currentWords = wordsRef.current;
-    const existing = currentWords.find((item) => item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
+    const existing = currentWords.find((item) => item.bookId === input.bookId && item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
     if (existing) return;
     const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0, nextReviewAt: new Date().toISOString() }, ...currentWords];
     wordsRef.current = next;

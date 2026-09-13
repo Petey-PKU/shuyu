@@ -1097,3 +1097,19 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 保留跨书籍相同句子的生词来源
+
+- 生词收藏去重从“单词 + 原句”扩展为“书籍 + 单词 + 原句”。
+- 同一句话在不同书籍中出现时，会分别保留各自的书籍来源和回到原文位置。
+- 目的：避免用户在多本书学习时收藏成功却找不到第二个来源。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
