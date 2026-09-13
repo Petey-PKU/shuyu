@@ -1569,6 +1569,19 @@
 - `git diff --check`
 - Web 与 Android 无字节码 bundle 导出
 
+## 2026-09-13 增加 Android 随包资源预检
+
+- 发布前静态检查现在确认 ECDICT Core、Piper 离线音色模型及其元数据仍在 Android 工程中，并确认 Manifest 保持关闭系统备份和移除旧版宽泛存储权限。
+- 资源缺失或隐私配置回退会在生成正式安装包前失败，避免用户安装后才发现离线查词/朗读不可用或本地书籍进入系统备份。
+- 新增 `scripts/verify-android-assets.ts` 并接入标准测试套件。
+
+验证：
+
+- `npm test`
+- `npm run typecheck`
+- `python scripts/verify_dictionary.py`
+- `git diff --check`
+
 ## 2026-09-13 串行化查词与阅读统计写入
 
 - 产品走查发现查词记录和阅读分钟统计都写入本地阅读信号；查词与定时统计刷新并发时，旧快照可能覆盖新计数，首页足迹和趋势会短暂或持久地少记一次。
