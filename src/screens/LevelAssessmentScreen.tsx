@@ -44,8 +44,9 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
         if (isAssessmentComplete(restored)) {
           const profile = scoreAssessment(restored);
-          void AsyncStorage.removeItem(assessmentDraftKey);
-          void setReadingProfile(profile).catch(() => setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存。'));
+          void setReadingProfile(profile)
+            .then(() => AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined))
+            .catch(() => setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存；完整测试草稿仍会保留以便恢复。'));
           setResult(profile);
         } else {
           setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
@@ -117,12 +118,14 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         setDraftSaveError('本机暂时无法保存测试进度；当前结果仍可继续，但退出后可能无法恢复。');
       }
       const profile = scoreAssessment(next);
-      try { await AsyncStorage.removeItem(assessmentDraftKey); } catch { /* The result remains usable in memory. */ }
       try {
         await setReadingProfile(profile);
         setProfileSaveError(null);
+        // Keep the complete draft until the profile is durably accepted. If
+        // the profile write fails, the next launch can recover the result.
+        await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
       } catch {
-        setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存。');
+        setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存；完整测试草稿仍会保留以便恢复。');
       } finally {
         // The optimistic profile is already available in memory; show the result even
         // when the persistence layer reports a recoverable write failure.
