@@ -46,6 +46,9 @@ export function HomeScreen({ navigation }: Props) {
   const currentCompleted = !!current && current.progress >= 1;
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const recentWords = [...words].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
+  const wordSourceLabel = (word: typeof recentWords[number]) => word.chapterIndex !== undefined && word.paragraphIndex !== undefined
+    ? `${word.bookTitle} · 第${word.chapterIndex + 1}章 · 第${word.paragraphIndex + 1}段`
+    : word.bookTitle;
   const activeWords = words.filter((word) => !word.mastered).length;
   const dueWords = words.filter((word) => !word.mastered && isWordDue(word.nextReviewAt, clock)).length;
   const isSampleOnly = books.length === 1 && books[0].format === 'sample';
@@ -220,7 +223,7 @@ export function HomeScreen({ navigation }: Props) {
               <Pressable key={word.id} accessibilityRole="button" accessibilityLabel={`回到${word.bookTitle}中的${word.word}原文`} onPress={() => navigation.navigate('Reader', { bookId: word.bookId, chapterIndex: word.chapterIndex, paragraphIndex: word.paragraphIndex, returnTo: 'Today' })} style={({ pressed }) => [styles.wordCard, pressed && styles.pressed]}>
                 <Text style={styles.wordCardWord}>{word.word}</Text>
                 <Text numberOfLines={2} style={styles.wordCardMeaning}>{word.meaning}</Text>
-                <Text numberOfLines={1} style={styles.wordCardSource}>{word.bookTitle}</Text>
+                <Text numberOfLines={1} style={styles.wordCardSource}>{wordSourceLabel(word)}</Text>
               </Pressable>
             ))}
           </ScrollView>

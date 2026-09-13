@@ -1,5 +1,11 @@
 # 书语持续迭代记录
 
+## 2026-09-13 显示首页最近收藏的原文位置
+
+- 首页最近收藏卡片原先只显示书名，用户点击前无法确认词条来自哪一章。
+- 现在在有位置数据时显示章节和段落，和生词本、复习页的来源信息保持一致；旧词条没有位置时仍显示书名。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`npm run test:dictionary`、`npm run test:web-dictionary`、`npm run test:translation-proxy`、`git diff --check`，并成功导出 Web 与 Android bundle。
+
 ## 2026-09-13 为 Web 预览加入轻量离线词典
 
 - Web 关闭在线增强时原先几乎只能使用内置基础词表，用户在桌面预览中无法获得与正式安装包一致的离线查词体验。
