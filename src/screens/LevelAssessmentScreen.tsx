@@ -16,10 +16,13 @@ type Props = NativeStackScreenProps<RootStackParamList, 'LevelAssessment'>;
 
 const confidenceLabels = { low: '初步判断', medium: '可信度中等', high: '可信度较高' } as const;
 const assessmentDraftKey = '@shuyu/assessment-draft';
+const profileSaveFailure = (completeDraftSaved: boolean) => completeDraftSaved
+  ? '等级结果已在当前会话生效，但设备尚未保存；完整测试草稿仍会保留以便恢复。'
+  : '等级结果已在当前会话生效，但设备尚未保存；测试草稿也未能完整保存，请在离开前重试保存结果。';
 
 export function LevelAssessmentScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { setReadingProfile, retryPersistence } = useApp();
+  const { setReadingProfile, persistenceError } = useApp();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [result, setResult] = useState<ReadingLevelProfile | null>(null);
@@ -27,38 +30,52 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   const [draftLoading, setDraftLoading] = useState(true);
   const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null);
+  const [clearDraftError, setClearDraftError] = useState<string | null>(null);
   const [retryingDraft, setRetryingDraft] = useState(false);
   const [retryingProfile, setRetryingProfile] = useState(false);
   const [exitVisible, setExitVisible] = useState(false);
   const answeringRef = useRef(false);
   const allowExitRef = useRef(false);
+  const draftPersistedRef = useRef(false);
+  const profileSavePendingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
-    AsyncStorage.getItem(assessmentDraftKey).then((raw) => {
+    answeringRef.current = true;
+    AsyncStorage.getItem(assessmentDraftKey).then(async (raw) => {
       if (!active) return;
       try {
         const parsed = raw ? JSON.parse(raw) as Record<string, number> : {};
         const restored = Object.fromEntries(Object.entries(parsed).filter(([id, value]) => assessmentQuestions.some((item) => item.id === id) && Number.isInteger(value) && value >= 0 && value < 4));
         setAnswers(restored);
+        draftPersistedRef.current = true;
         const nextIndex = assessmentQuestions.findIndex((item) => restored[item.id] === undefined);
         if (isAssessmentComplete(restored)) {
           const profile = scoreAssessment(restored);
-          void setReadingProfile(profile)
-            .then(() => AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined))
-            .catch(() => setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存；完整测试草稿仍会保留以便恢复。'));
-          setResult(profile);
+          try {
+            await setReadingProfile(profile);
+            if (active) await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
+          } catch {
+            if (active) {
+              profileSavePendingRef.current = true;
+              setProfileSaveError(profileSaveFailure(true));
+            }
+          }
+          // Do not expose restart until this recovery's cleanup has finished.
+          if (active) setResult(profile);
         } else {
           setQuestionIndex(nextIndex >= 0 ? nextIndex : 0);
         }
       } catch {
-        void AsyncStorage.removeItem(assessmentDraftKey);
-      } finally {
-        setDraftLoading(false);
+        await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
       }
     }).catch(() => {
       if (active) {
         setDraftSaveError('本机暂时无法读取测试草稿；当前作答仍可继续，但退出后可能无法恢复。');
+      }
+    }).finally(() => {
+      if (active) {
+        answeringRef.current = false;
         setDraftLoading(false);
       }
     });
@@ -68,6 +85,7 @@ export function LevelAssessmentScreen({ navigation }: Props) {
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (answeringRef.current) { event.preventDefault(); return; }
       if (allowExitRef.current || result || !Object.keys(answers).length) return;
       event.preventDefault();
       setExitVisible(true);
@@ -85,11 +103,22 @@ export function LevelAssessmentScreen({ navigation }: Props) {
     setExitVisible(true);
   };
 
-  const confirmExit = () => {
-    allowExitRef.current = true;
-    void AsyncStorage.removeItem(assessmentDraftKey);
-    setExitVisible(false);
-    navigation.goBack();
+  const confirmExit = async () => {
+    if (answeringRef.current) return;
+    answeringRef.current = true;
+    setAnswering(true);
+    try {
+      await AsyncStorage.removeItem(assessmentDraftKey);
+      allowExitRef.current = true;
+      answeringRef.current = false;
+      navigation.goBack();
+    } catch {
+      setClearDraftError('本机暂时无法清除测试草稿，作答仍保留；请稍后重试退出。');
+    } finally {
+      answeringRef.current = false;
+      setAnswering(false);
+      setExitVisible(false);
+    }
   };
 
   const choose = async (optionIndex: number) => {
@@ -102,8 +131,10 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       if (questionIndex < assessmentQuestions.length - 1) {
         try {
           await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+          draftPersistedRef.current = true;
           setDraftSaveError(null);
         } catch {
+          draftPersistedRef.current = false;
           setDraftSaveError('本机暂时无法保存测试进度；当前作答仍可继续，但退出后可能无法恢复。');
         }
         setQuestionIndex(questionIndex + 1);
@@ -113,8 +144,10 @@ export function LevelAssessmentScreen({ navigation }: Props) {
       // short gap before the profile write can resume with a complete draft.
       try {
         await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(next));
+        draftPersistedRef.current = true;
         setDraftSaveError(null);
       } catch {
+        draftPersistedRef.current = false;
         setDraftSaveError('本机暂时无法保存测试进度；当前结果仍可继续，但退出后可能无法恢复。');
       }
       const profile = scoreAssessment(next);
@@ -125,7 +158,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
         // the profile write fails, the next launch can recover the result.
         await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
       } catch {
-        setProfileSaveError('等级结果已在当前会话生效，但设备尚未保存；完整测试草稿仍会保留以便恢复。');
+        profileSavePendingRef.current = true;
+        setProfileSaveError(profileSaveFailure(draftPersistedRef.current));
       } finally {
         // The optimistic profile is already available in memory; show the result even
         // when the persistence layer reports a recoverable write failure.
@@ -138,39 +172,84 @@ export function LevelAssessmentScreen({ navigation }: Props) {
   };
 
   const retryProfileSave = async () => {
-    if (retryingProfile) return;
+    if (answeringRef.current || !result) return;
+    answeringRef.current = true;
+    setAnswering(true);
     setRetryingProfile(true);
     try {
-      if (await retryPersistence()) setProfileSaveError(null);
+      await setReadingProfile(result);
+      await AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined);
+      profileSavePendingRef.current = false;
+      setProfileSaveError(null);
+    } catch {
+      setProfileSaveError(profileSaveFailure(draftPersistedRef.current));
     } finally {
+      answeringRef.current = false;
+      setAnswering(false);
       setRetryingProfile(false);
     }
   };
 
   const retryDraftSave = async () => {
-    if (retryingDraft || !Object.keys(answers).length) return;
+    if (answeringRef.current || !Object.keys(answers).length) return;
+    answeringRef.current = true;
+    setAnswering(true);
     setRetryingDraft(true);
     try {
       await AsyncStorage.setItem(assessmentDraftKey, JSON.stringify(answers));
+      draftPersistedRef.current = true;
       setDraftSaveError(null);
     } catch {
+      draftPersistedRef.current = false;
       setDraftSaveError('本机暂时无法保存测试进度；当前作答仍可继续，但退出后可能无法恢复。');
     } finally {
+      answeringRef.current = false;
+      setAnswering(false);
       setRetryingDraft(false);
     }
   };
 
-  const restart = () => {
-    void AsyncStorage.removeItem(assessmentDraftKey);
-    setAnswers({});
-    setQuestionIndex(0);
-    setResult(null);
+  const restart = async () => {
+    if (answeringRef.current) return;
+    answeringRef.current = true;
+    setAnswering(true);
+    try {
+      await AsyncStorage.removeItem(assessmentDraftKey);
+      draftPersistedRef.current = false;
+      profileSavePendingRef.current = false;
+      setAnswers({});
+      setQuestionIndex(0);
+      setDraftSaveError(null);
+      setProfileSaveError(null);
+      setClearDraftError(null);
+      setResult(null);
+    } catch {
+      setClearDraftError('本机暂时无法清除上次测试草稿，请稍后再次点击“重新测试”。');
+    } finally {
+      answeringRef.current = false;
+      setAnswering(false);
+    }
   };
+
+  useEffect(() => {
+    // The app-wide retry button can also persist this result. An empty tracker
+    // means all failed writes were saved; finish this screen's draft cleanup too.
+    if (persistenceError || !result || !profileSavePendingRef.current || answeringRef.current) return;
+    answeringRef.current = true;
+    setAnswering(true);
+    void AsyncStorage.removeItem(assessmentDraftKey).catch(() => undefined).finally(() => {
+      profileSavePendingRef.current = false;
+      setProfileSaveError(null);
+      answeringRef.current = false;
+      setAnswering(false);
+    });
+  }, [persistenceError, result]);
 
   if (result) {
     return (
       <ScrollView style={styles.screen} contentContainerStyle={[styles.resultContent, { paddingTop: insets.top + 26, paddingBottom: insets.bottom + 30 }]}>
         {profileSaveError ? <InlineNotice message={profileSaveError} actionLabel={retryingProfile ? '保存中…' : '重试保存'} onAction={() => void retryProfileSave()} onDismiss={() => setProfileSaveError(null)} /> : null}
+        {clearDraftError ? <InlineNotice message={clearDraftError} onDismiss={() => setClearDraftError(null)} /> : null}
         <View style={styles.resultOrb}><Text style={styles.resultLevel}>{result.level}</Text></View>
         <Text style={styles.eyebrow}>{confidenceLabels[result.confidence]}</Text>
         <Text style={styles.resultTitle}>{levelLabels[result.level]}</Text>
@@ -179,8 +258,8 @@ export function LevelAssessmentScreen({ navigation }: Props) {
           <View><Text style={styles.scoreLabel}>你的阅读等级</Text><Text style={styles.scoreHint}>{levelLabels[result.level]} · 用于推荐排序</Text></View>
           <Text style={styles.scoreValue}>{result.level}</Text>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="查看我的推荐" onPress={() => navigation.goBack()} style={styles.primaryButton}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="重新测试" onPress={restart} style={styles.secondaryButton}><Text style={styles.secondaryText}>重新测试</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="查看我的推荐" accessibilityState={{ disabled: answering }} disabled={answering} onPress={requestExit} style={[styles.primaryButton, answering && styles.optionDisabled]}><Text style={styles.primaryText}>查看我的推荐</Text><Ionicons name="arrow-forward" size={17} color="#fff" /></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="重新测试" accessibilityState={{ disabled: answering }} disabled={answering} onPress={() => void restart()} style={[styles.secondaryButton, answering && styles.optionDisabled]}><Text style={styles.secondaryText}>重新测试</Text></Pressable>
       </ScrollView>
     );
   }
@@ -215,14 +294,15 @@ export function LevelAssessmentScreen({ navigation }: Props) {
           ))}
         </View>
         {draftSaveError ? <InlineNotice message={draftSaveError} actionLabel={Object.keys(answers).length ? retryingDraft ? '保存中…' : '重试保存' : undefined} onAction={Object.keys(answers).length ? () => void retryDraftSave() : undefined} onDismiss={() => setDraftSaveError(null)} style={styles.draftNotice} /> : null}
+        {clearDraftError ? <InlineNotice message={clearDraftError} onDismiss={() => setClearDraftError(null)} style={styles.draftNotice} /> : null}
         <Text style={styles.privacy}>答案与结果只保存在本机。为了避免测试偏差，作答后不立即显示正误。</Text>
       </ScrollView>
       <Modal visible={exitVisible} transparent animationType="fade" onRequestClose={() => setExitVisible(false)}>
         <Pressable style={styles.exitBackdrop} onPress={() => setExitVisible(false)}>
           <Pressable accessibilityViewIsModal style={styles.exitCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.exitTitle}>退出水平测试？</Text>
-            <Text style={styles.exitBody}>{draftSaveError ? '最近的作答还没有成功保存到本机，退出后可能无法恢复；建议先关闭此提示并重试保存。' : '已完成的作答会保存在本机草稿中，之后可以继续这次测试；如果确认退出，当前草稿会被放弃。'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="退出并放弃当前测试" onPress={confirmExit} style={styles.exitDanger}><Text style={styles.exitDangerText}>退出测试</Text></Pressable>
+            <Text style={styles.exitBody}>{!draftPersistedRef.current ? '最近的作答还没有成功保存到本机，退出后可能无法恢复；建议先关闭此提示并重试保存。' : '已完成的作答会保存在本机草稿中，之后可以继续这次测试；如果确认退出，当前草稿会被放弃。'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="退出并放弃当前测试" accessibilityState={{ disabled: answering }} disabled={answering} onPress={() => void confirmExit()} style={styles.exitDanger}><Text style={styles.exitDangerText}>{answering ? '正在退出…' : '退出测试'}</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="继续当前测试" onPress={() => setExitVisible(false)} style={styles.exitCancel}><Text style={styles.exitCancelText}>继续测试</Text></Pressable>
           </Pressable>
         </Pressable>

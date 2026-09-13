@@ -5,7 +5,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { DictionaryProvider } from './src/context/DictionaryContext';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -79,6 +79,7 @@ function RecoveryResetModal({ visible, onClose, onConfirm }: { visible: boolean;
 }
 
 function AppShell() {
+  const insets = useSafeAreaInsets();
   const { ready, storageActivity, storageNotice, dismissStorageNotice, startupError, retryLoad, pickBackup, restoreBackup, resetAll, importStatus, cancelImport, persistenceError, persistenceRetrying, retryPersistence } = useApp();
   const [recoveryResetVisible, setRecoveryResetVisible] = useState(false);
   const [recoveryBusy, setRecoveryBusy] = useState(false);
@@ -156,7 +157,8 @@ function AppShell() {
       </NavigationContainer>
       </View>
       <ImportOverlay status={importStatus} onCancel={cancelImport} />
-      {storageNotice ? <InlineNotice tone="success" message={storageNotice} onDismiss={dismissStorageNotice} style={[styles.storageNotice, persistenceError && styles.storageNoticeAbovePersistence]} /> : null}
+      {storageNotice || persistenceError ? <View style={[styles.storageFeedback, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+      {storageNotice ? <InlineNotice tone="success" message={storageNotice} onDismiss={dismissStorageNotice} style={styles.storageNotice} /> : null}
       {persistenceError ? <View accessibilityRole="alert" style={styles.persistenceBanner}>
         <View style={styles.persistenceCopy}>
           <Text style={styles.persistenceTitle}>本地数据需要重试</Text>
@@ -165,6 +167,7 @@ function AppShell() {
         <Pressable accessibilityRole="button" accessibilityLabel="重试保存本地数据" accessibilityState={{ disabled: persistenceRetrying }} disabled={persistenceRetrying} onPress={() => void retryPersistence()} style={[styles.persistenceButton, persistenceRetrying && styles.persistenceButtonDisabled]}>
           <Text style={styles.persistenceButtonText}>{persistenceRetrying ? '保存中…' : '重试'}</Text>
         </Pressable>
+      </View> : null}
       </View> : null}
       {storageActivity === 'export' ? <View accessibilityViewIsModal style={styles.storageOverlay}>
         <ActivityIndicator color={colors.accent} accessibilityLabel="正在准备本地备份" />
@@ -190,9 +193,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   storageOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: 'rgba(252,250,246,0.96)', alignItems: 'center', justifyContent: 'center' },
-  persistenceBanner: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 110, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
-  storageNotice: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 108, marginHorizontal: 0, marginTop: 0 },
-  storageNoticeAbovePersistence: { bottom: 158 },
+  storageFeedback: { paddingHorizontal: 14, paddingTop: 8, gap: 8, backgroundColor: colors.canvas, zIndex: 110 },
+  persistenceBanner: { borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
+  storageNotice: { marginHorizontal: 0, marginTop: 0 },
   persistenceCopy: { flex: 1 },
   persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
   persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },
