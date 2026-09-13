@@ -103,6 +103,12 @@ function AppShell() {
     void retryLoad();
   };
 
+  const resetFromRecovery = () => {
+    setRecoveryMessage(null);
+    setRecoveryResetVisible(false);
+    void resetAll();
+  };
+
   if (!ready) {
     return (
       <>
@@ -129,7 +135,7 @@ function AppShell() {
           {storageActivity === 'restore' ? <Text style={styles.recoveryBody}>正在恢复备份，请保持应用打开…</Text> : storageActivity === 'reset' ? <Text style={styles.recoveryBody}>正在清除本地数据，请保持应用打开…</Text> : null}
         </>}
       </View>
-      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={() => { setRecoveryResetVisible(false); void resetAll(); }} />
+      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={resetFromRecovery} />
       </>
     );
   }
@@ -163,7 +169,7 @@ function AppShell() {
         <Text style={styles.recoveryBody}>正在准备备份，请保持应用打开…</Text>
       </View> : null}
       <StatusBar style="dark" />
-      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={() => { setRecoveryResetVisible(false); void resetAll(); }} />
+      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={resetFromRecovery} />
     </>
   );
 }
