@@ -143,7 +143,7 @@ function AppShell() {
       </NavigationContainer>
       </View>
       <ImportOverlay status={importStatus} onCancel={cancelImport} />
-      {storageNotice ? <InlineNotice tone="success" message={storageNotice} onDismiss={dismissStorageNotice} style={styles.storageNotice} /> : null}
+      {storageNotice ? <InlineNotice tone="success" message={storageNotice} onDismiss={dismissStorageNotice} style={[styles.storageNotice, persistenceError && styles.storageNoticeAbovePersistence]} /> : null}
       {persistenceError ? <View accessibilityRole="alert" style={styles.persistenceBanner}>
         <View style={styles.persistenceCopy}>
           <Text style={styles.persistenceTitle}>本地数据需要重试</Text>
@@ -179,6 +179,7 @@ const styles = StyleSheet.create({
   storageOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: 'rgba(252,250,246,0.96)', alignItems: 'center', justifyContent: 'center' },
   persistenceBanner: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 110, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
   storageNotice: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 108, marginHorizontal: 0, marginTop: 0 },
+  storageNoticeAbovePersistence: { bottom: 158 },
   persistenceCopy: { flex: 1 },
   persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
   persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },
