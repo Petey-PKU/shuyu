@@ -35,12 +35,14 @@ export function VocabularyScreen({ navigation }: Props) {
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechRetryWord, setSpeechRetryWord] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [retryingSave, setRetryingSave] = useState(false);
   const [updatingWordId, setUpdatingWordId] = useState<string | null>(null);
   const [removingWordId, setRemovingWordId] = useState<string | null>(null);
   const updatingWordRef = useRef<string | null>(null);
+  const speechRequest = useRef(0);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     const subscription = AppState.addEventListener('change', (state) => {
@@ -81,10 +83,16 @@ export function VocabularyScreen({ navigation }: Props) {
   const emptyTitle = normalizedQuery ? '没有匹配的词' : tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
   const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
+    const request = ++speechRequest.current;
     setSpeechError(null);
+    setSpeechRetryWord(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
-      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
-      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => {
+        if (request !== speechRequest.current) return;
+        setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
+        setSpeechRetryWord(word);
+      });
   };
   const confirmRemove = (id: string, word: string) => {
     setRemoveError(null);
@@ -136,7 +144,7 @@ export function VocabularyScreen({ navigation }: Props) {
   return (
       <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
-      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {speechError ? <InlineNotice message={speechError} actionLabel={speechRetryWord ? '重试朗读' : undefined} onAction={speechRetryWord ? () => speakWord(speechRetryWord) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetryWord(null); }} /> : null}
       {saveError ? <InlineNotice message={saveError} actionLabel={retryingSave ? '保存中…' : '重试保存'} onAction={() => void retrySave()} onDismiss={() => setSaveError(null)} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review', { returnTo: 'Vocabulary' })} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>

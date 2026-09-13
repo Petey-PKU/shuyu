@@ -27,9 +27,11 @@ export function ReviewScreen({ navigation, route }: Props) {
   const [deferredCount, setDeferredCount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechRetryWord, setSpeechRetryWord] = useState<string | null>(null);
   const [pendingReview, setPendingReview] = useState<{ id: string; mastered: boolean } | null>(null);
   const [exitVisible, setExitVisible] = useState(false);
   const submittingRef = useRef(false);
+  const speechRequest = useRef(0);
   const queue = reviewQueueIds.reduce<typeof words>((items, id) => {
     const word = words.find((item) => item.id === id);
     if (word && !reviewedIds.includes(word.id)) items.push(word);
@@ -43,10 +45,16 @@ export function ReviewScreen({ navigation, route }: Props) {
   const returnLabel = returnTo === 'Today' ? '返回今天' : '返回生词本';
   const emptyReview = total === 0 && reviewedIds.length === 0;
   const speakWord = (word: string) => {
+    const request = ++speechRequest.current;
     setSpeechError(null);
+    setSpeechRetryWord(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
-      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
-      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => {
+        if (request !== speechRequest.current) return;
+        setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
+        setSpeechRetryWord(word);
+      });
   };
 
   if (!current) {
@@ -110,7 +118,7 @@ export function ReviewScreen({ navigation, route }: Props) {
         <View style={styles.close} />
       </View>
       <View style={styles.progress}><View style={[styles.progressFill, { width: `${total ? ((reviewedIds.length + 1) / total) * 100 : 0}%` }]} /></View>
-      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {speechError ? <InlineNotice message={speechError} actionLabel={speechRetryWord ? '重试朗读' : undefined} onAction={speechRetryWord ? () => speakWord(speechRetryWord) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetryWord(null); }} /> : null}
       {pendingReview ? <InlineNotice message="本次复习结果已保留，但设备尚未保存。" actionLabel={submitting ? '保存中…' : '重试保存'} onAction={() => void retryPendingReview()} /> : null}
       <View style={styles.card}>
         <Text style={styles.eyebrow}>回到原句</Text>
