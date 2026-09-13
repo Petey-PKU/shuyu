@@ -41,6 +41,8 @@ import {
 } from '../services/library';
 import { pickAndParseBook } from '../services/importer';
 import { deferReview } from '../utils/review';
+import { hasSavedWord } from '../utils/savedWords';
+import { mergeOcrImportStatus } from '../utils/importStatus';
 import { loadAppSnapshot } from '../utils/bootstrap';
 import { createBackupPayload } from '../utils/backup';
 import { createPersistenceTracker } from '../utils/persistence';
@@ -98,7 +100,7 @@ interface AppContextValue {
   restoreBackup: (payload: BackupPayload) => Promise<void>;
   persistenceError: string | null;
   persistenceRetrying: boolean;
-  retryPersistence: () => Promise<void>;
+  retryPersistence: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -168,8 +170,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const persist = persistence.persist;
 
   const retryPersistence = useCallback(async () => {
-    if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return;
-    await persistence.retryAll();
+    if (storageActivityRef.current || resettingRef.current || hydratingRef.current) return false;
+    return persistence.retryAll();
   }, [persistence]);
 
   const dismissStorageNotice = useCallback(() => setStorageNotice(null), []);
@@ -232,15 +234,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           return confirmed;
         },
-        onOcrProgress: ({ currentPage, totalPages, skippedPages, cancelling }) => {
-          setImportStatus((current) => ({
-            phase: 'ocr',
-            startedAt: current?.startedAt ?? startedAt,
-            currentPage,
-            totalPages,
-            skippedPages,
-            cancelling: current?.cancelling || cancelling,
-          }));
+        onOcrProgress: (progress) => {
+          setImportStatus((current) => mergeOcrImportStatus(current, progress, startedAt));
         },
         registerOcrCancel: (cancel) => {
           ocrCancelRef.current = cancel;
@@ -249,7 +244,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!parsed || importCancelRequestedRef.current) return null;
       setImportStatus((current) => current ? { ...current, stage: 'saving' } : current);
       const { book } = await createBook(parsed);
-      await savePendingImport(book).catch(() => undefined);
+      try {
+        await savePendingImport(book);
+      } catch {
+        // A temporary provider failure should not leave the freshly written
+        //正文 without a recovery marker. Retry once before aborting safely.
+        try {
+          await savePendingImport(book);
+        } catch {
+          await deleteBookContent(book.id).catch(() => undefined);
+          throw new Error('无法记录导入恢复状态，请检查设备空间后重试');
+        }
+      }
       if (importCancelRequestedRef.current) {
         await deleteBookContent(book.id);
         await clearPendingImport(book.id).catch(() => undefined);
@@ -311,8 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addWord = useCallback(async (input: AddWordInput) => {
     if (storageActivityRef.current || resettingRef.current || !booksRef.current.some((book) => book.id === input.bookId)) return;
     const currentWords = wordsRef.current;
-    const existing = currentWords.find((item) => item.word.toLowerCase() === input.word.toLowerCase() && item.context === input.context);
-    if (existing) return;
+    if (hasSavedWord(currentWords, input)) return;
     const next = [{ ...input, id: makeId('word'), createdAt: new Date().toISOString(), mastered: false, reviewCount: 0, nextReviewAt: new Date().toISOString() }, ...currentWords];
     wordsRef.current = next;
     setWords(next);

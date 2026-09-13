@@ -32,7 +32,7 @@ function formatMinutes(minutes: number) {
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { books, stats, words, preferences, importBook } = useApp();
+  const { books, stats, words, preferences, readingSignals, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
     const refresh = () => setClock(Date.now());
@@ -44,6 +44,7 @@ export function HomeScreen({ navigation }: Props) {
   const [importError, setImportError] = useState<string | null>(null);
   const current = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))[0];
   const currentCompleted = !!current && current.progress >= 1;
+  const currentStarted = !!current && (current.progress > 0 || current.currentChapter > 0 || current.currentParagraph > 0 || (current.currentOffset ?? 0) > 0);
   const recentBooks = [...books].sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt)).slice(0, 5);
   const recentWords = [...words].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 3);
   const wordSourceLabel = (word: typeof recentWords[number]) => word.chapterIndex !== undefined && word.paragraphIndex !== undefined
@@ -120,11 +121,11 @@ export function HomeScreen({ navigation }: Props) {
       ) : null}
 
       {current ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : '继续上次阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentCompleted ? '重读' : currentStarted ? '继续上次阅读' : '开始阅读'}：${current.title}`} onPress={() => openBook(current)} style={({ pressed }) => [styles.hero, pressed && styles.heroPressed]}>
           <LinearGradient colors={['#242520', '#171815']} style={StyleSheet.absoluteFill} />
           <View style={styles.heroCopy}>
             <View>
-              <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : '继续阅读'}</Text>
+              <Text style={styles.heroEyebrow}>{currentCompleted ? '已读完 · 重读' : currentStarted ? '继续阅读' : '开始阅读'}</Text>
               <Text numberOfLines={3} style={styles.heroTitle}>{current.title}</Text>
               <Text numberOfLines={1} style={styles.heroAuthor}>{current.author}</Text>
             </View>
@@ -133,7 +134,7 @@ export function HomeScreen({ navigation }: Props) {
               <View style={styles.progressMeta}>
                 <Text numberOfLines={1} style={styles.progressText}>{Math.round(current.progress * 100)}% · 第 {Math.min(current.currentChapter + 1, Math.max(1, current.chapterCount))}/{Math.max(1, current.chapterCount)} 章</Text>
                 <View style={styles.continuePill}>
-                  <Text style={styles.continueText}>{currentCompleted ? '重读' : '继续'}</Text>
+                  <Text style={styles.continueText}>{currentCompleted ? '重读' : currentStarted ? '继续' : '开始'}</Text>
                   <Ionicons name="arrow-forward" size={14} color={colors.ink} />
                 </View>
               </View>
@@ -175,12 +176,12 @@ export function HomeScreen({ navigation }: Props) {
           <Ionicons name="arrow-forward" size={18} color={colors.accent} />
         </Pressable>
       ) : statsEnabled && current && displayedTodayMinutes < preferences.dailyGoalMinutes ? (
-        <Pressable accessibilityRole="button" accessibilityLabel={`继续阅读，今日还差${formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)}分钟完成目标`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`${currentStarted ? '继续阅读' : '开始阅读'}，今日还差${formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)}分钟完成目标`} onPress={() => openBook(current)} style={({ pressed }) => [styles.nextAction, pressed && styles.heroPressed]}>
           <View style={styles.nextActionIcon}><Ionicons name="time-outline" size={20} color={colors.accent} /></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.nextActionEyebrow}>今天还可以读一会儿</Text>
-            <Text style={styles.nextActionTitle}>再读 {formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)} 分钟完成目标</Text>
-            <Text style={styles.nextActionBody}>从《{current.title}》的上次位置继续。</Text>
+            <Text style={styles.nextActionTitle}>{currentStarted ? '再读' : '阅读'} {formatMinutes(preferences.dailyGoalMinutes - displayedTodayMinutes)} 分钟完成目标</Text>
+            <Text style={styles.nextActionBody}>{currentStarted ? `从《${current.title}》的上次位置继续。` : `从《${current.title}》第一章开始。`}</Text>
           </View>
           <Ionicons name="arrow-forward" size={18} color={colors.accent} />
         </Pressable>
@@ -218,13 +219,20 @@ export function HomeScreen({ navigation }: Props) {
         <Pressable accessibilityRole="button" accessibilityLabel="查看全部书籍" onPress={() => navigation.navigate('Library')}><Text style={styles.link}>查看全部</Text></Pressable>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.bookRow}>
-        {recentBooks.map((book) => (
-          <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : '继续阅读'}《${book.title}》`} onPress={() => openBook(book)} style={styles.bookItem}>
-            <BookCover book={book} width={116} compact />
-            <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
-            <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format.toUpperCase()}</Text>
-          </Pressable>
-        ))}
+        {recentBooks.map((book) => {
+          const activity = readingSignals.find((signal) => signal.bookId === book.id);
+          const activityLabel = activity && (activity.minutes > 0 || activity.lookups > 0)
+            ? `，累计阅读 ${formatMinutes(activity.minutes)} 分钟，查词 ${activity.lookups} 次`
+            : '';
+          return (
+              <Pressable key={book.id} accessibilityRole="button" accessibilityLabel={`${book.progress >= 1 ? '重读' : book.progress > 0 || book.currentChapter > 0 || book.currentParagraph > 0 || (book.currentOffset ?? 0) > 0 ? '继续阅读' : '开始阅读'}《${book.title}》${activityLabel}`} onPress={() => openBook(book)} style={styles.bookItem}>
+              <BookCover book={book} width={116} compact />
+              <Text numberOfLines={2} style={styles.bookTitle}>{book.title}</Text>
+              <Text style={styles.bookProgress}>{Math.round(book.progress * 100)}% · {book.format === 'sample' ? '体验书' : book.format.toUpperCase()}</Text>
+              {activity && (activity.minutes > 0 || activity.lookups > 0) ? <Text numberOfLines={1} style={styles.bookActivity}>累计 {formatMinutes(activity.minutes)} 分钟 · 查词 {activity.lookups} 次</Text> : null}
+            </Pressable>
+          );
+        })}
         <Pressable accessibilityRole="button" accessibilityLabel="导入新书" onPress={handleImport} style={styles.importCard}>
           <View style={styles.importIcon}><Ionicons name="document-text-outline" size={25} color={colors.accent} /></View>
           <Text style={styles.importTitle}>导入新书</Text>
@@ -254,7 +262,7 @@ export function HomeScreen({ navigation }: Props) {
         <Ionicons name="shield-checkmark-outline" size={20} color={colors.sage} />
         <View style={{ flex: 1 }}>
           <Text style={styles.privacyTitle}>书籍留在你的设备</Text>
-          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
+          <Text style={styles.privacyBody}>书籍正文与阅读进度保存在设备；查词次数也只保存在设备，用于显示阅读足迹和本地推荐排序，不会上传；阅读统计可在设置中关闭。开启在线增强后，未收录单词与主动请求翻译的句子可能发送给第三方服务。</Text>
         </View>
       </View>
     </ScrollView>
@@ -316,6 +324,7 @@ const styles = StyleSheet.create({
   bookItem: { width: 116, gap: 7 },
   bookTitle: { color: colors.ink, fontSize: 13, fontWeight: '700', lineHeight: 17 },
   bookProgress: { color: colors.inkMuted, fontSize: 10, fontWeight: '600' },
+  bookActivity: { color: colors.sage, fontSize: 8, fontWeight: '700' },
   importCard: { width: 116, height: 168, backgroundColor: 'rgba(255,255,255,0.5)', borderWidth: 1, borderColor: colors.line, borderStyle: 'dashed', borderRadius: radii.medium, alignItems: 'center', justifyContent: 'center' },
   importIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   importTitle: { color: colors.ink, fontWeight: '700', fontSize: 12 },

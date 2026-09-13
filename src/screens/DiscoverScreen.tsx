@@ -8,6 +8,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PageHeader } from '../components/PageHeader';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
+import { InlineNotice } from '../components/InlineNotice';
 import { useApp } from '../context/AppContext';
 import { assessmentQuestions } from '../data/assessment';
 import { recommendedBookById, recommendedBooks } from '../data/recommendedBooks';
@@ -60,10 +61,13 @@ export function DiscoverScreen({ navigation }: Props) {
     readingSignals,
     togglePreferredGenre,
     toggleSavedRecommendedBook,
+    retryPersistence,
   } = useApp();
   const [browseLevel, setBrowseLevel] = useState<LanguageLevel>(recommendationState.profile?.level ?? 'B1');
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [savingBookId, setSavingBookId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [retryingSave, setRetryingSave] = useState(false);
   const [assessmentDraftExists, setAssessmentDraftExists] = useState(false);
   const savingBookRef = useRef<string | null>(null);
 
@@ -116,12 +120,22 @@ export function DiscoverScreen({ navigation }: Props) {
     setSavingBookId(bookId);
     try {
       await toggleSavedRecommendedBook(bookId);
+      setSaveError(null);
     } catch {
-      // The app shell exposes the persistence retry banner while keeping the
-      // optimistic recommendation state usable.
+      setSaveError('想读状态已更新到当前会话，但设备尚未保存。');
     } finally {
       savingBookRef.current = null;
       setSavingBookId(null);
+    }
+  };
+
+  const retrySave = async () => {
+    if (retryingSave) return;
+    setRetryingSave(true);
+    try {
+      if (await retryPersistence()) setSaveError(null);
+    } finally {
+      setRetryingSave(false);
     }
   };
 
@@ -137,13 +151,14 @@ export function DiscoverScreen({ navigation }: Props) {
           </Pressable>
         ) : undefined}
       />
+      {saveError ? <InlineNotice message={saveError} actionLabel={retryingSave ? '保存中…' : '重试保存'} onAction={() => void retrySave()} onDismiss={() => setSaveError(null)} /> : null}
 
       {!recommendationState.profile ? (
         <View style={styles.assessmentHero}>
           <View style={styles.assessmentIcon}><Ionicons name="sparkles" size={23} color={colors.accent} /></View>
           <Text style={styles.assessmentEyebrow}>先找到舒适起点</Text>
           <Text style={styles.assessmentTitle}>不知道该从哪一本开始？</Text>
-          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
+          <Text style={styles.assessmentBody}>{assessmentDraftExists ? '你有一份未完成的本地测试草稿，接着完成即可；答案不会上传。' : '完成约 5–8 分钟的本地测试，答案只保存在本机，不会上传；完成后获得 A1–C2 阅读等级。当前先展示 B1 示例推荐。'}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel={assessmentDraftExists ? '继续水平测试' : '开始水平测试'} onPress={() => navigation.navigate('LevelAssessment')} style={styles.assessmentButton}><Text style={styles.assessmentButtonText}>{assessmentDraftExists ? '继续水平测试' : '开始水平测试'}</Text><Ionicons name="arrow-forward" size={16} color="#fff" /></Pressable>
         </View>
       ) : (
@@ -151,7 +166,7 @@ export function DiscoverScreen({ navigation }: Props) {
           <View style={styles.profileLevel}><Text style={styles.profileLevelText}>{recommendationState.profile.level}</Text></View>
           <View style={{ flex: 1 }}>
             <Text style={styles.profileTitle}>{levelLabels[recommendationState.profile.level]}</Text>
-            <Text style={styles.profileBody}>适配分 {targetScore} · 推荐已结合测试结果{hasRecommendationReadingSignal(readingSignals, books) ? '和近期阅读' : ''}</Text>
+            <Text style={styles.profileBody}>阅读等级 {recommendationState.profile.level} · {levelLabels[recommendationState.profile.level]} · 推荐已结合测试结果{hasRecommendationReadingSignal(readingSignals, books) ? '和近期阅读' : ''}</Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={colors.sage} />
         </View>
@@ -161,7 +176,7 @@ export function DiscoverScreen({ navigation }: Props) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         {genreOptions.map((genre) => {
           const selected = recommendationState.preferredGenres.includes(genre);
-          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => undefined); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
+          return <Pressable key={genre} accessibilityRole="button" accessibilityLabel={`${selected ? '取消' : '选择'}兴趣：${genreLabels[genre]}`} accessibilityState={{ selected }} onPress={() => { void togglePreferredGenre(genre).catch(() => setSaveError('兴趣偏好已在当前会话更新，但设备尚未保存。')); }} style={[styles.genreChip, selected && styles.genreChipSelected]}><Text style={[styles.genreChipText, selected && styles.genreChipTextSelected]}>{genreLabels[genre]}</Text></Pressable>;
         })}
       </ScrollView>
 
@@ -201,7 +216,7 @@ export function DiscoverScreen({ navigation }: Props) {
               <RecommendedBookCover book={book} width={72} />
               <View style={styles.catalogCopy}>
                 <View style={styles.catalogTitleRow}><Text numberOfLines={2} style={styles.catalogTitle}>{book.title}</Text><Pressable accessibilityRole="button" accessibilityLabel={savingBookId === book.id ? '正在更新想读状态' : saved ? '移出想读' : '加入想读'} accessibilityState={{ selected: saved, disabled: savingBookId === book.id }} disabled={savingBookId === book.id} onPress={(event) => { event.stopPropagation(); void handleToggleSaved(book.id); }} style={savingBookId === book.id && styles.saveDisabled} hitSlop={10}><Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color={saved ? colors.accent : colors.inkMuted} /></Pressable></View>
-                <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · 难度 {book.difficulty}</Text>
+                <Text numberOfLines={1} style={styles.catalogMeta}>{book.author} · {book.level} {levelLabels[book.level]}</Text>
                 <Text numberOfLines={1} style={styles.catalogEdition}>{book.edition}</Text>
                 <Text numberOfLines={2} style={styles.catalogReason}>{book.fitReason}</Text>
               </View>

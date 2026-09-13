@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,19 +21,25 @@ const rows = [
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
+  const { books, words, preferences, updatePreferences, retryPersistence, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
   const { entryCount, dictionaryLoading, dictionaryUnavailable, retryDictionary } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
+  const backupBusyRef = useRef(false);
   const [privacyVisible, setPrivacyVisible] = useState(false);
   const [onlinePromptVisible, setOnlinePromptVisible] = useState(false);
   const [aboutVisible, setAboutVisible] = useState(false);
   const [resetVisible, setResetVisible] = useState(false);
   const [backupMessage, setBackupMessage] = useState<string | null>(null);
+  const [backupMessageTone, setBackupMessageTone] = useState<'success' | 'error'>('success');
+  const [backupRetryAction, setBackupRetryAction] = useState<'export' | 'restore' | null>(null);
   const [restorePayload, setRestorePayload] = useState<BackupPayload | null>(null);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
+  const [voiceErrorVoice, setVoiceErrorVoice] = useState<string | null>(null);
   const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
+  const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null);
+  const [retryingPreferences, setRetryingPreferences] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -53,12 +59,32 @@ export function SettingsScreen() {
 
   const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
 
+  const savePreferences = async (next: Parameters<typeof updatePreferences>[0]) => {
+    try {
+      await updatePreferences(next);
+      setPreferenceSaveError(null);
+    } catch {
+      setPreferenceSaveError('偏好已在当前会话更新，但设备尚未保存。');
+    }
+  };
+
+  const retryPreferenceSave = async () => {
+    if (retryingPreferences) return;
+    setRetryingPreferences(true);
+    try {
+      if (await retryPersistence()) setPreferenceSaveError(null);
+    } finally {
+      setRetryingPreferences(false);
+    }
+  };
+
   const openInfo = (title: string) => {
     if (title === '隐私说明') {
       setPrivacyVisible(true);
       return;
     }
     if (title === '开源项目') {
+      setLinkMessage(null);
       void Linking.openURL('https://github.com/Petey-PKU/shuyu').catch(() => setLinkMessage('暂时无法打开开源项目页面，请稍后重试。'));
       return;
     }
@@ -69,7 +95,8 @@ export function SettingsScreen() {
     if (voicePreviewing) return;
     setVoicePreviewing(voice);
     setVoiceMessage(null);
-    void updatePreferences({ speechVoice: voice }).catch(() => undefined);
+    setVoiceErrorVoice(null);
+    void savePreferences({ speechVoice: voice });
     try {
       const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
       if (voice === OFFLINE_VOICE_ID && provider === 'system-fallback') {
@@ -77,6 +104,7 @@ export function SettingsScreen() {
       }
     } catch {
       setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。');
+      setVoiceErrorVoice(voice);
     } finally {
       setVoicePreviewing(null);
     }
@@ -89,64 +117,77 @@ export function SettingsScreen() {
       setOnlinePromptVisible(true);
       return;
     }
-    void updatePreferences({ onlineSentenceTranslation: false }).catch(() => undefined);
+    void savePreferences({ onlineSentenceTranslation: false });
   };
 
   const enableOnlineTranslation = () => {
     setOnlinePromptVisible(false);
-    void updatePreferences({ onlineSentenceTranslation: true }).catch(() => undefined);
+    void savePreferences({ onlineSentenceTranslation: true });
+  };
+
+  const showBackupMessage = (message: string, tone: 'success' | 'error' = 'success', retryAction: 'export' | 'restore' | null = null) => {
+    setBackupMessageTone(tone);
+    setBackupRetryAction(retryAction);
+    setBackupMessage(message);
   };
 
   const handleExportBackup = async () => {
-    if (backupBusy) return;
+    if (backupBusy || backupBusyRef.current) return;
     if (Platform.OS === 'web') {
-      setBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。');
+      showBackupMessage('Web 预览不支持选择本地备份目录，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
+    backupBusyRef.current = true;
     setBackupBusy(true);
     try {
       const filename = await exportBackup();
       if (!filename) return;
-      setBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
+      showBackupMessage(`备份已保存：${filename}。请妥善保管；其中包含你导入的书籍正文。`);
     } catch (error) {
-      setBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`);
+      showBackupMessage(`备份未完成：${formatBackupOperationError(error, '请选择一个可写入的目录后重试')}`, 'error', 'export');
     } finally {
+      backupBusyRef.current = false;
       setBackupBusy(false);
     }
   };
 
   const handleRestoreBackup = async () => {
-    if (backupBusy) return;
+    if (backupBusy || backupBusyRef.current) return;
     if (Platform.OS === 'web') {
-      setBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。');
+      showBackupMessage('Web 预览不支持恢复本地备份，请在 Android 或 iOS 正式安装包中使用。', 'error');
       return;
     }
+    backupBusyRef.current = true;
     setBackupBusy(true);
     try {
       const payload = await pickBackup();
-      if (!payload) { setBackupBusy(false); return; }
+      if (!payload) { backupBusyRef.current = false; setBackupBusy(false); return; }
       setRestorePayload(payload);
+      backupBusyRef.current = false;
       setBackupBusy(false);
     } catch (error) {
+      backupBusyRef.current = false;
       setBackupBusy(false);
-      setBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`);
+      showBackupMessage(`无法读取备份：${formatBackupOperationError(error, '请选择书语生成的 JSON 备份文件')}`, 'error', 'restore');
     }
   };
 
   const confirmRestoreBackup = () => {
     const payload = restorePayload;
-    if (!payload || backupBusy) return;
+    if (!payload || backupBusy || backupBusyRef.current) return;
+    backupBusyRef.current = true;
     setRestorePayload(null);
     setBackupBusy(true);
     void restoreBackup(payload)
-      .then(() => setBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
-      .catch((error) => setBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`))
-      .finally(() => setBackupBusy(false));
+      .then(() => showBackupMessage('恢复完成：重新打开书架即可继续阅读。'))
+      .catch((error) => showBackupMessage(`恢复未完成：${formatBackupOperationError(error, '请检查备份文件后重试')}`, 'error', 'restore'))
+      .finally(() => { backupBusyRef.current = false; setBackupBusy(false); });
   };
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
       <PageHeader eyebrow="LOCAL FIRST" title="阅读偏好" />
+      {preferenceSaveError ? <InlineNotice message={preferenceSaveError} actionLabel={retryingPreferences ? '保存中…' : '重试保存'} onAction={() => void retryPreferenceSave()} onDismiss={() => setPreferenceSaveError(null)} /> : null}
       <Text style={styles.sectionLabel}>排版预览</Text>
       <View style={styles.preview}>
         <Text style={[styles.previewText, { fontSize: preferences.fontSize, lineHeight: preferences.lineHeight }]}>Stories let us travel without leaving the quiet of a room.</Text>
@@ -156,8 +197,8 @@ export function SettingsScreen() {
         <View style={styles.settingRow}>
           <View><Text style={styles.settingTitle}>正文字号</Text><Text style={styles.settingCaption}>{preferences.fontSize}px</Text></View>
           <View style={styles.stepper}>
-            <Pressable accessibilityRole="button" accessibilityLabel="减小字号" accessibilityState={{ disabled: preferences.fontSize <= 16 }} disabled={preferences.fontSize <= 16} onPress={() => { void updatePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) }).catch(() => undefined); }} style={[styles.step, preferences.fontSize <= 16 && styles.stepDisabled]}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="增大字号" accessibilityState={{ disabled: preferences.fontSize >= 25 }} disabled={preferences.fontSize >= 25} onPress={() => { void updatePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) }).catch(() => undefined); }} style={[styles.step, preferences.fontSize >= 25 && styles.stepDisabled]}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="减小字号" accessibilityState={{ disabled: preferences.fontSize <= 16 }} disabled={preferences.fontSize <= 16} onPress={() => { void savePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) }); }} style={[styles.step, preferences.fontSize <= 16 && styles.stepDisabled]}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="增大字号" accessibilityState={{ disabled: preferences.fontSize >= 25 }} disabled={preferences.fontSize >= 25} onPress={() => { void savePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) }); }} style={[styles.step, preferences.fontSize >= 25 && styles.stepDisabled]}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
           </View>
         </View>
         <View style={styles.divider} />
@@ -165,7 +206,7 @@ export function SettingsScreen() {
           <View><Text style={styles.settingTitle}>每日阅读目标</Text><Text style={styles.settingCaption}>完成目标后仍可继续阅读</Text></View>
           <View style={styles.goalChoices}>
             {[10, 15, 20, 30].map((minutes) => (
-              <Pressable accessibilityRole="button" accessibilityLabel={`每日${minutes}分钟`} accessibilityState={{ selected: preferences.dailyGoalMinutes === minutes }} key={minutes} onPress={() => { void updatePreferences({ dailyGoalMinutes: minutes }).catch(() => undefined); }} style={[styles.goalChoice, preferences.dailyGoalMinutes === minutes && styles.goalChoiceSelected]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`每日${minutes}分钟`} accessibilityState={{ selected: preferences.dailyGoalMinutes === minutes }} key={minutes} onPress={() => { void savePreferences({ dailyGoalMinutes: minutes }); }} style={[styles.goalChoice, preferences.dailyGoalMinutes === minutes && styles.goalChoiceSelected]}>
                 <Text style={[styles.goalChoiceText, preferences.dailyGoalMinutes === minutes && styles.goalChoiceTextSelected]}>{minutes}分</Text>
               </Pressable>
             ))}
@@ -176,7 +217,7 @@ export function SettingsScreen() {
           <View><Text style={styles.settingTitle}>阅读主题</Text><Text style={styles.settingCaption}>纸张、明亮或夜间</Text></View>
           <View style={styles.swatches}>
             {(['paper', 'white', 'night'] as const).map((theme) => (
-              <Pressable accessibilityRole="button" accessibilityLabel={theme === 'paper' ? '纸张主题' : theme === 'white' ? '明亮主题' : '夜间主题'} accessibilityState={{ selected: preferences.theme === theme }} key={theme} onPress={() => { void updatePreferences({ theme }).catch(() => undefined); }} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={theme === 'paper' ? '纸张主题' : theme === 'white' ? '明亮主题' : '夜间主题'} accessibilityState={{ selected: preferences.theme === theme }} key={theme} onPress={() => { void savePreferences({ theme }); }} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
                 {preferences.theme === theme ? <Ionicons name="checkmark" size={14} color={theme === 'night' ? '#fff' : colors.ink} /> : null}
               </Pressable>
             ))}
@@ -199,7 +240,7 @@ export function SettingsScreen() {
           <Switch
             accessibilityLabel="记录阅读统计"
             value={preferences.readingStatsEnabled !== false}
-            onValueChange={(value) => { void updatePreferences({ readingStatsEnabled: value }).catch(() => undefined); }}
+            onValueChange={(value) => { void savePreferences({ readingStatsEnabled: value }); }}
             trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
             thumbColor={preferences.readingStatsEnabled !== false ? colors.accent : '#F8F7F3'}
           />
@@ -215,7 +256,8 @@ export function SettingsScreen() {
           </Pressable>
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
-        {voiceMessage ? <InlineNotice message={voiceMessage} onDismiss={() => setVoiceMessage(null)} /> : null}
+        {voiceMessage ? <InlineNotice message={voiceMessage} actionLabel={voiceErrorVoice ? '重试试听' : undefined} onAction={voiceErrorVoice ? () => void chooseVoice(voiceErrorVoice) : undefined} onDismiss={() => { setVoiceMessage(null); setVoiceErrorVoice(null); }} /> : null}
+        <Text style={styles.voicePrivacy}>书语自带的 Android 音色完全离线；系统音色是否联网由设备、语音引擎和你安装的音色决定。</Text>
       </View>
 
       <Text style={styles.sectionLabel}>项目</Text>
@@ -227,7 +269,7 @@ export function SettingsScreen() {
             {'status' in row ? <Text style={styles.readyBadge}>{dictionaryUnavailable ? '重试' : dictionaryLoading ? '加载中' : entryCount ? row.status : 'Web'}</Text> : <Ionicons name="chevron-forward" size={17} color={colors.inkMuted} />}
           </Pressable>
         ))}
-        {linkMessage ? <InlineNotice message={linkMessage} onDismiss={() => setLinkMessage(null)} /> : null}
+        {linkMessage ? <InlineNotice message={linkMessage} actionLabel="重试打开" onAction={() => openInfo('开源项目')} onDismiss={() => setLinkMessage(null)} /> : null}
       </View>
       <Text style={styles.sectionLabel}>本地备份</Text>
       <View style={styles.backupCard}>
@@ -242,11 +284,12 @@ export function SettingsScreen() {
           </Pressable>
         </View>
         {backupMessage ? (
-          <Pressable accessibilityRole="alert" accessibilityLabel="关闭备份提示" onPress={() => setBackupMessage(null)} style={styles.backupMessage}>
-            <Ionicons name="information-circle-outline" size={17} color={colors.accent} />
-            <Text style={styles.backupMessageText}>{backupMessage}</Text>
-            <Ionicons name="close" size={16} color={colors.inkMuted} />
-          </Pressable>
+          <View accessibilityRole="alert" style={[styles.backupMessage, backupMessageTone === 'error' && styles.backupMessageError]}>
+            <Ionicons name={backupMessageTone === 'error' ? 'alert-circle-outline' : 'information-circle-outline'} size={17} color={backupMessageTone === 'error' ? colors.danger : colors.accent} />
+            <Text style={[styles.backupMessageText, backupMessageTone === 'error' && styles.backupMessageErrorText]}>{backupMessage}</Text>
+            {backupRetryAction ? <Pressable accessibilityRole="button" accessibilityLabel={backupRetryAction === 'export' ? '重试导出备份' : '重试读取备份'} onPress={() => void (backupRetryAction === 'export' ? handleExportBackup() : handleRestoreBackup())} style={styles.backupRetry}><Text style={styles.backupRetryText}>重试</Text></Pressable> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel="关闭备份提示" onPress={() => { setBackupMessage(null); setBackupRetryAction(null); }} hitSlop={8} style={styles.backupClose}><Ionicons name="close" size={16} color={colors.inkMuted} /></Pressable>
+          </View>
         ) : null}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel="清除全部本地数据" accessibilityState={{ disabled: backupBusy }} disabled={backupBusy} onPress={confirmReset} style={[styles.dangerButton, backupBusy && styles.backupDisabled]}><Text style={styles.dangerText}>清除全部本地数据</Text></Pressable>
@@ -277,7 +320,7 @@ export function SettingsScreen() {
             </View>
             <Text style={styles.infoBody}>书籍正文、阅读进度、生词和学习统计默认只保存在此设备。</Text>
             <Text style={styles.infoBody}>如果不想新增阅读分钟、连续天数和趋势记录，可以在上方关闭“记录阅读统计”；已有统计不会被删除。</Text>
-            <Text style={styles.infoBody}>这个开关不影响查词和复习；查词次数仍只用于设备上的推荐排序，不会上传。</Text>
+            <Text style={styles.infoBody}>这个开关不影响查词和复习；查词次数会保存在设备，用于显示阅读足迹和本地推荐排序，不会上传。</Text>
             <Text style={styles.infoBody}>{Platform.OS === 'web' ? `Web 预览内置约 ${entryCount.toLocaleString()} 个高频词；关闭在线增强时，未收录单词使用本地兜底，开启后才会尝试发送给第三方词典服务。正式安装包优先使用完整本地词典。` : '正式安装包优先使用离线词典在本地查词。开启在线翻译增强后，未收录的单词才会尝试发送给第三方词典服务。'}</Text>
             <Text style={styles.infoBody}>当前翻译策略：{getTranslationProviderSummary()}。</Text>
             <Text style={styles.infoBody}>整句翻译始终需要你在单词卡片中主动点击“获取整句翻译”；点击后，当前句子可能发送给第三方翻译服务。</Text>
@@ -293,7 +336,7 @@ export function SettingsScreen() {
               <View style={styles.resetIcon}><Ionicons name="warning-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>清除全部本地数据？</Text>
             </View>
-            <Text style={styles.infoBody}>书籍、阅读进度、生词、统计和偏好都会从这台设备永久删除。</Text>
+            <Text style={styles.infoBody}>你导入的书籍、阅读进度、生词、统计和偏好都会从这台设备永久删除。重新开始后，书语可能重新生成一本不含个人数据的内置体验书。</Text>
             <Text style={styles.infoBody}>如果你还没有备份，请先取消并导出本地备份。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认清除全部本地数据" onPress={() => { setResetVisible(false); void resetAll(); }} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>全部清除</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消清除本地数据" onPress={() => setResetVisible(false)} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
@@ -321,8 +364,8 @@ export function SettingsScreen() {
               <View style={styles.resetIcon}><Ionicons name="cloud-upload-outline" size={20} color={colors.danger} /></View>
               <Text accessibilityRole="header" style={styles.infoTitle}>覆盖当前本地数据？</Text>
             </View>
-            {restorePayload ? <Text style={styles.infoBody}>备份时间：{new Date(restorePayload.exportedAt).toLocaleString()}\n包含 {restorePayload.books.length} 本书和 {restorePayload.words.length} 个生词。</Text> : null}
-            <Text style={styles.infoBody}>当前书架与学习记录会被替换。恢复前请确认这份备份来自你信任的设备。</Text>
+            {restorePayload ? <Text style={styles.infoBody}>备份时间：{new Date(restorePayload.exportedAt).toLocaleString()}\n包含 {restorePayload.books.length} 本书和 {restorePayload.words.length} 个生词。\n当前设备有 {books.length} 本书和 {words.length} 个生词。</Text> : null}
+            <Text style={styles.infoBody}>恢复会替换当前书架与学习记录。恢复前请确认这份备份来自你信任的设备，并确认上面的数量符合预期。</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="确认恢复本地备份" onPress={confirmRestoreBackup} style={styles.resetConfirm}><Text style={styles.resetConfirmText}>恢复备份</Text></Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="取消恢复本地备份" onPress={() => { setRestorePayload(null); setBackupBusy(false); }} style={styles.infoClose}><Text style={styles.infoCloseText}>取消</Text></Pressable>
           </Pressable>
@@ -347,6 +390,7 @@ const styles = StyleSheet.create({
   selectedVoiceRow: { backgroundColor: colors.accentSoft },
   voiceDisabled: { opacity: 0.58 },
   voicePreviewLabel: { color: colors.accent, fontSize: 10, fontWeight: '800' },
+  voicePrivacy: { color: colors.inkMuted, fontSize: 10, lineHeight: 16, paddingHorizontal: 18, paddingVertical: 12 },
   voiceEmpty: { paddingHorizontal: 18, paddingVertical: 18 },
   stepper: { flexDirection: 'row', gap: 8 },
   step: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
@@ -389,5 +433,10 @@ const styles = StyleSheet.create({
   onlineConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   resetConfirmText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   backupMessage: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 13, backgroundColor: colors.accentSoft, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backupMessageError: { backgroundColor: 'rgba(217,95,89,0.1)' },
   backupMessageText: { flex: 1, color: colors.inkMuted, fontSize: 10, lineHeight: 16 },
+  backupMessageErrorText: { color: colors.danger },
+  backupRetry: { minHeight: 30, paddingHorizontal: 9, borderRadius: radii.pill, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
+  backupRetryText: { color: colors.danger, fontSize: 10, fontWeight: '800' },
+  backupClose: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center' },
 });

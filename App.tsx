@@ -5,7 +5,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { DictionaryProvider } from './src/context/DictionaryContext';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -69,7 +69,7 @@ function RecoveryResetModal({ visible, onClose, onConfirm }: { visible: boolean;
       <Pressable style={styles.recoveryModalBackdrop} onPress={onClose}>
         <Pressable accessibilityViewIsModal style={styles.recoveryModalCard} onPress={(event) => event.stopPropagation()}>
           <Text accessibilityRole="header" style={styles.recoveryModalTitle}>清除本地数据？</Text>
-          <Text style={styles.recoveryModalBody}>这会删除书籍、阅读进度、生词、统计和偏好。无法读取当前数据时，先尝试从备份恢复。</Text>
+          <Text style={styles.recoveryModalBody}>这会删除你导入的书籍、阅读进度、生词、统计和偏好。重新开始后，书语可能重新生成一本不含个人数据的内置体验书；无法读取当前数据时，先尝试从备份恢复。</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="确认清除并重新开始" onPress={onConfirm} style={styles.recoveryConfirm}><Text style={styles.recoveryConfirmText}>清除并重新开始</Text></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel="取消清除本地数据" onPress={onClose} style={styles.recoveryCancel}><Text style={styles.recoveryCancelText}>取消</Text></Pressable>
         </Pressable>
@@ -79,6 +79,7 @@ function RecoveryResetModal({ visible, onClose, onConfirm }: { visible: boolean;
 }
 
 function AppShell() {
+  const insets = useSafeAreaInsets();
   const { ready, storageActivity, storageNotice, dismissStorageNotice, startupError, retryLoad, pickBackup, restoreBackup, resetAll, importStatus, cancelImport, persistenceError, persistenceRetrying, retryPersistence } = useApp();
   const [recoveryResetVisible, setRecoveryResetVisible] = useState(false);
   const [recoveryBusy, setRecoveryBusy] = useState(false);
@@ -98,6 +99,19 @@ function AppShell() {
     }
   };
 
+  const retryStartupLoad = () => {
+    if (recoveryBusy) return;
+    setRecoveryMessage(null);
+    void retryLoad();
+  };
+
+  const resetFromRecovery = () => {
+    if (recoveryBusy) return;
+    setRecoveryMessage(null);
+    setRecoveryResetVisible(false);
+    void resetAll();
+  };
+
   if (!ready) {
     return (
       <>
@@ -109,13 +123,13 @@ function AppShell() {
             <Text accessibilityRole="alert" style={styles.recoveryTitle}>本地数据未能读取</Text>
             <Text style={styles.recoveryBody}>{startupError}</Text>
             {recoveryMessage ? <Text accessibilityRole="alert" style={styles.recoveryError}>{recoveryMessage}</Text> : null}
-            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" onPress={() => void retryLoad()} style={styles.retryButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="重新读取本地数据" accessibilityState={{ disabled: recoveryBusy }} disabled={recoveryBusy} onPress={retryStartupLoad} style={[styles.retryButton, recoveryBusy && styles.recoveryDisabled]}>
               <Text style={styles.retryText}>重新读取</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="从本地备份恢复" disabled={recoveryBusy} onPress={() => void recoverFromBackup()} style={[styles.recoverySecondary, recoveryBusy && styles.recoveryDisabled]}>
-              <Text style={styles.recoverySecondaryText}>{recoveryBusy ? '恢复中…' : '从备份恢复'}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={recoveryBusy ? '正在恢复本地备份' : recoveryMessage ? '重试恢复本地备份' : '从本地备份恢复'} disabled={recoveryBusy} onPress={() => void recoverFromBackup()} style={[styles.recoverySecondary, recoveryBusy && styles.recoveryDisabled]}>
+              <Text style={styles.recoverySecondaryText}>{recoveryBusy ? '恢复中…' : recoveryMessage ? '重试恢复' : '从备份恢复'}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="清除本地数据并重新开始" onPress={() => setRecoveryResetVisible(true)} style={styles.recoveryDestructive}>
+            <Pressable accessibilityRole="button" accessibilityLabel="清除本地数据并重新开始" accessibilityState={{ disabled: recoveryBusy }} disabled={recoveryBusy} onPress={() => setRecoveryResetVisible(true)} style={[styles.recoveryDestructive, recoveryBusy && styles.recoveryDisabled]}>
               <Text style={styles.recoveryDestructiveText}>清除并重新开始</Text>
             </Pressable>
           </View>
@@ -124,7 +138,7 @@ function AppShell() {
           {storageActivity === 'restore' ? <Text style={styles.recoveryBody}>正在恢复备份，请保持应用打开…</Text> : storageActivity === 'reset' ? <Text style={styles.recoveryBody}>正在清除本地数据，请保持应用打开…</Text> : null}
         </>}
       </View>
-      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={() => { setRecoveryResetVisible(false); void resetAll(); }} />
+      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={resetFromRecovery} />
       </>
     );
   }
@@ -143,6 +157,7 @@ function AppShell() {
       </NavigationContainer>
       </View>
       <ImportOverlay status={importStatus} onCancel={cancelImport} />
+      {storageNotice || persistenceError ? <View style={[styles.storageFeedback, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       {storageNotice ? <InlineNotice tone="success" message={storageNotice} onDismiss={dismissStorageNotice} style={styles.storageNotice} /> : null}
       {persistenceError ? <View accessibilityRole="alert" style={styles.persistenceBanner}>
         <View style={styles.persistenceCopy}>
@@ -153,12 +168,13 @@ function AppShell() {
           <Text style={styles.persistenceButtonText}>{persistenceRetrying ? '保存中…' : '重试'}</Text>
         </Pressable>
       </View> : null}
+      </View> : null}
       {storageActivity === 'export' ? <View accessibilityViewIsModal style={styles.storageOverlay}>
         <ActivityIndicator color={colors.accent} accessibilityLabel="正在准备本地备份" />
         <Text style={styles.recoveryBody}>正在准备备份，请保持应用打开…</Text>
       </View> : null}
       <StatusBar style="dark" />
-      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={() => { setRecoveryResetVisible(false); void resetAll(); }} />
+      <RecoveryResetModal visible={recoveryResetVisible} onClose={() => setRecoveryResetVisible(false)} onConfirm={resetFromRecovery} />
     </>
   );
 }
@@ -177,8 +193,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   storageOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, backgroundColor: 'rgba(252,250,246,0.96)', alignItems: 'center', justifyContent: 'center' },
-  persistenceBanner: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 110, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
-  storageNotice: { position: 'absolute', left: 14, right: 14, bottom: 92, zIndex: 108, marginHorizontal: 0, marginTop: 0 },
+  storageFeedback: { paddingHorizontal: 14, paddingTop: 8, gap: 8, backgroundColor: colors.canvas, zIndex: 110 },
+  persistenceBanner: { borderRadius: 18, paddingHorizontal: 15, paddingVertical: 12, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', gap: 12, shadowColor: '#1F211E', shadowOpacity: 0.2, shadowRadius: 14, shadowOffset: { width: 0, height: 5 }, elevation: 14 },
+  storageNotice: { marginHorizontal: 0, marginTop: 0 },
   persistenceCopy: { flex: 1 },
   persistenceTitle: { color: '#fff', fontSize: 12, fontWeight: '800' },
   persistenceBody: { color: 'rgba(255,255,255,0.72)', fontSize: 10, lineHeight: 15, marginTop: 3 },

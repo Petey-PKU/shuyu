@@ -26,7 +26,7 @@ export function createPersistenceTracker(onChange: (state: PersistenceState) => 
   const active = new Set<Promise<void>>();
   let revision = 0;
   let generation = 0;
-  let retryRun: Promise<void> | null = null;
+  let retryRun: Promise<boolean> | null = null;
 
   const publish = () => {
     const failures = [...pending.values()];
@@ -62,9 +62,9 @@ export function createPersistenceTracker(onChange: (state: PersistenceState) => 
     return task.finally(() => { active.delete(task); });
   };
 
-  const retryAll = (): Promise<void> => {
+  const retryAll = (): Promise<boolean> => {
     if (retryRun) return retryRun;
-    if (!pending.size) return Promise.resolve();
+    if (!pending.size) return Promise.resolve(true);
     const epoch = generation;
     const failures = [...pending.entries()];
     // Defer execution so the synchronous lock is installed before callbacks publish state.
@@ -78,6 +78,7 @@ export function createPersistenceTracker(onChange: (state: PersistenceState) => 
           // Keep this failure, update its reason, and still try the other pending writes.
         }
       }
+      return pending.size === 0;
     }).finally(() => {
       retryRun = null;
       publish();

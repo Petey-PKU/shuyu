@@ -1,5 +1,206 @@
 # 书语持续迭代记录
 
+## 2026-09-13 隔离启动恢复与重置的错误状态
+
+- 启动页备份恢复失败后改选“清除并重新开始”时，旧错误提示原先可能残留到新的恢复流程。
+- 现在切换到重置操作前会清理旧提示，用户看到的错误只对应当前启动动作。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 统一复习与生词本的朗读重试
+
+- 复习和生词本的朗读失败原先只有说明文字，用户需要重新定位当前词条才能重试。
+- 现在失败提示会记住当前词并提供“重试朗读”，并用请求序列忽略旧朗读结果，避免快速点词后错误提示错位。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为阅读器朗读失败补上直接重试
+
+- 阅读器朗读失败时原先只有音量和系统音色说明，用户需要重新找到当前页或单词才能再次尝试。
+- 现在失败提示会记住刚才的朗读内容并提供“重试朗读”；系统音色回退仍只显示替代方案说明。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为音色试听失败补上直接重试
+
+- 音色试听失败时原先只有设备音量和系统音色说明，用户需要重新寻找对应音色才能重试。
+- 现在失败提示会记住对应音色并提供“重试试听”；系统音色回退仍保持说明性提示，不误报为可重试错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为开源项目链接补上直接重试
+
+- 设置页开源项目链接打开失败时原先只有错误提示和关闭按钮，用户需要重新找到项目入口才能重试。
+- 现在提示直接提供“重试打开”，再次尝试前会清理旧错误状态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 修正无到期词时的复习空状态
+
+- 复习页没有到期词时原先仍显示“本轮已完成”和“复习了 0 个词”，用户难以判断是完成了复习还是当前没有任务。
+- 现在明确显示“现在没有到期词”，并引导用户继续阅读后再回来。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 在音色选择处补齐隐私边界
+
+- 系统音色是否联网原先只在隐私文档中说明，设置页选择音色时用户看不到这项影响。
+- 现在音色列表下直接说明自带 Android 音色完全离线，系统音色由设备、语音引擎和安装的音色决定是否联网。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 明确启动恢复的重试动作
+
+- 启动页从备份恢复失败后，原按钮仍显示“从备份恢复”，用户看不出下一步就是重新执行恢复；重新读取时旧恢复错误也可能留在页面上。
+- 现在失败后按钮显示“重试恢复”，重新读取会清理旧恢复提示，启动故障处理路径的状态更加准确。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 隔离书架不同操作的错误提示
+
+- 书架导入、编辑和删除原先共用错误类型，成功完成一个动作时可能隐藏另一个动作留下的失败提示。
+- 现在按导入、元数据保存和删除分别记录提示来源，各操作只清理自己的错误状态，用户不会因后续操作误以为所有问题都已解决。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 避免书架操作互相清理错误提示
+
+- 书籍信息保存成功时原先会无条件清理顶部提示，可能把仍需处理的导入失败提示一起隐藏。
+- 现在只在顶部提示属于书籍保存失败时清理，导入、删除等其它操作的反馈不会被无关成功操作覆盖。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 清理书架编辑的过期保存失败提示
+
+- 书架编辑保存失败后，用户虽然可以再次点击保存，但按钮没有明确说明这是恢复动作；成功后顶部错误提示也可能残留。
+- 现在失败后按钮显示“重试保存”，成功重试会清除旧提示，取消编辑也会清理失败状态。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为备份失败提示补上直接重试
+
+- 备份失败虽然保留了可再次点击的按钮，但提示本身没有动作，用户需要自己回到页面寻找下一步。
+- 现在错误提示会根据失败阶段提供“重试导出”或“重试读取”，关闭提示也有独立按钮，不会误触消失。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 区分备份操作成功与失败提示
+
+- 备份导出、读取和恢复原先都使用同一种中性提示样式，数据操作失败不够醒目。
+- 现在失败状态使用错误图标与颜色，成功状态保留说明样式，用户能快速判断是否需要重试。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 避免并发数据提示互相遮挡
+
+- 导入恢复成功提示和本地保存失败提示原先使用相同底部位置，两个状态同时发生时后者会遮住前者。
+- 现在成功提示会在存在保存失败时上移，恢复结果和待重试风险可以同时被用户看到。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 补齐首页首次使用的查词隐私说明
+
+- 首页隐私提示原先说明了书籍、进度和在线翻译，但没有明确查词次数的用途与边界。
+- 现在直接说明查词次数只用于设备上的推荐排序，不会上传；在线增强的第三方发送范围仍单独列出。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 明确清除数据后体验书的边界
+
+- 清除全部本地数据后启动流程会重新生成内置体验书，但确认文案原先只说“书籍永久删除”，用户可能误以为重置失败。
+- 现在明确说明用户导入书籍和学习数据会删除，重新开始时出现的体验书不含个人数据。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 复习结果未保存时保护退出路径
+
+- 复习结果写入失败后，用户原先仍可直接退出，当前卡片上下文会消失，容易误以为选择已经完成。
+- 现在退出会先说明结果尚未保存，提供“重试保存”或“稍后处理”；选择稍后离开时待写入状态仍保留在本机。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让移除生词失败可以原地重试
+
+- 移除生词的本地写入失败时，确认框原先会关闭，只留下页面顶部提示；用户需要重新找到词条才能继续处理。
+- 现在保留词条上下文，在确认框内显示失败原因并提供“重试移除”，成功后清理旧提示，取消则明确保留词条。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让删除书籍失败可以原地重试
+
+- 删除书籍的本地写入失败时，确认框原先会关闭，只留下没有直接操作的错误提示；用户需要重新寻找书籍才能继续处理。
+- 现在保留删除上下文，在确认框内显示失败原因并把主操作改为“重试删除”，取消则明确保留书籍。
+- 重试成功后会清理旧错误提示，书架不会继续显示已经解决的删除失败。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让阅读器排版设置保存失败可见
+
+- 阅读器内调整字号、行距或主题后，设备写入失败原先会被静默忽略；用户当下看到设置生效，重启后却可能恢复旧排版。
+- 现在失败会进入阅读器已有的保存提示和重试队列，当前会话继续可读，重试成功后才清除提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让查词次数记录失败可见
+
+- 点词时的查词次数写入失败原先被静默忽略；用户仍能查词，但首页足迹和推荐排序可能少一次记录。
+- 现在阅读器把查词记录失败纳入同一保存提示和重试队列，当前会话继续可用，落盘失败不会悄悄发生。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让阅读统计保存失败也可见
+
+- 阅读分钟和读词数在离开页面或定时刷新时写入失败，原先错误被静默忽略，用户无法判断首页统计是否已经更新。
+- 现在阅读器沿用进度保存提示显示统计未落盘，并提供同一个“重试保存”入口。
+- 复核时将进度与统计错误状态分开，后续一次进度写入成功不会误清除仍待保存的统计失败。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让阅读位置保存失败在正文页可恢复
+
+- 阅读器进度写入失败时原先主要依赖底部全局横幅，用户仍在正文页无法确认上次位置是否已经保存。
+- 现在正文页明确提示当前位置仅在当前会话更新，并提供“重试保存”；重试成功后才清除提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让设置偏好保存失败可见且可恢复
+
+- 设置页的字号、主题、目标、联网增强、统计开关和音色写入失败时原先主要依赖全局横幅，用户在当前页面无法确认偏好是否已落盘。
+- 现在统一显示当前会话状态，并提供“重试保存”；成功后才清除提示，隐私与阅读偏好不会静默失去反馈。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 明确提示发现页兴趣偏好保存失败
+
+- 兴趣标签原先只更新当前会话，设备写入失败时错误被静默吞掉；标签仍显示选中，用户无法判断重启后是否保留。
+- 现在失败会在发现页显示提示，并复用已有“重试保存”入口清理持久化失败。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 让水平测试结果页可恢复保存失败
+
+- 水平测试最后一步若等级结果写入失败，结果页原先只剩全局提示；用户看到等级后无法在当前页面确认或重试。
+- 结果页现在保留会话中的等级，同时提供“重试保存”；持久化队列成功后才清除提示，避免把临时结果误当成永久保存。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为发现页快速收藏补上保存恢复
+
+- 发现页卡片和目录的快速“想读”按钮原先保存失败后只依赖全局横幅，用户不容易知道刚才的收藏是否落盘。
+- 现在发现页就地显示失败原因并提供“重试保存”，复用持久化队列的真实成功结果。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享浏览器回归和 Android bundle 导出在提交前执行。
+
+## 2026-09-13 为推荐收藏与难度反馈补上就地重试
+
+- 推荐详情页原先能显示保存失败，但没有直接重试入口；用户的“想读”选择或难度判断只能依赖全局提示。
+- 现在失败提示提供“重试保存”，复用持久化队列的真实成功结果；失败继续保留，成功才清除提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；共享查词收藏浏览器回归和 Android bundle 导出会在本轮提交前再次执行。
+
+## 2026-09-13 补齐生词本操作失败后的就地恢复
+
+- 标记掌握或移除生词的写入失败时，列表会先保留当前会话变化，但页面没有直接的恢复入口，用户只能寻找底部全局提示。
+- 生词本现在显示保留会话状态的说明，并提供“重试保存”；持久化队列全部成功后才清除提示，仍失败会继续留在当前页。
+- 复用持久化成功返回值，并通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check` 验证；Android 真机存储故障仍需按验收清单验证。
+
+## 2026-09-13 保留未保存的复习结果并支持卡片内重试
+
+- 复习提交失败时原先仍会推进计数并移除当前卡片，用户看到“本轮完成”却无法确认结果是否落盘。
+- 现在保留原卡片和“记住了/再看看”的选择，直接提供“重试保存”；只有待写入队列清空后才推进下一题，失败会继续停留在当前卡片。
+- 复用持久化队列的成功返回值，并通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check` 验证；Android 真机存储故障仍需按验收清单验证。
+
+## 2026-09-13 让收藏失败可以在查词卡片内恢复
+
+- 收藏写入失败时，生词已先留在当前会话中，原界面只能提示稍后重试；收藏按钮又因乐观状态被禁用，用户必须关闭查词卡片寻找底部全局重试。
+- 查词卡片现在提供明确的“重试保存”按钮；持久化队列返回所有待写入项是否完成，只有真正清空失败队列才显示成功，失败仍保留错误提示。
+- 通过 `npm run typecheck`、`npm run test:in-process`（含部分成功与继续失败的持久化回归）、浏览器查词收藏回归、Android `--no-bytecode` JavaScript bundle 导出及 `git diff --check`；未将 bundle 当作真机验收。
+
+## 2026-09-13 保留扫描 PDF OCR 的文件识别上下文
+
+- OCR 进度回调原先会重建导入状态，导致文件名消失、计时从进度阶段重新开始；长时间识别时用户难以确认任务对象和耗时。
+- 现在每次进度更新都保留已选文件名、原始开始时间和取消状态；纯逻辑回归覆盖首个进度、跳页和取消中的连续更新。
+- 通过 `npm run typecheck`、`npm run test:in-process`、`git diff --check`；Android 真机 OCR 仍需按验收清单执行。
+
+## 2026-09-13 补齐跨书籍收藏的界面判断与浏览器回归
+
+- 上轮仅修正保存去重，阅读器仍按“单词 + 原句”禁用收藏按钮。两本书含相同句子时，第二本书依然无法收藏；本轮先用独立浏览器和合成数据复现该失败。
+- 阅读器与保存操作现在共用“书籍 ID + 单词 + 原句”判断，避免界面与数据规则不一致；补充书籍重名、改名、大小写、不同原句和移除来源的回归校验。
+- 同一浏览器脚本在修复前因第二本书按钮被禁用而失败，修复后通过：跨书籍保存、同书重复收藏限制、重新加载后两个来源保留、来源导航及已收藏状态恢复。检查了移动尺寸截图，全程没有外部请求或浏览器运行错误。
+- 通过 `npm run typecheck`、`npm run test:in-process`、Web 导出及 Android `--no-bytecode` JavaScript bundle 导出；以上不替代 Android 真机验收。
+
 ## 2026-09-13 让未完成阅读目标变成行动
 
 - 首页原先只有到期生词时才出现明确行动卡；没有到期词但今日阅读目标未完成时，用户只能看到分钟数字。
@@ -1065,3 +1266,272 @@
 - `git diff --check`
 - `npx expo export --platform web --output-dir dist-web`
 - `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 每本书显示阅读足迹
+
+- 首页最近书页使用已有本地阅读记录，补充每本书的累计阅读分钟与查词次数。
+- 书籍没有活动记录时不增加空白信息；有记录时卡片和读屏标签都能直接说明投入。
+- 目的：把全局统计连接到具体书籍，帮助用户判断哪本书最适合继续学习。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 生词本优先展示到期词
+
+- 学习中列表把到期词置顶，未来复习词按下次复习时间排序。
+- 已掌握列表按最近复习时间排序，搜索仍在排序后的结果上工作。
+- 目的：用户打开生词本即可看到当前最需要处理的词，减少滚动和记忆负担。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 保留跨书籍相同句子的生词来源
+
+- 生词收藏去重从“单词 + 原句”扩展为“书籍 + 单词 + 原句”。
+- 同一句话在不同书籍中出现时，会分别保留各自的书籍来源和回到原文位置。
+- 目的：避免用户在多本书学习时收藏成功却找不到第二个来源。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 加固导入恢复标记
+
+- 导入正文后写入待恢复标记失败时自动重试一次。
+- 两次写入都失败时清理本次正文并返回中文重试提示，避免没有恢复标记却继续写入不完整书架状态。
+- 目的：让导入失败路径与“下次启动可恢复”的承诺保持一致，避免用户误以为书籍已安全保存。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 恢复备份前显示覆盖范围
+
+- 恢复确认框同时显示备份内和当前设备的书籍、生词数量。
+- 文案明确说明恢复会替换当前书架与学习记录，并要求用户核对数量。
+- 目的：在高影响数据操作前减少误恢复和误覆盖。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 补全首次阅读操作提示
+
+- 首次进入阅读器的提示增加底部朗读和目录入口说明。
+- 提示的无障碍标签同步包含点词、翻页、朗读和目录操作，并保留关闭动作。
+- 目的：让新用户在第一屏发现完整的阅读控制，不必靠试错寻找底部工具。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+## 2026-09-13 校准查词来源提示
+
+- 离线词典加载中或不可用时，查词卡片根据实际结果显示“在线补充释义”或“基础兜底”。
+- 保留设置页重试入口提示，避免用户误解当前结果来源或联网范围。
+- 目的：让词典状态、实际释义来源和隐私预期保持一致。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `npm run test:dictionary`
+- `npm run test:web-dictionary`
+- `npm run test:translation-proxy`
+- `git diff --check`
+- `npx expo export --platform web --output-dir dist-web`
+- `npx expo export --platform android --no-bytecode --output-dir dist`
+
+## 2026-09-13 为水平测试草稿失败增加直接重试
+
+- 水平测试草稿读取或保存失败时继续保留当前作答，避免用户因本机存储瞬时异常被迫重做。
+- 在有作答内容时，失败提示直接提供“重试保存”，成功后清除提示；读取失败且尚未有作答时仍只提示风险，避免把空草稿误存为有效进度。
+- 目的：让测试过程中的本地保存异常具备可恢复动作，减少用户对退出后丢失作答的担心。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-draft-retry`
+- 本地浏览器回归：阅读器书签、跨书来源、刷新持久化和离线请求均通过
+
+## 2026-09-13 让水平测试退出提示反映真实保存状态
+
+- 当测试草稿保存失败时，退出确认框改为明确提示最近作答可能无法恢复，并建议先重试保存。
+- 草稿保存正常时保留原有的可恢复说明。
+- 目的：避免用户在本机写入失败后误以为退出仍然安全。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-assessment-exit-copy`
+
+## 2026-09-13 锁住启动恢复中的并发清除操作
+
+- 备份恢复进行中时禁用重新读取和清除本地数据入口，并在处理函数内再次防守。
+- 避免恢复和清除同时写入，减少启动阶段的覆盖与数据丢失风险。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-recovery-concurrency`
+
+## 2026-09-13 防止备份恢复确认的快速重复提交
+
+- 导出、选择备份和确认恢复共用同步操作锁，状态更新前的快速双击不会启动第二个数据操作。
+- 恢复失败或取消选择时会释放锁，原有重试入口保持可用。
+- 目的：避免第二次点击覆盖第一轮恢复提示，或让用户误以为恢复状态不确定。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-backup-double-submit`
+
+## 2026-09-13 区分首次阅读与继续阅读
+
+- 首页 0% 的体验书主卡片和行动卡显示“开始阅读”，并说明从第一章开始。
+- 只有存在进度、章节、段落或字符位置时，才显示“继续阅读”和“从上次位置继续”；已读完书籍仍显示“重读”。
+- 最近书页的无障碍标签同步使用开始/继续/重读语义。
+- 目的：让首次打开体验书的用户知道下一步是开始，而不是寻找不存在的历史进度。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-home-first-read`
+- 本地 Playwright：首页首读文案与第一章引导通过
+
+## 2026-09-13 在水平测试入口前说明答案隐私
+
+- 发现页首次水平测试卡片明确说明答案只保存在本机，不会上传。
+- 已有测试草稿继续入口保留原有“答案不会上传”提示。
+- 目的：让用户在决定开始测试前就知道数据边界，不必先进入测试页面寻找隐私说明。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-discover-privacy`
+- 本地 Playwright：发现页展示“答案只保存在本机，不会上传”且开始按钮可见
+
+## 2026-09-13 消除生词本空状态的假操作入口
+
+- 没有收藏词时隐藏“今日复习”卡片的箭头，避免禁用卡片看起来仍可点击。
+- 副文案改为“阅读中收藏后会出现在这里”，有到期词时才显示复习相关提示。
+- 保留空状态的“去读一本书”行动入口，引导用户先产生第一个语境生词。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-vocab-empty-action`
+- 本地 Playwright：空生词本无误导箭头、复习卡片禁用且“去今天开始阅读”可见
+
+## 2026-09-13 用用户语言标识内置体验书
+
+- 首页最近书页和书架详情把内部 `SAMPLE` 格式标记改为“体验书”。
+- 用户导入的 TXT、EPUB、MOBI、AZW3、KF8 和 PDF 仍显示对应真实格式。
+- 目的：让首次用户清楚区分应用自带内容和自己导入的书籍，避免把内部标记误解成文件格式。
+
+验证：
+
+- `npm run typecheck`
+- `npm run test:in-process`
+- `git diff --check`
+- `npx expo export --platform web --output-dir .cache/web-preview`
+- `npx expo export --platform android --no-bytecode --output-dir .cache/android-sample-label`
+- 本地 Playwright：首页和书架均展示“体验书”文案
+## 2026-09-13 统一查词次数的隐私说明
+
+- 首页会展示每本书的查词次数，设置页和隐私文档原先却只说查词次数用于本地推荐排序，用户可能误解为这项记录不会保存在设备。
+- 现在统一说明查词次数会保存在设备，用于显示阅读足迹和本地推荐排序，不会上传；在线翻译的联网边界保持不变。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+## 2026-09-13 用阅读等级替代内部难度分
+
+- 发现页目录和推荐详情原先显示“难度 46”“难度分”等内部数值，但用户没有分数刻度，难以据此决定是否适合自己。
+- 现在统一显示 A1–C2 阅读等级，并保留“正合适、稍有挑战”等匹配标签；推荐排序仍继续使用内部难度值。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+## 2026-09-13 让水平测试结果使用阅读等级
+
+- 测试结果页和发现页个人卡原先显示“适配分 46”，虽然分数用于推荐排序，但没有用户可理解的刻度。
+- 现在改为显示 A1–C2 阅读等级及对应中文名称，推荐逻辑仍保留内部分数计算。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+## 2026-09-13 区分生词本的已掌握空状态
+
+- 用户把所有收藏词标记为已掌握后，“学习中”列表原先仍显示“这里还很安静”和首次收藏引导，容易误以为记录消失。
+- 现在根据已有词条数量显示“学习中的词都掌握了”，并引导查看“已掌握”或继续阅读收藏新词。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+## 2026-09-13 保留水平测试结果的恢复草稿
+
+- 水平测试完成时原先先删除完整答案草稿，再写入阅读等级；等级保存失败后重启会同时失去等级和可恢复答案。
+- 现在先保存等级，确认写入成功后才清理完整草稿；写入失败时结果仍在当前会话可用，下一次进入测试可以恢复并重试。
+- 验证：`npm run typecheck`、`npm run test:in-process`、`git diff --check`。
+
+## 2026-09-13 修复测试保存重试与错误状态下的操作
+
+- 通过浏览器存储故障模拟复现两处缺陷：结果页重试成功后仍保留完整草稿；最后一题和等级都保存失败时，仍承诺可恢复完整测试。
+- 结果页重试现在清理旧草稿，恢复提示取决于实际草稿写入结果；关闭提示不会把未保存状态当成已保存。结果页使用全局重试也会完成草稿清理。
+- 保存、草稿重试、恢复、重新测试和确认放弃共享操作锁；完成旧草稿清理后才开放新测试，删除失败时保留结果或作答，并给出重试说明。
+- 故障回归还发现全局错误提示遮挡“重新测试”。全局存储反馈改为占用独立布局空间，按钮可以正常点击。
+- 新增可复现的浏览器脚本 `scripts/verify-assessment-recovery.mjs`：正常完成、等级保存失败后重试、最终草稿与等级同时失败、重启恢复完整测试、关闭提示后的草稿重试及刷新恢复、重新测试删除失败、放弃删除失败、小屏全局重试，共八个场景。所有场景使用隔离存储并阻止外部请求。
+- 验证：`npm run typecheck`、`npm run test:in-process`、上述八场景浏览器回归、Web 导出、Android 无字节码 JavaScript bundle 导出、`git diff --check`。Android 原生存储时序和系统返回仍需真机验收。
+
+## 2026-09-13 补齐测试草稿清理失败和放弃导航
+
+- 产品走查发现等级已保存但草稿删除失败时没有清理入口；同时故障回归发现确认放弃成功后仍被保存操作锁拦截，停留在原题目页。
+- 结果页和测试页现在都提供“重试清理”；删除失败会保留结果或当前作答。确认放弃在发出返回导航前释放同步锁，系统返回不会被自己的保存状态阻止。
+- 验证：`npm run typecheck`、`npm run test:in-process`、八场景水平测试浏览器故障回归、Web 导出、`git diff --check`。

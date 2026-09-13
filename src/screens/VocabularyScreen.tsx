@@ -29,15 +29,20 @@ function sourceLocation(chapterIndex?: number, paragraphIndex?: number) {
 
 export function VocabularyScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { words, preferences, toggleMastered, removeWord } = useApp();
+  const { words, preferences, toggleMastered, removeWord, retryPersistence } = useApp();
   const [tab, setTab] = useState<'learning' | 'mastered'>('learning');
   const [query, setQuery] = useState('');
   const [now, setNow] = useState(() => Date.now());
   const [removeTarget, setRemoveTarget] = useState<{ id: string; word: string } | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechRetryWord, setSpeechRetryWord] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+  const [retryingSave, setRetryingSave] = useState(false);
   const [updatingWordId, setUpdatingWordId] = useState<string | null>(null);
   const [removingWordId, setRemovingWordId] = useState<string | null>(null);
   const updatingWordRef = useRef<string | null>(null);
+  const speechRequest = useRef(0);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     const subscription = AppState.addEventListener('change', (state) => {
@@ -45,7 +50,22 @@ export function VocabularyScreen({ navigation }: Props) {
     });
     return () => { clearInterval(timer); subscription.remove(); };
   }, []);
-  const filtered = useMemo(() => words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered), [words, tab]);
+  const filtered = useMemo(() => {
+    const visible = words.filter((word) => tab === 'mastered' ? word.mastered : !word.mastered);
+    return visible.sort((a, b) => {
+      if (tab === 'learning') {
+        const aDue = isWordDue(a.nextReviewAt, now);
+        const bDue = isWordDue(b.nextReviewAt, now);
+        if (aDue !== bDue) return aDue ? -1 : 1;
+        const aNext = Date.parse(a.nextReviewAt ?? '');
+        const bNext = Date.parse(b.nextReviewAt ?? '');
+        if (Number.isFinite(aNext) && Number.isFinite(bNext) && aNext !== bNext) return aNext - bNext;
+      }
+      const aDate = Date.parse(a.lastReviewedAt ?? a.createdAt);
+      const bDate = Date.parse(b.lastReviewedAt ?? b.createdAt);
+      return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+    });
+  }, [now, tab, words]);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const visibleWords = useMemo(() => {
     if (!normalizedQuery) return filtered;
@@ -59,24 +79,54 @@ export function VocabularyScreen({ navigation }: Props) {
   const reviewedToday = words.filter((word) => word.lastReviewedAt && localDateKey(new Date(word.lastReviewedAt)) === today).length;
   const nextReviewAt = nextReviewTime(words);
   const reviewTitle = active ? `${active} 个词等待重逢` : learningCount ? '先休息一下' : words.length ? '收藏词都已掌握' : '从第一个生词开始';
-  const reviewMeta = !active && nextReviewAt ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}` : reviewedToday ? `今天已复习 ${reviewedToday} 个` : '从原句开始回忆';
-  const emptyTitle = normalizedQuery ? '没有匹配的词' : tab === 'mastered' ? '还没有掌握词' : '这里还很安静';
-  const emptyBody = normalizedQuery ? '试试单词、释义、原句或书名。' : tab === 'mastered' ? '在复习中点“记住了”，掌握的词会出现在这里。' : '阅读时点击单词并收藏，它会带着原句来到这里。';
+  const reviewMeta = active
+    ? `从原句开始回忆`
+    : nextReviewAt
+      ? `下次复习：${reviewDelayLabel(nextReviewAt, now)}`
+      : reviewedToday
+        ? `今天已复习 ${reviewedToday} 个`
+        : words.length
+          ? '从原句开始回忆'
+          : '阅读中收藏后会出现在这里';
+  const emptyTitle = normalizedQuery
+    ? '没有匹配的词'
+    : tab === 'mastered'
+      ? '还没有掌握词'
+      : words.length
+        ? '学习中的词都掌握了'
+        : '这里还很安静';
+  const emptyBody = normalizedQuery
+    ? '试试单词、释义、原句或书名。'
+    : tab === 'mastered'
+      ? '在复习中点“记住了”，掌握的词会出现在这里。'
+      : words.length
+        ? '可以切换到“已掌握”查看，或继续阅读收藏新词。'
+        : '阅读时点击单词并收藏，它会带着原句来到这里。';
   const speakWord = (word: string) => {
+    const request = ++speechRequest.current;
     setSpeechError(null);
+    setSpeechRetryWord(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
-      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
-      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => {
+        if (request !== speechRequest.current) return;
+        setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
+        setSpeechRetryWord(word);
+      });
   };
-  const confirmRemove = (id: string, word: string) => setRemoveTarget({ id, word });
+  const confirmRemove = (id: string, word: string) => {
+    setRemoveError(null);
+    setRemoveTarget({ id, word });
+  };
   const handleToggleMastered = async (wordId: string) => {
     if (updatingWordRef.current) return;
     updatingWordRef.current = wordId;
     setUpdatingWordId(wordId);
     try {
       await toggleMastered(wordId);
+      setSaveError(null);
     } catch {
-      // AppShell exposes the persistence retry banner while keeping the local state usable.
+      setSaveError('状态已更新到当前会话，但设备尚未保存。');
     } finally {
       updatingWordRef.current = null;
       setUpdatingWordId(null);
@@ -87,21 +137,35 @@ export function VocabularyScreen({ navigation }: Props) {
     if (!removeTarget || removingWordId) return;
     const target = removeTarget;
     setRemovingWordId(target.id);
+    setRemoveError(null);
     try {
       await removeWord(target.id);
+      setSaveError(null);
+      setRemoveTarget(null);
     } catch {
-      // AppShell exposes the persistence retry banner while keeping the
-      // optimistic list usable.
+      const message = '生词已从当前列表移除，但设备尚未保存。';
+      setSaveError(message);
+      setRemoveError(message);
     } finally {
       setRemovingWordId(null);
-      setRemoveTarget(null);
+    }
+  };
+
+  const retrySave = async () => {
+    if (retryingSave) return;
+    setRetryingSave(true);
+    try {
+      if (await retryPersistence()) setSaveError(null);
+    } finally {
+      setRetryingSave(false);
     }
   };
 
   return (
       <View style={[styles.screen, { paddingTop: insets.top + 18 }]}>
       <View style={styles.header}><PageHeader eyebrow={`${words.length} 个收藏词`} title="语境生词" /></View>
-      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {speechError ? <InlineNotice message={speechError} actionLabel={speechRetryWord ? '重试朗读' : undefined} onAction={speechRetryWord ? () => speakWord(speechRetryWord) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetryWord(null); }} /> : null}
+      {saveError ? <InlineNotice message={saveError} actionLabel={retryingSave ? '保存中…' : '重试保存'} onAction={() => void retrySave()} onDismiss={() => setSaveError(null)} /> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={active ? `开始复习，${active} 个到期词` : reviewTitle} accessibilityState={{ disabled: !active }} disabled={!active} onPress={() => navigation.navigate('Review', { returnTo: 'Vocabulary' })} style={({ pressed }) => [styles.reviewCard, !active && { opacity: 0.62 }, pressed && { transform: [{ scale: 0.99 }] }]}>
         <View style={styles.reviewIcon}><Ionicons name="layers-outline" size={25} color={colors.accent} /></View>
         <View style={{ flex: 1 }}>
@@ -109,7 +173,7 @@ export function VocabularyScreen({ navigation }: Props) {
           <Text style={styles.reviewTitle}>{reviewTitle}</Text>
           <Text style={styles.reviewMeta}>{reviewMeta}</Text>
         </View>
-        <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View>
+        {active ? <View style={styles.reviewGo}><Ionicons name="arrow-forward" size={18} color={colors.surfaceStrong} /></View> : null}
       </Pressable>
       {words.length ? <View style={styles.searchBox}><Ionicons name="search-outline" size={17} color={colors.inkMuted} /><TextInput accessibilityLabel="搜索生词" placeholder="搜索单词、释义、原句或书名" placeholderTextColor={colors.inkMuted} value={query} onChangeText={setQuery} autoCapitalize="none" autoCorrect={false} returnKeyType="search" style={styles.searchInput} /><Pressable accessibilityRole="button" accessibilityLabel="清除生词搜索" accessibilityState={{ disabled: !query }} disabled={!query} onPress={() => setQuery('')} style={[styles.searchClear, !query && styles.searchClearDisabled]}><Ionicons name="close-circle" size={17} color={colors.inkMuted} /></Pressable></View> : null}
       <View style={styles.tabs}>
@@ -149,13 +213,14 @@ export function VocabularyScreen({ navigation }: Props) {
           </View>
         )}
       />
-      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => { if (!removingWordId) setRemoveTarget(null); }}>
-        <Pressable style={styles.modalBackdrop} onPress={() => { if (!removingWordId) setRemoveTarget(null); }}>
+      <Modal visible={!!removeTarget} transparent animationType="fade" onRequestClose={() => { if (!removingWordId) { setRemoveTarget(null); setRemoveError(null); } }}>
+        <Pressable style={styles.modalBackdrop} onPress={() => { if (!removingWordId) { setRemoveTarget(null); setRemoveError(null); } }}>
           <Pressable accessibilityViewIsModal style={styles.confirmCard} onPress={(event) => event.stopPropagation()}>
             <Text accessibilityRole="header" style={styles.confirmTitle}>移除这个词？</Text>
             <Text style={styles.confirmBody}>“{removeTarget?.word}”会从生词本中删除，但不会影响原书内容。</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel={removingWordId ? '正在移除生词' : '确认移除生词'} accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => void handleRemove()} style={[styles.confirmDanger, removingWordId && styles.actionDisabled]}><Text style={styles.confirmDangerText}>{removingWordId ? '移除中…' : '移除'}</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => setRemoveTarget(null)} style={[styles.confirmCancel, removingWordId && styles.actionDisabled]}><Text style={styles.confirmCancelText}>取消</Text></Pressable>
+            {removeError ? <Text accessibilityRole="alert" style={styles.removeWarning}>{removeError}</Text> : null}
+            <Pressable accessibilityRole="button" accessibilityLabel={removingWordId ? '正在移除生词' : removeError ? '重试移除生词' : '确认移除生词'} accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => void handleRemove()} style={[styles.confirmDanger, removingWordId && styles.actionDisabled]}><Text style={styles.confirmDangerText}>{removingWordId ? '移除中…' : removeError ? '重试移除' : '移除'}</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="取消移除生词" accessibilityState={{ disabled: !!removingWordId }} disabled={!!removingWordId} onPress={() => { setRemoveTarget(null); setRemoveError(null); }} style={[styles.confirmCancel, removingWordId && styles.actionDisabled]}><Text style={styles.confirmCancelText}>取消</Text></Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -206,6 +271,7 @@ const styles = StyleSheet.create({
   confirmCard: { width: '100%', maxWidth: 360, backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 22 },
   confirmTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 24, fontWeight: '700' },
   confirmBody: { color: colors.inkMuted, fontSize: 12, lineHeight: 19, marginTop: 9 },
+  removeWarning: { color: colors.danger, fontSize: 11, lineHeight: 17, marginTop: 12 },
   confirmDanger: { minHeight: 46, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
   confirmDangerText: { color: colors.danger, fontSize: 13, fontWeight: '800' },
   confirmCancel: { minHeight: 42, alignItems: 'center', justifyContent: 'center', marginTop: 3 },

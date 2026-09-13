@@ -29,6 +29,7 @@ import { progressAtPage, ReadingCoverage, resolveReadingPosition, safeParagraphI
 import { ChapterTextMeasure } from '../components/ChapterTextMeasure';
 import { InlineNotice } from '../components/InlineNotice';
 import { formatContentReadFailure } from '../utils/contentErrors';
+import { hasSavedWord } from '../utils/savedWords';
 import { speakEnglish, stopSpeech } from '../services/speech';
 import {
   pageAtOffset,
@@ -107,7 +108,7 @@ function ReaderSession({ route, navigation }: Props) {
   const sourceTab = returnTo === 'Vocabulary' ? 'Vocabulary' : returnTo === 'Today' ? 'Today' : 'Library';
   const sourceLabel = sourceTab === 'Vocabulary' ? '生词本' : sourceTab === 'Today' ? '今天' : '书架';
   const insets = useSafeAreaInsets();
-  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup } = useApp();
+  const { books, words, preferences, getBookContent, updateProgress, updatePreferences, addWord, addReadingMinutes, recordLookup, retryPersistence } = useApp();
   const { lookup: lookupDictionary, translateContext, entryCount, dictionaryLoading, dictionaryUnavailable } = useDictionary();
   const book = books.find((item) => item.id === bookId);
   const bookExists = !!book;
@@ -134,6 +135,12 @@ function ReaderSession({ route, navigation }: Props) {
   const [completionVisible, setCompletionVisible] = useState(false);
   const [tapHintVisible, setTapHintVisible] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
+  const [speechRetry, setSpeechRetry] = useState<{ text: string; kind: 'word' | 'paragraph' } | null>(null);
+  const speechRequest = useRef(0);
+  const [progressSaveError, setProgressSaveError] = useState<string | null>(null);
+  const [statsSaveError, setStatsSaveError] = useState<string | null>(null);
+  const [settingsSaveError, setSettingsSaveError] = useState<string | null>(null);
+  const [retryingProgress, setRetryingProgress] = useState(false);
   const [readerLayout, setReaderLayout] = useState({ width: 0, height: 0 });
   const [pageSet, setPageSet] = useState<{ key: string; pages: ReaderPage[] }>({ key: '', pages: [] });
   const [currentPage, setCurrentPage] = useState(0);
@@ -208,7 +215,8 @@ function ReaderSession({ route, navigation }: Props) {
     if (minutes <= 0 && words <= 0) return;
     sessionMinutesSaved.current = totalMinutes;
     sessionWordsSaved.current = totalWords;
-    void addReadingMinutesRef.current(bookId, minutes, words).catch(() => undefined);
+    void addReadingMinutesRef.current(bookId, minutes, words)
+      .catch(() => setStatsSaveError('阅读统计已在当前会话更新，但设备尚未保存。'));
   }, [bookId]);
 
   useEffect(() => {
@@ -284,7 +292,9 @@ function ReaderSession({ route, navigation }: Props) {
     const totalWords = content.chapters.reduce((sum, item) => sum + item.wordCount, 0);
     const progress = progressAtPage(completedBefore, chapter.wordCount, totalWords, page.end, chapterText.length);
     if (replay && (chapterIndex > 0 || currentPage > 0)) replayStarted.current = true;
-    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start).catch(() => undefined);
+    void updateProgress(bookId, chapterIndex, firstParagraph, progress, page.start)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [bookId, chapter, chapterIndex, chapterParagraphStarts, chapterText.length, content, currentPage, pages, updateProgress]);
 
   useEffect(() => {
@@ -341,7 +351,7 @@ function ReaderSession({ route, navigation }: Props) {
     setTranslationFailed(false);
     setLookupLoading(true);
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    void recordLookup(bookId).catch(() => undefined);
+    void recordLookup(bookId).catch(() => setStatsSaveError('查词记录已在当前会话更新，但设备尚未保存。'));
     await requestWordLookup(word, request);
   }, [bookId, chapterParagraphStarts, chapterText, recordLookup, requestWordLookup, tapHintVisible]);
 
@@ -354,15 +364,21 @@ function ReaderSession({ route, navigation }: Props) {
   };
 
   const speak = useCallback((text: string, kind: 'word' | 'paragraph') => {
+    const request = ++speechRequest.current;
     setSpeechError(null);
+    setSpeechRetry(null);
     void speakEnglish(text, kind, preferences.speechVoice)
-      .then((provider) => { if (provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
-      .catch(() => setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。'));
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .catch(() => {
+        if (request !== speechRequest.current) return;
+        setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
+        setSpeechRetry({ text, kind });
+      });
   }, [preferences.speechVoice]);
 
   const isSaved = useMemo(() => selection
-    ? words.some((item) => item.word.toLowerCase() === selection.word.toLowerCase() && item.context === selection.sentence)
-    : false, [selection, words]);
+    ? hasSavedWord(words, { bookId, word: selection.word, context: selection.sentence })
+    : false, [bookId, selection, words]);
 
   const saveSelection = async () => {
     if (!selection || !lookup || !book || isSaved) return;
@@ -386,6 +402,14 @@ function ReaderSession({ route, navigation }: Props) {
     }
   };
 
+  const retrySaveSelection = async () => {
+    if (saveFeedback === 'saving') return;
+    const request = lookupRequest.current;
+    setSaveFeedback('saving');
+    const saved = await retryPersistence();
+    if (request === lookupRequest.current) setSaveFeedback(saved ? 'saved' : 'error');
+  };
+
   const openReaderSettings = () => {
     setSettingsDraft({
       fontSize: preferences.fontSize,
@@ -402,7 +426,7 @@ function ReaderSession({ route, navigation }: Props) {
       || settingsDraft.theme !== preferences.theme;
     if (!changed) return;
     pageAnchorOffset.current = pages[currentPage]?.start ?? chapterParagraphStarts[currentParagraph] ?? 0;
-    void updatePreferences(settingsDraft).catch(() => undefined);
+    void updatePreferences(settingsDraft).catch(() => setSettingsSaveError('阅读排版已在当前会话生效，但设备尚未保存。'));
   };
 
   const changeDraftFont = (delta: number) => {
@@ -421,7 +445,9 @@ function ReaderSession({ route, navigation }: Props) {
     setCurrentParagraph(safeParagraph);
     setCurrentPage(0);
     setChaptersVisible(false);
-    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0).catch(() => undefined);
+    void updateProgress(bookId, index, safeParagraph, content && book ? content.chapters.slice(0, index).reduce((sum, item) => sum + item.wordCount, 0) / Math.max(1, book.totalWords) : 0)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
   }, [book, bookId, content, updateProgress]);
 
   const turnPage = useCallback((direction: -1 | 1) => {
@@ -460,7 +486,23 @@ function ReaderSession({ route, navigation }: Props) {
     setChapterIndex(0);
     setCurrentParagraph(0);
     setCurrentPage(0);
-    if (content && book) void updateProgress(bookId, 0, 0, 0, 0).catch(() => undefined);
+    if (content && book) void updateProgress(bookId, 0, 0, 0, 0)
+      .then(() => setProgressSaveError(null))
+      .catch(() => setProgressSaveError('阅读位置已更新到当前会话，但设备尚未保存。'));
+  };
+
+  const retryProgressSave = async () => {
+    if (retryingProgress) return;
+    setRetryingProgress(true);
+    try {
+      if (await retryPersistence()) {
+        setProgressSaveError(null);
+        setStatsSaveError(null);
+        setSettingsSaveError(null);
+      }
+    } finally {
+      setRetryingProgress(false);
+    }
   };
 
   if (!book || contentError || !content || !chapter) {
@@ -501,13 +543,14 @@ function ReaderSession({ route, navigation }: Props) {
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="阅读排版" onPress={openReaderSettings} style={styles.iconButton}><Text style={[styles.aa, { color: theme.text }]}>Aa</Text></Pressable>
       </View>
-      {speechError ? <InlineNotice message={speechError} onDismiss={() => setSpeechError(null)} /> : null}
+      {speechError ? <InlineNotice message={speechError} actionLabel={speechRetry ? '重试朗读' : undefined} onAction={speechRetry ? () => void speak(speechRetry.text, speechRetry.kind) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetry(null); }} /> : null}
+      {progressSaveError || statsSaveError || settingsSaveError ? <InlineNotice message={progressSaveError ?? statsSaveError ?? settingsSaveError!} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => { setProgressSaveError(null); setStatsSaveError(null); setSettingsSaveError(null); }} /> : null}
 
       <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="关闭阅读操作提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
+          <Pressable accessibilityRole="button" accessibilityLabel="阅读提示：点按单词查看释义，左右滑动翻页，底部可以朗读或打开目录；关闭提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
             <Ionicons name="hand-left-outline" size={16} color={colors.accent} />
-            <Text style={styles.tapHintText}>点按单词查看释义，左右滑动翻页</Text>
+            <Text style={styles.tapHintText}>点按单词查义，左右滑动翻页；底部可朗读或打开目录</Text>
             <Ionicons name="close" size={15} color={colors.inkMuted} />
           </Pressable>
         ) : null}
@@ -601,7 +644,15 @@ function ReaderSession({ route, navigation }: Props) {
               <Ionicons name="close" size={20} color={colors.inkMuted} />
             </Pressable>
           </View>
-          {saveFeedback !== 'idle' ? <Text accessibilityRole={saveFeedback === 'error' ? 'alert' : undefined} style={[styles.saveFeedback, saveFeedback === 'error' && styles.saveFeedbackError]}>{saveFeedback === 'saving' ? '正在加入生词本…' : saveFeedback === 'error' ? '已加入本次会话，但设备保存失败，请稍后重试保存。' : '已加入生词本'}</Text> : null}
+          {saveFeedback !== 'idle' ? saveFeedback === 'error' ? (
+            <View style={styles.saveFeedbackRow}>
+              <Text accessibilityRole="alert" style={[styles.saveFeedback, styles.saveFeedbackError]}>已加入本次会话，但设备保存失败。</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="重试保存这个单词" onPress={() => void retrySaveSelection()} style={styles.saveRetryButton}>
+                <Ionicons name="refresh" size={14} color={colors.accent} />
+                <Text style={styles.saveRetryText}>重试保存</Text>
+              </Pressable>
+            </View>
+          ) : <Text style={styles.saveFeedback}>{saveFeedback === 'saving' ? '正在加入生词本…' : '已加入生词本'}</Text> : null}
           <ScrollView style={styles.lookupScroll} contentContainerStyle={styles.lookupContent} showsVerticalScrollIndicator>
             {lookupLoading ? <View style={styles.lookupLoading}><ActivityIndicator color={colors.accent} /><Text style={styles.lookupLoadingText}>{preferences.onlineSentenceTranslation ? '正在查找释义（本地未收录时可能联网）…' : '正在查找本地释义…'}</Text></View> : lookupFailed ? (
               <View style={styles.lookupLoading}>
@@ -630,9 +681,9 @@ function ReaderSession({ route, navigation }: Props) {
                 </View>
                 <Text style={styles.providerNote}>
                   {dictionaryLoading
-                    ? '离线词典加载中 · 已显示基础兜底'
+                    ? lookup?.source === 'network' ? '离线词典加载中 · 在线补充释义' : '离线词典加载中 · 已显示基础兜底'
                     : dictionaryUnavailable
-                    ? '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
+                    ? lookup?.source === 'network' ? '离线词典暂不可用 · 在线补充释义，可在设置中重试' : '离线词典暂不可用 · 已显示基础兜底，可在设置中重试'
                     : Platform.OS === 'web'
                     ? lookup?.source === 'offline' ? 'Web 高频词典 · 查词无需联网' : lookup?.source === 'network' ? 'Web 高频词典未收录 · 在线补充释义' : 'Web 高频词典未收录 · 已显示兜底结果'
                     : lookup?.source === 'offline' ? 'ECDICT 本地词典 · 查词无需联网' : lookup?.source === 'network' ? '在线补充释义' : '核心词典暂未收录，已显示兜底结果'}
@@ -764,6 +815,9 @@ const styles = StyleSheet.create({
   saveButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center' },
   saveFeedback: { color: colors.accent, fontSize: 10, fontWeight: '700', marginTop: 9 },
   saveFeedbackError: { color: '#A24B35' },
+  saveFeedbackRow: { marginTop: 9, alignItems: 'flex-start' },
+  saveRetryButton: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 5 },
+  saveRetryText: { color: colors.accent, fontSize: 10, fontWeight: '800' },
   sheetCloseButton: { width: 38, height: 38, borderRadius: 19, marginLeft: 7, alignItems: 'center', justifyContent: 'center' },
   savedButton: { backgroundColor: colors.accent },
   lookupScroll: { flexShrink: 1 },
