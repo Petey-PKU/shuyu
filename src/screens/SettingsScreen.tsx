@@ -21,7 +21,7 @@ const rows = [
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
-  const { books, words, preferences, updatePreferences, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
+  const { books, words, preferences, updatePreferences, retryPersistence, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
   const { entryCount, dictionaryLoading, dictionaryUnavailable, retryDictionary } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
@@ -34,6 +34,8 @@ export function SettingsScreen() {
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [voicePreviewing, setVoicePreviewing] = useState<string | null>(null);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
+  const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null);
+  const [retryingPreferences, setRetryingPreferences] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -53,6 +55,25 @@ export function SettingsScreen() {
 
   const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
 
+  const savePreferences = async (next: Parameters<typeof updatePreferences>[0]) => {
+    try {
+      await updatePreferences(next);
+      setPreferenceSaveError(null);
+    } catch {
+      setPreferenceSaveError('偏好已在当前会话更新，但设备尚未保存。');
+    }
+  };
+
+  const retryPreferenceSave = async () => {
+    if (retryingPreferences) return;
+    setRetryingPreferences(true);
+    try {
+      if (await retryPersistence()) setPreferenceSaveError(null);
+    } finally {
+      setRetryingPreferences(false);
+    }
+  };
+
   const openInfo = (title: string) => {
     if (title === '隐私说明') {
       setPrivacyVisible(true);
@@ -69,7 +90,7 @@ export function SettingsScreen() {
     if (voicePreviewing) return;
     setVoicePreviewing(voice);
     setVoiceMessage(null);
-    void updatePreferences({ speechVoice: voice }).catch(() => undefined);
+    void savePreferences({ speechVoice: voice });
     try {
       const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
       if (voice === OFFLINE_VOICE_ID && provider === 'system-fallback') {
@@ -89,12 +110,12 @@ export function SettingsScreen() {
       setOnlinePromptVisible(true);
       return;
     }
-    void updatePreferences({ onlineSentenceTranslation: false }).catch(() => undefined);
+    void savePreferences({ onlineSentenceTranslation: false });
   };
 
   const enableOnlineTranslation = () => {
     setOnlinePromptVisible(false);
-    void updatePreferences({ onlineSentenceTranslation: true }).catch(() => undefined);
+    void savePreferences({ onlineSentenceTranslation: true });
   };
 
   const handleExportBackup = async () => {
@@ -147,6 +168,7 @@ export function SettingsScreen() {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + 18 }]} showsVerticalScrollIndicator={false}>
       <PageHeader eyebrow="LOCAL FIRST" title="阅读偏好" />
+      {preferenceSaveError ? <InlineNotice message={preferenceSaveError} actionLabel={retryingPreferences ? '保存中…' : '重试保存'} onAction={() => void retryPreferenceSave()} onDismiss={() => setPreferenceSaveError(null)} /> : null}
       <Text style={styles.sectionLabel}>排版预览</Text>
       <View style={styles.preview}>
         <Text style={[styles.previewText, { fontSize: preferences.fontSize, lineHeight: preferences.lineHeight }]}>Stories let us travel without leaving the quiet of a room.</Text>
@@ -156,8 +178,8 @@ export function SettingsScreen() {
         <View style={styles.settingRow}>
           <View><Text style={styles.settingTitle}>正文字号</Text><Text style={styles.settingCaption}>{preferences.fontSize}px</Text></View>
           <View style={styles.stepper}>
-            <Pressable accessibilityRole="button" accessibilityLabel="减小字号" accessibilityState={{ disabled: preferences.fontSize <= 16 }} disabled={preferences.fontSize <= 16} onPress={() => { void updatePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) }).catch(() => undefined); }} style={[styles.step, preferences.fontSize <= 16 && styles.stepDisabled]}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel="增大字号" accessibilityState={{ disabled: preferences.fontSize >= 25 }} disabled={preferences.fontSize >= 25} onPress={() => { void updatePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) }).catch(() => undefined); }} style={[styles.step, preferences.fontSize >= 25 && styles.stepDisabled]}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="减小字号" accessibilityState={{ disabled: preferences.fontSize <= 16 }} disabled={preferences.fontSize <= 16} onPress={() => { void savePreferences({ fontSize: Math.max(16, preferences.fontSize - 1), lineHeight: Math.max(27, preferences.lineHeight - 1) }); }} style={[styles.step, preferences.fontSize <= 16 && styles.stepDisabled]}><Ionicons name="remove" size={18} color={colors.ink} /></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="增大字号" accessibilityState={{ disabled: preferences.fontSize >= 25 }} disabled={preferences.fontSize >= 25} onPress={() => { void savePreferences({ fontSize: Math.min(25, preferences.fontSize + 1), lineHeight: Math.min(42, preferences.lineHeight + 1) }); }} style={[styles.step, preferences.fontSize >= 25 && styles.stepDisabled]}><Ionicons name="add" size={18} color={colors.ink} /></Pressable>
           </View>
         </View>
         <View style={styles.divider} />
@@ -165,7 +187,7 @@ export function SettingsScreen() {
           <View><Text style={styles.settingTitle}>每日阅读目标</Text><Text style={styles.settingCaption}>完成目标后仍可继续阅读</Text></View>
           <View style={styles.goalChoices}>
             {[10, 15, 20, 30].map((minutes) => (
-              <Pressable accessibilityRole="button" accessibilityLabel={`每日${minutes}分钟`} accessibilityState={{ selected: preferences.dailyGoalMinutes === minutes }} key={minutes} onPress={() => { void updatePreferences({ dailyGoalMinutes: minutes }).catch(() => undefined); }} style={[styles.goalChoice, preferences.dailyGoalMinutes === minutes && styles.goalChoiceSelected]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`每日${minutes}分钟`} accessibilityState={{ selected: preferences.dailyGoalMinutes === minutes }} key={minutes} onPress={() => { void savePreferences({ dailyGoalMinutes: minutes }); }} style={[styles.goalChoice, preferences.dailyGoalMinutes === minutes && styles.goalChoiceSelected]}>
                 <Text style={[styles.goalChoiceText, preferences.dailyGoalMinutes === minutes && styles.goalChoiceTextSelected]}>{minutes}分</Text>
               </Pressable>
             ))}
@@ -176,7 +198,7 @@ export function SettingsScreen() {
           <View><Text style={styles.settingTitle}>阅读主题</Text><Text style={styles.settingCaption}>纸张、明亮或夜间</Text></View>
           <View style={styles.swatches}>
             {(['paper', 'white', 'night'] as const).map((theme) => (
-              <Pressable accessibilityRole="button" accessibilityLabel={theme === 'paper' ? '纸张主题' : theme === 'white' ? '明亮主题' : '夜间主题'} accessibilityState={{ selected: preferences.theme === theme }} key={theme} onPress={() => { void updatePreferences({ theme }).catch(() => undefined); }} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={theme === 'paper' ? '纸张主题' : theme === 'white' ? '明亮主题' : '夜间主题'} accessibilityState={{ selected: preferences.theme === theme }} key={theme} onPress={() => { void savePreferences({ theme }); }} style={[styles.swatch, { backgroundColor: theme === 'paper' ? colors.canvas : theme === 'white' ? '#fff' : colors.night }, preferences.theme === theme && styles.selectedSwatch]}>
                 {preferences.theme === theme ? <Ionicons name="checkmark" size={14} color={theme === 'night' ? '#fff' : colors.ink} /> : null}
               </Pressable>
             ))}
@@ -199,7 +221,7 @@ export function SettingsScreen() {
           <Switch
             accessibilityLabel="记录阅读统计"
             value={preferences.readingStatsEnabled !== false}
-            onValueChange={(value) => { void updatePreferences({ readingStatsEnabled: value }).catch(() => undefined); }}
+            onValueChange={(value) => { void savePreferences({ readingStatsEnabled: value }); }}
             trackColor={{ false: '#D7D5CF', true: colors.accentSoft }}
             thumbColor={preferences.readingStatsEnabled !== false ? colors.accent : '#F8F7F3'}
           />
