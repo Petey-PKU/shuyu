@@ -6,6 +6,20 @@ type SpeechKind = 'word' | 'sentence' | 'paragraph';
 
 export const OFFLINE_VOICE_ID = 'shuyu-offline-amy';
 export const SYSTEM_AUTO_VOICE_ID = 'system-auto';
+export const OFFLINE_MODEL_ID = 'vits-piper-en_US-amy-medium';
+
+// Keep the release metadata pinned. The download manager still verifies the
+// checksum returned by the release registry, while these values prevent a
+// future registry change from silently replacing the voice in this app.
+const OFFLINE_MODEL_BYTES = 67_223_746;
+const OFFLINE_MODEL_SHA256 = '9a5d1fc497f85e8022b785bff5f8105203b1e33099ee6265203efc70b0cb0264';
+
+export type OfflineVoiceStatus = {
+  status: 'unavailable' | 'ready' | 'downloading' | 'extracting' | 'error';
+  progress?: number;
+  phase?: 'downloading' | 'extracting';
+  error?: string;
+};
 
 export interface EnglishVoiceOption {
   identifier: string;
@@ -21,6 +35,11 @@ let offlineEnginePromise: Promise<StreamingTtsEngine> | undefined;
 let activeOfflineStream: TtsStreamController | undefined;
 let offlineGeneration = 0;
 let systemGeneration = 0;
+let offlineModelPath: string | undefined;
+let offlineDownloadPromise: Promise<void> | undefined;
+let offlineDownloadAbortController: AbortController | undefined;
+let offlineStatus: OfflineVoiceStatus = { status: 'unavailable' };
+let offlineModelChanging = false;
 
 function voiceScore(voice: Speech.Voice): number {
   const language = voice.language.toLowerCase();
@@ -56,16 +75,16 @@ export async function listEnglishVoices(): Promise<EnglishVoiceOption[]> {
     source: 'system' as const,
     description: `${voice.language} · ${String(voice.quality).toLowerCase() === 'enhanced' ? '增强音色' : '系统音色'}`,
   }));
-  const bundledVoice: EnglishVoiceOption[] = Platform.OS === 'android' ? [{
+  const offlineVoice: EnglishVoiceOption[] = Platform.OS === 'android' ? [{
       identifier: OFFLINE_VOICE_ID,
       language: 'en-US',
       name: '书语 · Amy',
       quality: 'Offline neural',
       source: 'offline',
-      description: 'Piper 中等质量神经音色 · 完全离线',
+      description: 'Piper 中等质量神经音色 · 下载后完全离线',
     }] : [];
   return [
-    ...bundledVoice,
+    ...offlineVoice,
     {
       identifier: SYSTEM_AUTO_VOICE_ID,
       language: 'en',
@@ -76,6 +95,145 @@ export async function listEnglishVoices(): Promise<EnglishVoiceOption[]> {
     },
     ...systemVoices,
   ];
+}
+
+async function getOfflineDownloadApi() {
+  if (Platform.OS !== 'android') throw new Error('离线音色下载目前仅支持 Android。');
+  return import('react-native-sherpa-onnx/download');
+}
+
+function setOfflineStatus(next: OfflineVoiceStatus) {
+  offlineStatus = next;
+}
+
+export async function getOfflineVoiceStatus(): Promise<OfflineVoiceStatus> {
+  if (Platform.OS !== 'android') return { status: 'unavailable' };
+  if (offlineDownloadPromise) return offlineStatus;
+  if (offlineStatus.status === 'error') return offlineStatus;
+  try {
+    const api = await getOfflineDownloadApi();
+    const ready = await api.isModelDownloadedByCategory(api.ModelCategory.Tts, OFFLINE_MODEL_ID);
+    if (ready) {
+      offlineModelPath = await api.getLocalModelPathByCategory(api.ModelCategory.Tts, OFFLINE_MODEL_ID) ?? undefined;
+      offlineStatus = offlineModelPath ? { status: 'ready', progress: 100 } : { status: 'unavailable' };
+      return offlineStatus;
+    }
+    const [downloads, extractions] = await Promise.all([
+      api.getIncompleteDownloads(api.ModelCategory.Tts),
+      api.getIncompleteExtractions(api.ModelCategory.Tts),
+    ]);
+    const extraction = extractions.find((item) => item.modelId === OFFLINE_MODEL_ID);
+    if (extraction) {
+      offlineStatus = { status: 'extracting', phase: 'extracting' };
+      return offlineStatus;
+    }
+    const download = downloads.find((item) => item.modelId === OFFLINE_MODEL_ID);
+    if (download) {
+      const totalBytes = download.totalBytes ?? 0;
+      const progress = totalBytes > 0 ? (download.bytesDownloaded ?? 0) / totalBytes * 100 : 0;
+      offlineStatus = { status: 'downloading', phase: 'downloading', progress };
+      return offlineStatus;
+    }
+    offlineStatus = { status: 'unavailable' };
+  } catch {
+    // A missing/old native module should keep system TTS usable.
+    offlineStatus = { status: 'unavailable' };
+  }
+  return offlineStatus;
+}
+
+export async function downloadOfflineVoice(onProgress?: (status: OfflineVoiceStatus) => void): Promise<void> {
+  if (Platform.OS !== 'android') throw new Error('离线音色下载目前仅支持 Android。');
+  if (offlineDownloadPromise) return offlineDownloadPromise;
+  if (offlineModelChanging) throw new Error('离线音色正在更新，请稍候。');
+  offlineModelChanging = true;
+  try {
+    await stopSpeech();
+  } catch (error) {
+    offlineModelChanging = false;
+    throw error;
+  }
+  offlineDownloadAbortController = new AbortController();
+  setOfflineStatus({ status: 'downloading', phase: 'downloading', progress: 0 });
+  offlineDownloadPromise = (async () => {
+    const api = await getOfflineDownloadApi();
+    api.configureModelDownloadBackgroundDownloader({
+      showNotificationsEnabled: true,
+      notificationsGrouping: {
+        enabled: false,
+        mode: 'individual',
+        texts: {
+          downloadTitle: '书语离线音色',
+          downloadStarting: '正在准备 Amy 音色…',
+          downloadProgress: '正在下载 Amy 音色… {progress}%',
+        },
+      },
+    });
+    const models = await api.refreshModelsByCategory(api.ModelCategory.Tts, {
+      cacheTtlMinutes: 24 * 60,
+      signal: offlineDownloadAbortController?.signal,
+    });
+    const model = models.find((item) => item.id === OFFLINE_MODEL_ID);
+    if (!model || model.bytes !== OFFLINE_MODEL_BYTES || model.sha256?.toLowerCase() !== OFFLINE_MODEL_SHA256) {
+      throw new Error('Amy 离线音色版本校验失败，请稍后重试。');
+    }
+    const result = await api.ensureModelByCategory(api.ModelCategory.Tts, OFFLINE_MODEL_ID, {
+      signal: offlineDownloadAbortController?.signal,
+      deleteArchiveAfterExtract: true,
+      onChecksumIssue: async () => false,
+      onProgress: (progress) => {
+        const next: OfflineVoiceStatus = {
+          status: progress.phase === 'extracting' ? 'extracting' : 'downloading',
+          phase: progress.phase,
+          progress: Math.max(0, Math.min(100, progress.percent)),
+        };
+        setOfflineStatus(next);
+        onProgress?.(next);
+      },
+    });
+    offlineModelPath = result.localPath;
+    setOfflineStatus({ status: 'ready', progress: 100 });
+    onProgress?.(offlineStatus);
+    // The old engine, if any, points at an earlier path and must be rebuilt.
+    await destroyOfflineEngine();
+  })().catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    setOfflineStatus({ status: 'error', error: message });
+    onProgress?.(offlineStatus);
+    throw error;
+  }).finally(() => {
+    offlineDownloadPromise = undefined;
+    offlineDownloadAbortController = undefined;
+    offlineModelChanging = false;
+  });
+  return offlineDownloadPromise;
+}
+
+export async function cancelOfflineVoiceDownload() {
+  offlineDownloadAbortController?.abort();
+}
+
+export async function deleteOfflineVoice(): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  if (offlineModelChanging && !offlineDownloadPromise) throw new Error('离线音色正在更新，请稍候。');
+  const ownsOperation = !offlineModelChanging;
+  if (ownsOperation) offlineModelChanging = true;
+  try {
+    await stopSpeech();
+    if (offlineDownloadPromise) {
+      await cancelOfflineVoiceDownload();
+      await offlineDownloadPromise.catch(() => undefined);
+    }
+    await destroyOfflineEngine();
+    const api = await getOfflineDownloadApi();
+    await api.deleteModelByCategory(api.ModelCategory.Tts, OFFLINE_MODEL_ID);
+    await api.deleteIncompleteDownload(api.ModelCategory.Tts, OFFLINE_MODEL_ID).catch(() => undefined);
+    await api.deleteIncompleteExtraction(api.ModelCategory.Tts, OFFLINE_MODEL_ID).catch(() => undefined);
+    offlineModelPath = undefined;
+    setOfflineStatus({ status: 'unavailable' });
+  } finally {
+    if (ownsOperation) offlineModelChanging = false;
+  }
 }
 
 async function getPreferredSystemVoice(requestedVoice?: string): Promise<Speech.Voice | undefined> {
@@ -110,11 +268,16 @@ function speechChunks(text: string): string[] {
 }
 
 async function getOfflineEngine(): Promise<StreamingTtsEngine> {
-  if (Platform.OS !== 'android') throw new Error('Bundled TTS is currently available on Android only.');
+  if (Platform.OS !== 'android') throw new Error('离线音色目前仅支持 Android。');
+  if (offlineModelChanging) throw new Error('离线音色正在更新。');
+  if (!offlineModelPath) {
+    const status = await getOfflineVoiceStatus();
+    if (status.status !== 'ready') throw new Error('离线音色尚未下载。');
+  }
   if (!offlineEnginePromise) {
     offlineEnginePromise = import('react-native-sherpa-onnx/tts')
       .then(({ createStreamingTTS }) => createStreamingTTS({
-        modelPath: { type: 'asset', path: 'models/vits-piper-en_US-amy-medium' },
+        modelPath: { type: 'file', path: offlineModelPath as string },
         modelType: 'vits',
         numThreads: 2,
         maxNumSentences: 1,
@@ -139,6 +302,12 @@ async function stopOfflineSpeech() {
     await engine.cancelSpeechStream().catch(() => undefined);
     await engine.stopPcmPlayer().catch(() => undefined);
   }
+}
+
+async function destroyOfflineEngine() {
+  const engine = offlineEnginePromise ? await offlineEnginePromise.catch(() => undefined) : undefined;
+  offlineEnginePromise = undefined;
+  if (engine) await engine.destroy().catch(() => undefined);
 }
 
 async function stopActiveSpeech() {
@@ -212,7 +381,11 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
   const generation = ++systemGeneration;
   await stopActiveSpeech();
   if (generation !== systemGeneration) return undefined;
-  const selectedVoice = requestedVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+  let selectedVoice = requestedVoice ?? SYSTEM_AUTO_VOICE_ID;
+  if (!requestedVoice && Platform.OS === 'android') {
+    const status = await getOfflineVoiceStatus();
+    selectedVoice = status.status === 'ready' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID;
+  }
   let offlineFallback = false;
   if (selectedVoice === OFFLINE_VOICE_ID) {
     try {
@@ -220,7 +393,7 @@ export async function speakEnglish(text: string, kind: SpeechKind = 'word', requ
       return 'offline' as const;
     } catch (error) {
       offlineFallback = true;
-      console.warn('Bundled offline voice unavailable; falling back to system TTS.', error);
+      console.warn('Downloaded offline voice unavailable; falling back to system TTS.', error);
     }
   }
   await speakWithSystemVoice(normalized, kind, selectedVoice, generation);

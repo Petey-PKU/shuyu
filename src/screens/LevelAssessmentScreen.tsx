@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { assessmentQuestions, isAssessmentComplete, scoreAssessment } from '../data/assessment';
@@ -337,16 +337,16 @@ export function LevelAssessmentScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  screen: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: colors.canvas },
   loading: { flex: 1, backgroundColor: colors.canvas, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { color: colors.inkMuted, fontSize: 12 },
   draftNotice: { marginHorizontal: 0, marginTop: 20 },
-  topBar: { height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
+  topBar: { width: '100%', maxWidth: 760, alignSelf: 'center', height: 54, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
   iconButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   progressTrack: { flex: 1, height: 5, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
   progressFill: { height: 5, borderRadius: 5, backgroundColor: colors.accent },
   counter: { color: colors.inkMuted, fontSize: 10, fontWeight: '700', width: 34, textAlign: 'right' },
-  questionContent: { paddingHorizontal: 22, paddingTop: 30, paddingBottom: 40 },
+  questionContent: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 22, paddingTop: 30, paddingBottom: 40 },
   levelHint: { color: colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 18 },
   passageCard: { backgroundColor: colors.surfaceStrong, borderRadius: radii.large, padding: 21, marginBottom: 24, borderWidth: 1, borderColor: colors.line },
   passage: { color: colors.ink, fontFamily: typography.serif, fontSize: 17, lineHeight: 28 },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   optionLetterText: { color: colors.ink, fontSize: 11, fontWeight: '900' },
   optionText: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 21, fontWeight: '600' },
   privacy: { color: colors.inkMuted, fontSize: 10, lineHeight: 16, textAlign: 'center', marginTop: 28, paddingHorizontal: 15 },
-  resultContent: { flexGrow: 1, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
+  resultContent: { width: '100%', maxWidth: 520, alignSelf: 'center', flexGrow: 1, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
   resultOrb: { width: 126, height: 126, borderRadius: 63, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 26 },
   resultLevel: { color: colors.accent, fontFamily: typography.serif, fontSize: 47, fontWeight: '700' },
   eyebrow: { color: colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1.4 },

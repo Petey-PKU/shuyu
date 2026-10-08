@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { DictionaryProvider } from './src/context/DictionaryContext';
@@ -39,6 +39,9 @@ const labels: Record<keyof MainTabParamList, string> = {
 };
 
 function MainTabs() {
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
+  const tabletBarWidth = Math.min(width - 40, 560);
   return (
     <Tabs.Navigator
       screenOptions={({ route }) => ({
@@ -47,10 +50,18 @@ function MainTabs() {
         tabBarInactiveTintColor: '#91928D',
         tabBarLabel: labels[route.name],
         tabBarLabelStyle: styles.tabLabel,
-        tabBarStyle: styles.tabBar,
-        tabBarItemStyle: styles.tabItem,
+        tabBarStyle: [styles.tabBar, isTablet && {
+          left: (width - tabletBarWidth) / 2,
+          right: (width - tabletBarWidth) / 2,
+          bottom: 16,
+          height: 72,
+          paddingTop: 9,
+          paddingBottom: 9,
+          borderRadius: 28,
+        }],
+        tabBarItemStyle: [styles.tabItem, isTablet && styles.tabItemTablet],
         tabBarIcon: ({ focused, color }) => (
-          <Ionicons name={focused ? icons[route.name].active : icons[route.name].idle} color={color} size={21} />
+          <Ionicons name={focused ? icons[route.name].active : icons[route.name].idle} color={color} size={isTablet ? 23 : 21} />
         ),
       })}
     >
@@ -231,5 +242,6 @@ const styles = StyleSheet.create({
     shadowColor: '#1F211E', shadowOpacity: 0.12, shadowRadius: 20, shadowOffset: { width: 0, height: 9 },
   },
   tabItem: { borderRadius: 18 },
+  tabItemTablet: { borderRadius: 20, minWidth: 78 },
   tabLabel: { fontSize: 9, fontWeight: '700', marginTop: 2 },
 });

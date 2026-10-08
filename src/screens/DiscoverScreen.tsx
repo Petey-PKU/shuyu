@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -232,7 +232,7 @@ export function DiscoverScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: 20, paddingBottom: 130 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 130 },
   levelBadge: { minWidth: 58, height: 48, borderRadius: 18, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   levelBadgeValue: { color: colors.accent, fontFamily: typography.serif, fontSize: 18, fontWeight: '700', lineHeight: 20 },
   levelBadgeText: { color: 'rgba(255,255,255,0.56)', fontSize: 7, fontWeight: '700' },

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppState, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { CompositeScreenProps } from '@react-navigation/native';
@@ -33,6 +33,7 @@ function formatMinutes(minutes: number) {
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
   const { books, stats, words, preferences, readingSignals, importBook } = useApp();
   const [clock, setClock] = useState(() => Date.now());
   useEffect(() => {
@@ -150,7 +151,7 @@ export function HomeScreen({ navigation }: Props) {
               </View>
             </View>
           </View>
-          <View style={styles.heroCover}><BookCover book={current} width={112} compact /></View>
+          <View style={[styles.heroCover, isTablet && styles.heroCoverTablet]}><BookCover book={current} width={isTablet ? 148 : 112} compact /></View>
         </Pressable>
       ) : null}
 
@@ -274,7 +275,7 @@ export function HomeScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: 20, paddingBottom: 130 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 130 },
   addButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center', ...shadows.card },
   pressed: { transform: [{ scale: 0.96 }], opacity: 0.85 },
   hero: { marginTop: 25, height: 250, borderRadius: 30, overflow: 'hidden', flexDirection: 'row', ...shadows.card },
@@ -288,6 +289,7 @@ const styles = StyleSheet.create({
   welcomeButtonText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   heroCopy: { flex: 1, padding: 24, justifyContent: 'space-between', zIndex: 2 },
   heroCover: { width: 116, justifyContent: 'center', transform: [{ rotate: '4deg' }, { translateX: 6 }] },
+  heroCoverTablet: { width: 158 },
   heroEyebrow: { color: colors.accent, fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 11 },
   heroTitle: { color: '#FBF9F3', fontFamily: typography.serif, fontSize: 27, lineHeight: 31, fontWeight: '700', letterSpacing: -0.7 },
   heroTitleNarrow: { fontSize: 20, lineHeight: 24, letterSpacing: -0.3 },

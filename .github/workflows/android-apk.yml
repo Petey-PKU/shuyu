@@ -49,17 +49,6 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Cache bundled TTS model
-        uses: actions/cache@v5
-        with:
-          path: .cache/tts-models
-          key: shuyu-tts-amy-medium-9a5d1fc497f85e80
-
-      - name: Bundle verified offline voice
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: npm run prepare:tts-model
-
       - name: Verify packaged Android assets
         run: npm run test:android-assets
 
@@ -106,7 +95,26 @@ jobs:
           SHUYU_ANDROID_KEY_PASSWORD: ${{ secrets.SHUYU_ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon
+          # Phones use ARM ABIs; the Expo config plugin also excludes x86
+          # native libraries from the application packaging step.
+          ./gradlew assembleRelease --no-daemon \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
+            -Pandroid.enableMinifyInReleaseBuilds=true \
+            -Pandroid.enableShrinkResourcesInReleaseBuilds=true
+
+      - name: Verify release ABI payload
+        run: |
+          python - <<'PY'
+          from zipfile import ZipFile
+
+          apk_path = "android/app/build/outputs/apk/release/app-release.apk"
+          with ZipFile(apk_path) as apk:
+              disallowed = [name for name in apk.namelist() if name.startswith(("lib/x86/", "lib/x86_64/"))]
+          if disallowed:
+              raise SystemExit(f"Release APK still contains x86 libraries: {disallowed[:3]}")
+          print(f"Verified ARM-only APK: {apk_path}")
+          PY
+          du -h android/app/build/outputs/apk/release/app-release.apk
 
       - name: Name APK
         run: cp android/app/build/outputs/apk/release/app-release.apk "Shuyu-v${SHUYU_APP_VERSION}-${SHUYU_APK_SIGNING}.apk"

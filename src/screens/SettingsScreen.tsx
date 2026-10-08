@@ -1,12 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useIsFocused } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { useDictionary } from '../context/DictionaryContext';
 import { PageHeader } from '../components/PageHeader';
 import { colors, radii, typography } from '../theme';
-import { listEnglishVoices, OFFLINE_VOICE_ID, speakEnglish, stopSpeech, SYSTEM_AUTO_VOICE_ID, type EnglishVoiceOption } from '../services/speech';
+import {
+  deleteOfflineVoice,
+  downloadOfflineVoice,
+  getOfflineVoiceStatus,
+  listEnglishVoices,
+  OFFLINE_VOICE_ID,
+  speakEnglish,
+  stopSpeech,
+  SYSTEM_AUTO_VOICE_ID,
+  type EnglishVoiceOption,
+  type OfflineVoiceStatus,
+} from '../services/speech';
 import { getTranslationProviderSummary } from '../services/translation';
 import type { BackupPayload } from '../types';
 import { InlineNotice } from '../components/InlineNotice';
@@ -22,6 +34,7 @@ const rows = [
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { books, words, preferences, updatePreferences, retryPersistence, resetAll, exportBackup, pickBackup, restoreBackup } = useApp();
   const { entryCount, dictionaryLoading, dictionaryUnavailable, retryDictionary } = useDictionary();
   const [voices, setVoices] = useState<EnglishVoiceOption[]>([]);
@@ -41,6 +54,39 @@ export function SettingsScreen() {
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
   const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null);
   const [retryingPreferences, setRetryingPreferences] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState<OfflineVoiceStatus>({ status: 'unavailable' });
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const [offlineActionError, setOfflineActionError] = useState<string | null>(null);
+
+  const refreshOfflineStatus = async () => {
+    if (Platform.OS !== 'android') {
+      setOfflineStatus({ status: 'unavailable' });
+      return;
+    }
+    try {
+      setOfflineStatus(await getOfflineVoiceStatus());
+    } catch {
+      setOfflineStatus({ status: 'error', error: '无法读取离线音色状态，请稍后重试。' });
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !isFocused) return;
+    let active = true;
+    const refresh = async () => {
+      try {
+        const next = await getOfflineVoiceStatus();
+        if (active) setOfflineStatus(next);
+      } catch {
+        if (active) setOfflineStatus({ status: 'error', error: '无法读取离线音色状态，请稍后重试。' });
+      }
+    };
+    void refresh();
+    // The downloader can continue while this screen is backgrounded. A short
+    // poll keeps progress and completion visible when the user returns.
+    const timer = setInterval(() => void refresh(), 1200);
+    return () => { active = false; clearInterval(timer); };
+  }, [isFocused]);
 
   useEffect(() => {
     let active = true;
@@ -58,7 +104,9 @@ export function SettingsScreen() {
     void stopSpeech();
   }, []);
 
-  const activeVoice = preferences.speechVoice ?? (Platform.OS === 'android' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
+  const activeVoice = preferences.speechVoice === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready'
+    ? SYSTEM_AUTO_VOICE_ID
+    : preferences.speechVoice ?? (Platform.OS === 'android' && offlineStatus.status === 'ready' ? OFFLINE_VOICE_ID : SYSTEM_AUTO_VOICE_ID);
 
   const savePreferences = async (next: Parameters<typeof updatePreferences>[0]) => {
     try {
@@ -93,7 +141,10 @@ export function SettingsScreen() {
   };
 
   const chooseVoice = async (voice: string) => {
-    if (voicePreviewing) return;
+    if (voicePreviewing || (voice === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready')) {
+      if (voice === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready') setVoiceMessage('请先下载离线音色，再进行试听。');
+      return;
+    }
     setVoicePreviewing(voice);
     setVoiceMessage(null);
     setVoiceErrorVoice(null);
@@ -101,13 +152,54 @@ export function SettingsScreen() {
     try {
       const provider = await speakEnglish('Stories let us travel beyond the quiet of a room.', 'sentence', voice);
       if (voice === OFFLINE_VOICE_ID && provider === 'system-fallback') {
-        setVoiceMessage('离线音色暂不可用，试听已自动使用系统发音。请在正式 Android APK 中测试。');
+        setVoiceMessage('离线音色暂不可用，试听已自动使用系统发音。请确认音色已下载后重试。');
       }
     } catch {
       setVoiceMessage('试听暂时失败，请确认设备音量和系统英语音色后重试。');
       setVoiceErrorVoice(voice);
     } finally {
       setVoicePreviewing(null);
+    }
+  };
+
+  const handleDownloadOfflineVoice = async () => {
+    if (offlineBusy || Platform.OS !== 'android') return;
+    setOfflineBusy(true);
+    setOfflineActionError(null);
+    setOfflineStatus({ status: 'downloading', phase: 'downloading', progress: 0 });
+    try {
+      await downloadOfflineVoice((progress: OfflineVoiceStatus) => {
+        setOfflineStatus({
+          status: progress.status === 'ready' ? 'ready' : progress.status === 'extracting' || progress.phase === 'extracting' ? 'extracting' : 'downloading',
+          phase: progress.phase,
+          progress: Math.max(0, Math.min(100, progress.progress ?? 0)),
+        });
+      });
+      await refreshOfflineStatus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '下载离线音色失败，请重试。';
+      setOfflineActionError(message);
+      setOfflineStatus({ status: 'error', error: message });
+    } finally {
+      setOfflineBusy(false);
+    }
+  };
+
+  const handleDeleteOfflineVoice = async () => {
+    if (offlineBusy || Platform.OS !== 'android') return;
+    setOfflineBusy(true);
+    setOfflineActionError(null);
+    try {
+      await stopSpeech();
+      await deleteOfflineVoice();
+      if (preferences.speechVoice === OFFLINE_VOICE_ID) await savePreferences({ speechVoice: SYSTEM_AUTO_VOICE_ID });
+      await refreshOfflineStatus();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '删除离线音色失败，请重试。';
+      setOfflineActionError(message);
+      setOfflineStatus({ status: 'error', error: message });
+    } finally {
+      setOfflineBusy(false);
     }
   };
 
@@ -250,15 +342,54 @@ export function SettingsScreen() {
 
       <Text style={styles.sectionLabel}>英语发音音色</Text>
       <View style={styles.settingCard}>
+        {Platform.OS === 'android' ? (
+          <View style={styles.offlineVoiceCard}>
+            <View style={styles.offlineVoiceHeader}>
+              <View style={styles.offlineVoiceIcon}><Ionicons name="cloud-download-outline" size={19} color={colors.accent} /></View>
+              <View style={styles.offlineVoiceCopy}>
+                <Text style={styles.settingTitle}>Amy 离线音色</Text>
+                <Text style={styles.settingCaption}>约 77 MiB · 下载后完全离线朗读</Text>
+              </View>
+              {offlineStatus.status === 'ready' ? <Text style={styles.readyBadge}>已下载</Text> : null}
+            </View>
+            {offlineStatus.status === 'downloading' || offlineStatus.status === 'extracting' ? (
+              <View style={styles.offlineProgressArea}>
+                <View style={styles.offlineProgressTrack}><View style={[styles.offlineProgressFill, { width: `${Math.round(offlineStatus.progress ?? 0)}%` }]} /></View>
+                <View style={styles.offlineProgressMeta}>
+                  <Text style={styles.settingCaption}>{offlineStatus.status === 'extracting' ? '正在解压…' : '正在下载…'}</Text>
+                  <Text style={styles.settingCaption}>{Math.round(offlineStatus.progress ?? 0)}%</Text>
+                </View>
+                {!offlineBusy ? <Pressable accessibilityRole="button" accessibilityLabel={offlineStatus.status === 'extracting' ? '继续解压离线音色' : '继续下载离线音色'} onPress={() => void handleDownloadOfflineVoice()} style={styles.offlineResumeButton}>
+                  <Ionicons name="play-outline" size={15} color={colors.ink} /><Text style={styles.offlineResumeText}>{offlineStatus.status === 'extracting' ? '继续解压' : '继续下载'}</Text>
+                </Pressable> : null}
+              </View>
+            ) : offlineStatus.status === 'ready' ? (
+              <View style={styles.offlineActionRow}>
+                <Text style={[styles.settingCaption, styles.offlineReadyCopy]}>已可用于无网络朗读</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="删除离线音色" accessibilityState={{ disabled: offlineBusy }} disabled={offlineBusy} onPress={() => void handleDeleteOfflineVoice()} style={[styles.offlineDeleteButton, offlineBusy && styles.backupDisabled]}>
+                  <Ionicons name="trash-outline" size={15} color={colors.danger} /><Text style={styles.offlineDeleteText}>{offlineBusy ? '处理中…' : '删除'}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.offlineActionRow}>
+                <Text style={[styles.settingCaption, styles.offlineReadyCopy]}>{offlineStatus.status === 'error' ? (offlineStatus.error ?? '下载失败，请重试。') : '基础安装包不内置模型，按需下载即可。'}</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={offlineStatus.status === 'error' ? '重试下载离线音色' : '下载离线音色'} accessibilityState={{ disabled: offlineBusy }} disabled={offlineBusy} onPress={() => void handleDownloadOfflineVoice()} style={[styles.offlineDownloadButton, offlineBusy && styles.backupDisabled]}>
+                  <Ionicons name="download-outline" size={15} color="#fff" /><Text style={styles.offlineDownloadText}>{offlineStatus.status === 'error' ? '重试' : '下载'}</Text>
+                </Pressable>
+              </View>
+            )}
+            {offlineActionError ? <Text accessibilityRole="alert" style={styles.offlineError}>{offlineActionError}</Text> : null}
+          </View>
+        ) : null}
         {voices.map((voice) => (
-          <Pressable key={voice.identifier} accessibilityRole="button" accessibilityLabel={voicePreviewing === voice.identifier ? `正在试听${voice.name}` : `选择${voice.name}`} accessibilityState={{ selected: activeVoice === voice.identifier, disabled: !!voicePreviewing }} disabled={!!voicePreviewing} onPress={() => void chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow, voicePreviewing && styles.voiceDisabled]}>
+          <Pressable key={voice.identifier} accessibilityRole="button" accessibilityLabel={voicePreviewing === voice.identifier ? `正在试听${voice.name}` : `选择${voice.name}`} accessibilityState={{ selected: activeVoice === voice.identifier, disabled: !!voicePreviewing || (voice.identifier === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready') }} disabled={!!voicePreviewing || (voice.identifier === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready')} onPress={() => void chooseVoice(voice.identifier)} style={[styles.voiceRow, activeVoice === voice.identifier && styles.selectedVoiceRow, (voicePreviewing || (voice.identifier === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready')) && styles.voiceDisabled]}>
             <View style={{ flex: 1 }}><Text numberOfLines={1} style={styles.settingTitle}>{voice.name}</Text><Text style={styles.settingCaption}>{voice.description}</Text></View>
-            {voicePreviewing === voice.identifier ? <Text style={styles.voicePreviewLabel}>试听中…</Text> : activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
+            {voicePreviewing === voice.identifier ? <Text style={styles.voicePreviewLabel}>试听中…</Text> : voice.identifier === OFFLINE_VOICE_ID && offlineStatus.status !== 'ready' ? <Text style={styles.settingCaption}>未下载</Text> : activeVoice === voice.identifier ? <Ionicons name="checkmark-circle" size={20} color={colors.accent} /> : <Ionicons name="volume-medium-outline" size={18} color={colors.inkMuted} />}
           </Pressable>
         ))}
         {!voices.length ? <View style={styles.voiceEmpty}><Text style={styles.settingCaption}>正在读取可用音色…</Text></View> : null}
         {voiceMessage ? <InlineNotice message={voiceMessage} actionLabel={voiceErrorVoice ? '重试试听' : undefined} onAction={voiceErrorVoice ? () => void chooseVoice(voiceErrorVoice) : undefined} onDismiss={() => { setVoiceMessage(null); setVoiceErrorVoice(null); }} /> : null}
-        <Text style={styles.voicePrivacy}>书语自带的 Android 音色完全离线；系统音色是否联网由设备、语音引擎和你安装的音色决定。</Text>
+        <Text style={styles.voicePrivacy}>下载完成后 Amy 音色完全离线；系统音色是否联网由设备、语音引擎和你安装的音色决定。</Text>
       </View>
 
       <Text style={styles.sectionLabel}>项目</Text>
@@ -383,7 +514,7 @@ export function SettingsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.canvas },
-  content: { paddingHorizontal: 20, paddingBottom: 130 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 20, paddingBottom: 130 },
   sectionLabel: { color: colors.inkMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1.3, marginTop: 28, marginBottom: 10, marginLeft: 4 },
   preview: { backgroundColor: colors.surfaceStrong, borderRadius: radii.large, paddingHorizontal: 25, paddingVertical: 28 },
   previewText: { color: colors.ink, fontFamily: typography.serif },
@@ -391,6 +522,23 @@ const styles = StyleSheet.create({
   settingRow: { minHeight: 76, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   settingTitle: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   settingCaption: { color: colors.inkMuted, fontSize: 10, marginTop: 4 },
+  offlineVoiceCard: { padding: 15, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: 'rgba(244,242,234,0.72)' },
+  offlineVoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  offlineVoiceIcon: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  offlineVoiceCopy: { flex: 1 },
+  offlineProgressArea: { marginTop: 13 },
+  offlineProgressTrack: { height: 7, borderRadius: 4, overflow: 'hidden', backgroundColor: colors.line },
+  offlineProgressFill: { height: 7, borderRadius: 4, backgroundColor: colors.accent },
+  offlineProgressMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
+  offlineResumeButton: { alignSelf: 'flex-start', minHeight: 30, marginTop: 9, paddingHorizontal: 11, borderRadius: radii.pill, backgroundColor: colors.surfaceStrong, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  offlineResumeText: { color: colors.ink, fontSize: 10, fontWeight: '800' },
+  offlineActionRow: { marginTop: 11, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  offlineReadyCopy: { flex: 1, marginTop: 0 },
+  offlineDownloadButton: { minHeight: 34, paddingHorizontal: 13, borderRadius: radii.pill, backgroundColor: colors.ink, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  offlineDownloadText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  offlineDeleteButton: { minHeight: 32, paddingHorizontal: 11, borderRadius: radii.pill, backgroundColor: 'rgba(217,95,89,0.1)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
+  offlineDeleteText: { color: colors.danger, fontSize: 10, fontWeight: '800' },
+  offlineError: { color: colors.danger, fontSize: 10, lineHeight: 15, marginTop: 9 },
   divider: { height: 1, backgroundColor: colors.line, marginLeft: 18 },
   voiceRow: { minHeight: 64, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: 1, borderBottomColor: colors.line },
   selectedVoiceRow: { backgroundColor: colors.accentSoft },

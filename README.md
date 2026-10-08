@@ -12,11 +12,11 @@
 
 ## 下载安装
 
-从 [GitHub Releases](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1) 下载最新正式版，或直接下载 [Shuyu-v1.3.1-release.apk](https://github.com/Petey-PKU/shuyu/releases/download/v1.3.1/Shuyu-v1.3.1-release.apk)。安装包已内置离线英语音色，大小约 340 MB；首次安装时，Android 可能要求为浏览器或文件管理器临时开启“安装未知应用”权限。
+从 [GitHub Releases](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1) 下载正式版，或直接下载 [Shuyu-v1.3.1-release.apk](https://github.com/Petey-PKU/shuyu/releases/download/v1.3.1/Shuyu-v1.3.1-release.apk)。这个历史 release 仍是随包音色版本；按当前源码生成的基础 APK 不再内置 Amy 模型，安装后可在设置中按需下载。发布构建只包含 ARM 手机架构，不再把 x86 模拟器库一起打进通用 APK。首次安装时，Android 可能要求为浏览器或文件管理器临时开启“安装未知应用”权限。
 
 APK SHA-256：`ED05055B0EF55EDF2CDAE6533647C3174DE83410AA1836DB30E927F8344EA1FE`
 
-v1.3.1 重点加入真实文字布局分页、左右点击与滑动翻页、字号即时预览和内置 Piper Amy 离线神经音色；同时包含 EPUB/MOBI/AZW3/KF8/PDF 导入、英文扫描版 PDF OCR 和整句翻译兼容性改进。
+v1.3.1 重点加入真实文字布局分页、左右点击与滑动翻页、字号即时预览和 Piper Amy 离线神经音色；同时包含 EPUB/MOBI/AZW3/KF8/PDF 导入、英文扫描版 PDF OCR 和整句翻译兼容性改进。当前源码将 Amy 改为可选下载，避免把约 77 MiB 的解压模型放进每个基础 APK。
 
 ## 已实现
 
@@ -33,7 +33,7 @@ v1.3.1 重点加入真实文字布局分页、左右点击与滑动翻页、字�
 - 内置 120,000 词条 ECDICT Core，点词中文释义与词形还原无需联网
 - 如果正式安装包的离线词典初始化失败，仍可继续阅读，查词会使用基础兜底并明确提示当前状态
 - 可主动开启的整句在线翻译增强；默认保持离线，开启后由手机直连必应网页翻译兼容模式，并以 MyMemory 兜底，也可优先配置自有正式翻译代理
-- 英文单词、句子及当前页朗读；Android APK 内置可离线使用的 Piper Amy 神经音色，也可切换到设备系统音色
+- 英文单词、句子及当前页朗读；Android 设置页可下载约 67 MB 的 Piper Amy 音色归档（解压后约 77 MiB）供完全离线使用，也可直接使用设备系统音色
 - 长章节依据设备实际文字布局切成固定书页，只渲染当前页的可点词节点；支持左右边缘点击和横向滑动翻页
 - 生词收藏、来源原句、掌握状态与遮词复习
 - 到期生词复习；选择“再看看”后 10 分钟可再次复习，复习页显示下次可复习时间
@@ -63,7 +63,7 @@ npm run android
 npm run web
 ```
 
-PDF 文本提取、OCR 与内置离线音色使用原生模块，不能在 Expo Go 或 Web 预览中完整测试；请使用正式安装包。Android 支持文本层提取、英文扫描版 OCR 和内置 Amy 音色，iOS 当前只支持文本层提取并回退到系统音色。TXT、EPUB、MOBI 与 AZW3/KF8 不受此限制。
+PDF 文本提取、OCR 与下载后的离线音色使用原生模块，不能在 Expo Go 或 Web 预览中完整测试；请使用正式安装包。Android 支持文本层提取、英文扫描版 OCR 和可选 Amy 音色，未下载时自动使用系统音色；iOS 当前只支持文本层提取并回退到系统音色。TXT、EPUB、MOBI 与 AZW3/KF8 不受此限制。
 
 Web 预览用于体验界面和 TXT/EPUB/MOBI/AZW3/KF8 导入，暂不支持 PDF 提取或 OCR；内置约 10,000 个高频词的轻量离线词典，关闭在线增强时未收录词使用本地基础兜底，开启后才会请求在线服务。正式安装包仍使用完整 SQLite 词典。
 
@@ -71,7 +71,7 @@ Web 预览用于体验界面和 TXT/EPUB/MOBI/AZW3/KF8 导入，暂不支持 PDF
 
 ## 验证
 
-正式 Android APK 发布前，请按 [Android 发布前验收清单](./ANDROID_ACCEPTANCE.md) 在真实设备上验证文件导入、离线词典、离线语音、OCR 取消、后台恢复和备份恢复。Web 预览与 Android bundle 导出只能证明打包和界面代码可用，不能替代真机验收。
+正式 Android APK 发布前，请按 [Android 发布前验收清单](./ANDROID_ACCEPTANCE.md) 在真实设备上验证文件导入、可选下载的离线语音、未下载时的系统音色回退、OCR 取消、后台恢复和备份恢复。Web 预览与 Android bundle 导出只能证明打包和界面代码可用，不能替代真机验收。
 
 ```bash
 npm run typecheck
@@ -112,7 +112,7 @@ python -m http.server 4174 --bind 127.0.0.1 --directory .cache/web-preview
 
 在限制子进程数量的环境中，可给 `expo export` 添加 `--max-workers 1`。Android 导出仍需允许启动项目所用的 Hermes 编译器；不要把 Web 导出成功当作 Android 安装包验收。
 
-首次运行 `npm run android` 时会从 sherpa-onnx 官方 Release 下载约 67 MB 的固定 Amy 模型归档，核对 SHA-256 后放入 Android 原生资源；后续构建复用 `.cache/tts-models`。GitHub Actions 会自动执行相同步骤，最终用户无需下载模型或配置服务。
+基础 APK 不包含 Amy 模型。安装后打开设置，在“英语发音音色”中点“下载离线 Amy 音色”；应用会从 sherpa-onnx 官方 Release 下载固定的约 67 MB 归档，校验后在应用私有目录解压约 77 MiB，设置页显示下载和解压进度并支持重试、删除。下载完成后朗读完全离线；不下载时继续使用系统 TTS。GitHub Actions 会验证 Android 资源中没有模型文件，因此每个基础 APK 都不会为未使用离线音色的用户携带这部分体积。
 
 ### 配置正式翻译服务
 

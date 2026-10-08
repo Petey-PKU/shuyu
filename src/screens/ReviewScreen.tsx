@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
@@ -62,7 +62,7 @@ export function ReviewScreen({ navigation, route }: Props) {
     setSpeechError(null);
     setSpeechRetryWord(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
-      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('已下载的离线音色暂不可用，当前使用系统英语音色；可在设置中重试或切换。'); })
       .catch(() => {
         if (request !== speechRequest.current) return;
         setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
@@ -175,7 +175,7 @@ export function ReviewScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas, paddingHorizontal: 20 },
+  screen: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: colors.canvas, paddingHorizontal: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   counter: { color: colors.inkMuted, fontSize: 11, fontWeight: '700' },

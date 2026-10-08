@@ -14,7 +14,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { StatusBar } from 'expo-status-bar';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -355,7 +355,7 @@ function ReaderSession({ route, navigation }: Props) {
     setSpeechError(null);
     setSpeechRetry(null);
     void speakEnglish(text, kind, preferences.speechVoice)
-      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('已下载的离线音色暂不可用，当前使用系统英语音色；可在设置中重试或切换。'); })
       .catch(() => {
         if (request !== speechRequest.current) return;
         setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
@@ -534,7 +534,7 @@ function ReaderSession({ route, navigation }: Props) {
   return (
     <View style={[styles.screen, { backgroundColor: theme.background }]}>
       <StatusBar style={preferences.theme === 'night' ? 'light' : 'dark'} />
-      <View style={[styles.topBar, { paddingTop: insets.top + 4, backgroundColor: theme.chrome }]}>
+      <View style={[styles.topBar, styles.readerFrame, { paddingTop: insets.top + 4, backgroundColor: theme.chrome }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={returnTo === 'Vocabulary' ? '返回生词本' : returnTo === 'Today' ? '返回今天' : '返回上一页'} onPress={() => navigation.goBack()} style={styles.iconButton}><Ionicons name="chevron-back" size={24} color={theme.text} /></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="打开目录" onPress={() => setChaptersVisible(true)} style={styles.topTitleWrap}>
           <Text numberOfLines={1} style={[styles.topTitle, { color: theme.text }]}>{book.title}</Text>
@@ -545,7 +545,7 @@ function ReaderSession({ route, navigation }: Props) {
       {speechError ? <InlineNotice message={speechError} actionLabel={speechRetry ? '重试朗读' : undefined} onAction={speechRetry ? () => void speak(speechRetry.text, speechRetry.kind) : undefined} onDismiss={() => { setSpeechError(null); setSpeechRetry(null); }} /> : null}
       {progressSaveError || statsSaveError || settingsSaveError ? <InlineNotice message={progressSaveError ?? statsSaveError ?? settingsSaveError!} actionLabel={retryingProgress ? '保存中…' : '重试保存'} onAction={() => void retryProgressSave()} onDismiss={() => { setProgressSaveError(null); setStatsSaveError(null); setSettingsSaveError(null); }} /> : null}
 
-      <View onLayout={onReaderLayout} style={styles.pageViewport} {...pagePanResponder.panHandlers}>
+      <View onLayout={onReaderLayout} style={[styles.pageViewport, styles.readerFrame]} {...pagePanResponder.panHandlers}>
         {tapHintVisible && !emptyChapter && currentPage === 0 && !selection ? (
           <Pressable accessibilityRole="button" accessibilityLabel="阅读提示：点按单词查看释义，左右滑动翻页，底部可以朗读或打开目录；关闭提示" onPress={() => { setTapHintVisible(false); void AsyncStorage.setItem('@shuyu/reader-tap-hint-seen', 'true').catch(() => undefined); }} style={styles.tapHint}>
             <Ionicons name="hand-left-outline" size={16} color={colors.accent} />
@@ -613,7 +613,7 @@ function ReaderSession({ route, navigation }: Props) {
         ><Ionicons name="chevron-forward" size={17} color={theme.muted} /></Pressable>
       </View>
 
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
+      <View style={[styles.bottomBar, styles.readerFrame, { paddingBottom: Math.max(10, insets.bottom), backgroundColor: theme.chrome, borderTopColor: preferences.theme === 'night' ? 'rgba(255,255,255,0.08)' : colors.line }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="朗读当前页" accessibilityState={{ disabled: emptyChapter || !pages.length }} disabled={emptyChapter || !pages.length} onPress={() => speak(pages[currentPage]?.text || chapter.paragraphs[currentParagraph] || '', 'paragraph')} style={styles.audioButton}>
           <Ionicons name="volume-medium-outline" size={19} color={colors.accent} />
         </Pressable>
@@ -781,6 +781,7 @@ const styles = StyleSheet.create({
   contentBack: { minHeight: 46, paddingHorizontal: 28, justifyContent: 'center' },
   contentBackText: { fontSize: 14, fontWeight: '600' },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingBottom: 10, zIndex: 5 },
+  readerFrame: { width: '100%', maxWidth: 900, alignSelf: 'center' },
   iconButton: { width: 44, height: 42, alignItems: 'center', justifyContent: 'center' },
   topTitleWrap: { flex: 1, alignItems: 'center' },
   topTitle: { fontSize: 12, fontWeight: '700', maxWidth: '90%' },
