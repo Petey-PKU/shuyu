@@ -49,6 +49,13 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install
 
+      - name: Configure R8 optional PDFBox decoder
+        run: |
+          cat >> android/app/proguard-rules.pro <<'EOF'
+          # PDFBox references an optional JPEG2000 decoder that is not packaged.
+          -dontwarn com.gemalto.jp2.**
+          EOF
+
       - name: Verify packaged Android assets
         run: npm run test:android-assets
 
