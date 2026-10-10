@@ -36,11 +36,11 @@
 - 下载归档约 **67 MB**
 - 解压后的应用数据约 **77 MiB**
 - 不下载时继续使用设备系统 TTS
-- 公开的 **v1.3.1 APK** 是历史版本，仍随包内置音色；当前 <code>main</code> 源码使用安装后按需下载方案
+- 公开的 **v1.4.0 APK** 是当前版本，基础 APK 不内置 Amy；上一版 v1.3.1 是仍随包内置音色的历史版本
 
 ## 下载与运行
 
-当前公开 Android APK：[Shuyu v1.3.1](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1)。
+当前公开 Android APK：[Shuyu v1.4.0](https://github.com/Petey-PKU/shuyu/releases/tag/v1.4.0)。
 
 使用源码运行：
 
