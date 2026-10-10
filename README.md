@@ -3,7 +3,7 @@
   <h1>Shuyu · 书语</h1>
   <p><strong>Learn a language in the pages you read.</strong></p>
   <p>A local-first English reading companion for Chinese learners.<br />Bring your own books, look up words in context, listen, save vocabulary, and review with the original sentence.</p>
-  <p><a href="https://github.com/Petey-PKU/shuyu/releases/download/v1.3.1/Shuyu-v1.3.1-release.apk">Download Android APK</a> · <a href="https://github.com/Petey-PKU/shuyu/releases">View releases</a> · <a href="GITHUB_BUILD.md">Build from source</a> · <a href="README.zh-CN.md">中文 README</a></p>
+  <p><a href="https://github.com/Petey-PKU/shuyu/releases/download/v1.4.0/Shuyu-v1.4.0-release.apk">Download v1.4.0 APK</a> · <a href="https://github.com/Petey-PKU/shuyu/releases">View releases</a> · <a href="GITHUB_BUILD.md">Build from source</a> · <a href="README.zh-CN.md">中文 README</a></p>
   <p>
     <img src="https://img.shields.io/github/actions/workflow/status/Petey-PKU/shuyu/android-apk.yml?branch=main&label=Android%20build&style=flat-square" alt="Android build" />
     <img src="https://img.shields.io/github/v/release/Petey-PKU/shuyu?display_name=tag&style=flat-square" alt="Latest release" />
@@ -45,11 +45,11 @@ The current source build does not bundle the Amy model. On Android, open **Setti
 - Download: about **67 MB**
 - Extracted app data: about **77 MiB**
 - No download: the app continues with the device system voice
-- The published **v1.3.1 APK** is a historical release that still includes its bundled voice; builds from current <code>main</code> use the optional download flow.
+- The published **v1.4.0 APK** is the current release and keeps the Amy voice optional. The older **v1.3.1 APK** is a historical release that still includes its bundled voice.
 
 ### Download and run
 
-The latest published Android APK is [Shuyu v1.3.1](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1). For a current build, use the [GitHub Actions workflow](https://github.com/Petey-PKU/shuyu/actions/workflows/android-apk.yml) and download its artifact.
+The latest published Android APK is [Shuyu v1.4.0](https://github.com/Petey-PKU/shuyu/releases/tag/v1.4.0). For a current build, use the [GitHub Actions workflow](https://github.com/Petey-PKU/shuyu/actions/workflows/android-apk.yml) and download its artifact.
 
 ~~~bash
 npm install
@@ -90,6 +90,6 @@ Shuyu is available under [GNU GPL-3.0-only](LICENSE). Commercial use is allowed 
 - 内置 ECDICT Core 离线词典，阅读器支持真实分页、左右点击、滑动翻页、主题和字号调节，并适配平板宽屏。
 - Android 可在设置中按需下载约 67 MB 的 Piper Amy 音色，解压后约 77 MiB；不下载时继续使用系统 TTS。
 - 书籍正文、阅读进度、生词和偏好默认保存在设备本地；整句在线翻译需要主动开启。
-- 当前公开 APK 为 [v1.3.1](https://github.com/Petey-PKU/shuyu/releases/tag/v1.3.1)，它是仍内置音色的历史版本；当前 <code>main</code> 源码生成的基础 APK 不内置 Amy，安装后按需下载。
+- 当前公开 APK 为 [v1.4.0](https://github.com/Petey-PKU/shuyu/releases/tag/v1.4.0)，当前源码生成的基础 APK 不内置 Amy，安装后按需下载；上一版 v1.3.1 是仍内置音色的历史版本。
 
 完整中文说明见 [README.zh-CN.md](README.zh-CN.md)。
