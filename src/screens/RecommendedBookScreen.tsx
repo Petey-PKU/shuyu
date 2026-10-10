@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RecommendedBookCover } from '../components/RecommendedBookCover';
@@ -170,13 +170,13 @@ export function RecommendedBookScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  screen: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: colors.canvas },
   missingScreen: { paddingHorizontal: 20 },
   missingContent: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 22 },
   missingIcon: { width: 68, height: 68, borderRadius: 24, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center', marginBottom: 20 },
   missingTitle: { color: colors.ink, fontFamily: typography.serif, fontSize: 25, fontWeight: '700', textAlign: 'center' },
   missingBody: { color: colors.inkMuted, fontSize: 13, lineHeight: 21, textAlign: 'center', marginTop: 11, maxWidth: 330 },
-  content: { paddingHorizontal: 20 },
+  content: { width: '100%', maxWidth: 760, alignSelf: 'center', paddingHorizontal: 20 },
   topBar: { height: 54, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   iconButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center' },
   savedIconButton: { backgroundColor: colors.accent },

@@ -1,15 +1,25 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(process.cwd());
 const dictionary = resolve(root, 'assets/dictionary/ecdict-core.db');
-const modelDirectory = resolve(root, 'android/app/src/main/assets/models/vits-piper-en_US-amy-medium');
+const androidAssets = resolve(root, 'android/app/src/main/assets');
+const modelDirectory = resolve(androidAssets, 'models/vits-piper-en_US-amy-medium');
 const manifestPath = resolve(root, 'android/app/src/main/AndroidManifest.xml');
 
 function requireFile(path: string, minimumBytes?: number) {
   assert.equal(existsSync(path), true, `Missing Android runtime asset: ${path}`);
   if (minimumBytes !== undefined) assert.ok(statSync(path).size >= minimumBytes, `Android asset is unexpectedly small: ${path}`);
+}
+
+function findBundledModelFiles(directory: string): string[] {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = resolve(directory, entry.name);
+    if (entry.isDirectory()) return findBundledModelFiles(entryPath);
+    return /\.(onnx|onnx\.json|tar\.bz2)$/i.test(entry.name) || /amy-medium/i.test(entry.name) ? [entryPath] : [];
+  });
 }
 
 function main() {
@@ -22,14 +32,12 @@ function main() {
   assert.equal(gradleVersion, packageVersion, 'Android versionName must match package.json');
   assert.ok(Number.isInteger(gradleCode) && gradleCode > 0, 'Android versionCode must be a positive integer');
   requireFile(dictionary, 8_000_000);
-  requireFile(resolve(modelDirectory, 'en_US-amy-medium.onnx'), 50_000_000);
-  requireFile(resolve(modelDirectory, 'en_US-amy-medium.onnx.json'), 100);
-  requireFile(resolve(modelDirectory, 'tokens.txt'), 100);
-  requireFile(resolve(modelDirectory, 'MODEL_CARD'), 100);
+  assert.equal(existsSync(modelDirectory), false, 'Amy voice must be downloaded after install, not bundled in the APK');
+  assert.deepEqual(findBundledModelFiles(androidAssets), [], 'Android assets must not contain a bundled ONNX voice model or archive');
   const manifest = readFileSync(manifestPath, 'utf8');
   assert.match(manifest, /<application[^>]+android:allowBackup="false"/, 'Android backup must stay disabled for local book privacy');
   assert.match(manifest, /android\.permission\.READ_EXTERNAL_STORAGE" tools:node="remove"/, 'Legacy broad storage permission must stay removed');
-  console.log('Android asset preflight passed: bundled dictionary, offline voice model, and privacy manifest are present.');
+  console.log('Android asset preflight passed: bundled dictionary and privacy manifest are present; Amy voice remains an optional download.');
 }
 
 main();

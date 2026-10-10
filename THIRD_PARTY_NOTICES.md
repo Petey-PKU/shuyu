@@ -49,15 +49,16 @@ Android 版使用 Google ML Kit Text Recognition v2 的随包 Latin 模型 `com.
 
 ## Android 离线英文发音
 
-书语使用 `react-native-sherpa-onnx@0.4.3` 调用 sherpa-onnx，在 Android 设备上完成离线语音合成和 PCM 播放。构建已关闭该组件中本项目未使用的 FFmpeg 与 libarchive 功能。
+书语使用 `react-native-sherpa-onnx@0.4.3` 调用 sherpa-onnx，在 Android 设备上完成离线语音合成和 PCM 播放。基础 APK 不携带语音模型；用户在设置页主动下载后，应用在私有目录校验并解压固定归档，再交给 sherpa-onnx 使用。
 
 - React Native 封装：https://github.com/XDcobra/react-native-sherpa-onnx （MIT License）
 - sherpa-onnx 1.12.34-2：https://github.com/k2-fsa/sherpa-onnx （Apache License 2.0）
 - ONNX Runtime：https://github.com/microsoft/onnxruntime （MIT License）
 
-随 Android APK 分发的 `vits-piper-en_US-amy-medium` 模型来自 sherpa-onnx 官方 TTS Models Release，源模型由 Piper Voices 提供，模型卡指向 Mycroft Mimic 3 Voices 数据集。该语音模型按 **Creative Commons Attribution-ShareAlike 4.0 International（CC BY-SA 4.0）** 使用；允许商业使用，但复制、再分发或改编模型时须遵守署名与相同方式共享等条款。书语不修改该模型权重。
+可选下载的 `vits-piper-en_US-amy-medium` 模型来自 sherpa-onnx 官方 TTS Models Release，源模型由 Piper Voices 提供，模型卡指向 Mycroft Mimic 3 Voices 数据集。该语音模型按 **Creative Commons Attribution-ShareAlike 4.0 International（CC BY-SA 4.0）** 使用；允许商业使用，但复制、再分发或改编模型时须遵守署名与相同方式共享等条款。书语不修改该模型权重。
 
 - 模型与试听：https://k2-fsa.github.io/sherpa/onnx/tts/all/English/vits-piper-en_US-amy-medium.html
+- 官方下载归档：https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-amy-medium.tar.bz2
 - 源模型卡：https://huggingface.co/rhasspy/piper-voices/tree/main/en/en_US/amy/medium
 - 数据集来源：https://github.com/MycroftAI/mimic3-voices
 - 许可证：https://creativecommons.org/licenses/by-sa/4.0/

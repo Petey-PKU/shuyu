@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,6 +19,7 @@ type Props = CompositeScreenProps<BottomTabScreenProps<MainTabParamList, 'Librar
 export function LibraryScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
   const { books, importBook, removeBook, updateBookMetadata } = useApp();
   const [query, setQuery] = useState('');
   const [editingBook, setEditingBook] = useState<{ id: string; title: string; author: string } | null>(null);
@@ -33,7 +34,10 @@ export function LibraryScreen({ navigation }: Props) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [draftTitle, setDraftTitle] = useState('');
   const [draftAuthor, setDraftAuthor] = useState('');
-  const coverWidth = Math.min(168, Math.max(128, (width - 62) / 2));
+  const columnCount = isTablet ? 3 : 2;
+  const coverWidth = isTablet
+    ? Math.min(220, Math.max(156, Math.floor((Math.min(width, 760) - 40 - (columnCount - 1) * 18) / columnCount)))
+    : Math.min(168, Math.max(128, (width - 62) / 2));
   const filtered = useMemo(() => [...books]
     .sort((a, b) => b.lastOpenedAt.localeCompare(a.lastOpenedAt))
     .filter((book) => `${book.title} ${book.author}`.toLowerCase().includes(query.toLowerCase())), [books, query]);
@@ -123,10 +127,11 @@ export function LibraryScreen({ navigation }: Props) {
       </View>
       {errorMessage ? <InlineNotice message={errorMessage} actionLabel={errorKind === 'import' ? '重试导入' : undefined} onAction={errorKind === 'import' ? () => void handleImport() : undefined} onDismiss={() => setErrorMessage(null)} /> : null}
       <FlatList
+        key={columnCount}
         data={filtered}
         keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
+        numColumns={columnCount}
+        columnWrapperStyle={[styles.row, isTablet && styles.rowTablet]}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -148,7 +153,7 @@ export function LibraryScreen({ navigation }: Props) {
             onLongPress={() => confirmDelete(item.id, item.title)}
             accessibilityRole="button"
             accessibilityLabel={`打开《${item.title}》`}
-            style={({ pressed }) => [styles.book, pressed && { opacity: 0.78 }]}
+            style={({ pressed }) => [styles.book, isTablet && { width: coverWidth }, pressed && { opacity: 0.78 }]}
           >
             <View>
               <BookCover book={item} width={coverWidth} />
@@ -225,13 +230,14 @@ export function LibraryScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  screen: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: colors.canvas },
   header: { paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   addButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.surfaceStrong, alignItems: 'center', justifyContent: 'center', ...shadows.card },
   search: { margin: 20, height: 50, borderRadius: radii.medium, backgroundColor: 'rgba(255,255,255,0.72)', borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10 },
   input: { flex: 1, height: '100%', color: colors.ink, fontSize: 14 },
   list: { paddingHorizontal: 20, paddingBottom: 130 },
   row: { justifyContent: 'space-between', marginBottom: 26 },
+  rowTablet: { justifyContent: 'center', columnGap: 18 },
   book: { width: '47%' },
   bookMenu: { position: 'absolute', right: 9, top: 9, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(20,21,18,0.62)', alignItems: 'center', justifyContent: 'center' },
   title: { color: colors.ink, fontSize: 14, lineHeight: 19, fontWeight: '700', marginTop: 12 },

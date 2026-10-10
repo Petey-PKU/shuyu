@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { CompositeScreenProps } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -107,7 +107,7 @@ export function VocabularyScreen({ navigation }: Props) {
     setSpeechError(null);
     setSpeechRetryWord(null);
     void speakEnglish(word, 'word', preferences.speechVoice)
-      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('内置离线音色暂不可用，当前使用系统英语音色；可在设置中切换或稍后重试。'); })
+      .then((provider) => { if (request === speechRequest.current && provider === 'system-fallback') setSpeechError('已下载的离线音色暂不可用，当前使用系统英语音色；可在设置中重试或切换。'); })
       .catch(() => {
         if (request !== speechRequest.current) return;
         setSpeechError('朗读暂时不可用，请检查设备音量或系统英语音色。');
@@ -229,7 +229,7 @@ export function VocabularyScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.canvas },
+  screen: { flex: 1, width: '100%', maxWidth: 760, alignSelf: 'center', backgroundColor: colors.canvas },
   header: { paddingHorizontal: 20 },
   reviewCard: { marginHorizontal: 20, marginTop: 22, backgroundColor: colors.ink, borderRadius: radii.large, padding: 18, flexDirection: 'row', alignItems: 'center', gap: 14 },
   reviewIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: 'rgba(255,112,67,0.16)', alignItems: 'center', justifyContent: 'center' },
